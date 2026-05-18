@@ -1,139 +1,533 @@
-import React, { useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+// Accueil.jsx
+import React, { useEffect } from 'react';
+import AOS from 'aos';
+import 'aos/dist/aos.css';
+import logo from '../assets/logo.jpg';
 
 const Accueil = () => {
-  const navigate = useNavigate();
-  
-  // Références pour la navigation interne
-  const heroRef = useRef(null);
-  const aboutRef = useRef(null);
-  const contactRef = useRef(null);
-
-  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
-  const scrollToSection = (ref) => {
-    ref.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  useEffect(() => {
+    AOS.init({
+      duration: 800,
+      once: false,
+      offset: 100,
+      delay: 0,
+      easing: 'ease',
+    });
+    AOS.refresh();
+  }, []);
 
   return (
-    <div className="font-sans antialiased text-gray-900 bg-white">
-      {/* Navbar avec liens connectés aux sections */}
-      <header className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md shadow-md border-b border-gray-100">
-        <nav className="max-w-7xl mx-auto px-8 flex items-center justify-between h-20">
-          <img 
-            src="/src/image/logo.png" 
-            alt="Logo EMIT" 
-            className="h-12 w-auto cursor-pointer" 
-            onClick={scrollToTop}
-          />
-          <div className="hidden md:flex items-center gap-10">
-            <button onClick={scrollToTop} className="text-base font-bold text-indigo-600">Accueil</button>
-            <button onClick={() => scrollToSection(aboutRef)} className="text-base font-semibold text-gray-600 hover:text-indigo-600 transition-colors">À propos</button>
-            <button onClick={() => scrollToSection(contactRef)} className="text-base font-semibold text-gray-600 hover:text-indigo-600 transition-colors">Contacts</button>
+    <div className="bg-surface text-on-surface font-poppins antialiased overflow-x-hidden">
+      {/* BEGIN: Navigation */}
+      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-surface-container"
+       data-aos="fade-down"
+        data-aos-duration="600"
+        >
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+           <div className="flex items-center">
+            <a className="flex items-center" href="#">
+              <img src={logo} alt="EMIT" className="h-10 w-auto" />
+            </a>
           </div>
-        </nav>
-      </header>
-
-      {/* Hero Section */}
-      <section ref={heroRef} className="relative h-screen flex items-center">
-        <div className="absolute inset-0 z-0">
-          <img src="/src/image/EMIT.PNG" alt="Campus" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-black/50"></div>
-        </div>
-        <div className="relative z-10 max-w-7xl mx-auto px-8 w-full">
-          <div className="max-w-xl bg-white/10 backdrop-blur-2xl p-12 rounded-[40px] border border-white/20 shadow-2xl">
-            <h1 className="text-4xl font-bold text-white mb-6 leading-tight">L'EMIT : Innover pour l'avenir technologique</h1>
-            <p className="text-white/80 text-lg mb-8 font-light">L'excellence académique à Madagascar au service du Management et de la Technologie.</p>
-            <button 
-              onClick={() => navigate('/login')}
-              className="group flex items-center gap-3 bg-white text-gray-900 px-8 py-4 rounded-full font-bold hover:bg-indigo-600 hover:text-white transition-all shadow-xl"
-            >
-              Accéder au portail
-              <svg className="w-5 h-5 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
+          <div className="hidden md:flex flex-1 items-center justify-center gap-10 text-sm font-semibold text-on-surface-variant">
+            <a className="hover:text-brand-blue transition-colors" href="#">Accueil</a>
+            <a className="hover:text-brand-blue transition-colors" href="#apropos">Apropos</a>
+            <a className="hover:text-brand-blue transition-colors" href="#contact">Contact</a>
+          </div>
+          <div className="flex items-center gap-6">
+            <a className="text-sm font-semibold text-on-surface-variant hover:text-brand-blue transition-colors" href="login">Connexion</a>
+            <button className="px-7 py-2.5 bg-brand-blue text-sm font-bold rounded-full hover:shadow-lg hover:shadow-brand-blue/30 transition-all text-white">
+              S'inscrire
             </button>
           </div>
         </div>
-      </section>
+      </nav>
+      {/* END: Navigation */}
 
-      {/* Section À Propos (Informations) */}
-      <section ref={aboutRef} className="py-24 max-w-7xl mx-auto px-8">
-        <h2 className="text-3xl font-bold mb-16 text-center text-gray-800">Nos Piliers d'Excellence</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-          {/* Carte 1 */}
-          <div className="p-10 bg-gray-50 rounded-[30px] border border-gray-100 transition-all hover:shadow-lg">
-            <div className="w-14 h-14 bg-indigo-100 rounded-2xl flex items-center justify-center mb-6 text-indigo-600">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold mb-4">Innovation Tech</h3>
-            <p className="text-gray-600 leading-relaxed text-sm">Programmes centrés sur les dernières technologies pour répondre aux besoins du marché mondial.</p>
-          </div>
-
-          {/* Carte 2 */}
-          <div className="p-10 bg-gray-50 rounded-[30px] border border-gray-100 transition-all hover:shadow-lg">
-            <div className="w-14 h-14 bg-indigo-100 rounded-2xl flex items-center justify-center mb-6 text-indigo-600">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold mb-4">Management</h3>
-            <p className="text-gray-600 leading-relaxed text-sm">Développement du leadership et des compétences managériales pour diriger les entreprises de demain.</p>
-          </div>
-
-          {/* Carte 3 */}
-          <div className="p-10 bg-gray-50 rounded-[30px] border border-gray-100 transition-all hover:shadow-lg">
-            <div className="w-14 h-14 bg-indigo-100 rounded-2xl flex items-center justify-center mb-6 text-indigo-600">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold mb-4">Insertion Réussie</h3>
-            <p className="text-gray-600 leading-relaxed text-sm">98% de nos diplômés trouvent un emploi qualifié dans les 6 mois suivant la sortie.</p>
-          </div>
+      {/* BEGIN: HeroSection */}
+      <header className="relative pt-32 pb-24 lg:pt-48 lg:pb-32 overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <img 
+            alt="Background" 
+            className="w-full h-full object-cover opacity-10" 
+            src="https://lh3.googleusercontent.com/aida/ADBb0uiwxIxEjWOwad13Zzn5YVD7A49vQBmaNMdSIc_fzZhXS2NXEgYe-VSFTUmbf3x2tqexBnsk5oEa798EUj5bWpDTdaUeP7Q2AtT3804kEMNXAxmScSn7Pd8ubYAiNkQdAYNjDxRucg1iAHv-y12IZQY2fiqPEFCK3jjPgTteqJBo5nSuSkgdlb60fwgIrH6ImURSZ71twHmuvTREbfde4XvQ9K-kPrm9CAweCnjWJRdWaTUorTdXZHQ"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-surface/50 via-surface to-surface"></div>
         </div>
-      </section>
-
-      {/* Footer / Section Contact */}
-      <footer ref={contactRef} className="bg-gray-900 text-white py-24 rounded-t-[60px]">
-        <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 md:grid-cols-2 gap-16">
-          <div>
-            <h2 className="text-4xl font-bold mb-8">Contactez-nous</h2>
-            <div className="space-y-6">
-              <div className="flex items-center gap-5 group">
-                <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
-                  <svg className="w-6 h-6 text-indigo-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" strokeWidth="1.5" />
-                  </svg>
-                </div>
-                <span className="text-lg text-gray-300">contact@emit-u-fianar.mg</span>
-              </div>
-              <div className="flex items-center gap-5 group">
-                <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center group-hover:bg-green-600 transition-colors">
-                  <svg className="w-6 h-6 text-green-400 group-hover:text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12.01 2.01c-5.52 0-9.99 4.47-9.99 9.99 0 2.01.5 3.84 1.51 5.48L2.01 22l4.67-1.51c1.51.84 3.19 1.34 5.33 1.34 5.52 0 9.99-4.47 9.99-9.99 0-5.52-4.47-9.99-9.99-9.99z" />
-                  </svg>
-                </div>
-                <span className="text-lg text-gray-300">+261 34 00 000 00</span>
+        <div className="relative z-10 max-w-7xl mx-auto px-6">
+          <div className="flex flex-col lg:flex-row items-center gap-16">
+            <div 
+              className="lg:w-1/2 text-left"
+              data-aos="fade-right"
+              data-aos-duration="1000"
+            >
+              <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight text-primary mb-8 leading-[1.05]">
+                La gestion scolaire <br/>
+                <span className="text-brand-blue">réinventée.</span>
+              </h1>
+              <p 
+                className="max-w-xl text-lg text-on-surface-variant mb-10 leading-relaxed"
+                data-aos="fade-up"
+                data-aos-delay="300"
+              >
+                Optimisez vos plannings, gérez vos salles et vos professeurs en toute simplicité. Une plateforme robuste pour une éducation moderne conçue pour la croissance.
+              </p>
+              <div 
+                className="flex flex-wrap items-center gap-6"
+                data-aos="fade-up"
+                data-aos-delay="500"
+              >
+                <a href="login">
+                   <button className="px-8 py-4 bg-brand-blue font-bold rounded-2xl shadow-xl shadow-brand-blue/20 hover:scale-105 transition-all text-white flex items-center gap-2">
+                  Commencer maintenant 
+                  <span className="material-symbols-outlined">arrow_forward</span>
+                </button>
+                </a>
+               
               </div>
             </div>
-          </div>
-          
-          <div>
-            <h3 className="text-2xl font-bold mb-8">Retrouvez-nous</h3>
-            <div className="flex gap-6">
-              <a href="#" className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center hover:bg-blue-600 transition-all">
-                <svg className="w-6 h-6 fill-white" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-              </a>
-              <a href="#" className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center hover:bg-blue-800 transition-all">
-                <svg className="w-6 h-6 fill-white" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
-              </a>
+            <div 
+              className="lg:w-1/2 relative flex justify-center"
+              data-aos="fade-left"
+              data-aos-duration="1000"
+              data-aos-delay="200"
+            >
+              <div className="relative w-[500px] h-[500px]">
+                <div className="absolute inset-0 hero-circle-bg scale-90" data-aos="zoom-in" data-aos-delay="400"></div>
+                <div className="absolute inset-0 z-10 flex items-center justify-center pt-10">
+                  <img 
+                    alt="Student" 
+                    className="h-full object-contain" 
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBRzVNlVYVqtNGbQXHDa9ARJdBWWa8Twd1F-5TCKGQhYus7YGfcFNHWd4hMwwElbLsUSPT0FHrGKkdWfPufB5vDF6nzTMZ5In-bq-JoO6ia3Iscto1jSzgI8hvG8o-mHRCmSfvyDblgxZ7abT7T9rjeN978nYmLeDA3WtIinpFaRMGmdhgv7gq-uyXK7uahTw1rPxaRcKMu7aHL95f1MwaFqi8IJ9SEF4KDUq1pylQuMXIuywC2rGlNwc_ceAIzbiHMMH_FKi-1rTc"
+                  />
+                </div>
+                <div className="absolute bottom-32 -right-8 z-20 floating delay-700 bg-white p-4 rounded-2xl shadow-2xl w-56" data-aos="fade-up-left" data-aos-delay="700"></div>
+              </div>
             </div>
           </div>
         </div>
-        <p className="text-center text-gray-500 mt-20 text-sm">© 2026 EMIT Fianarantsoa. Tous droits réservés.</p>
+      </header>
+      {/* END: HeroSection */}
+
+      {/* BEGIN: Features Brief */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <span 
+            className="text-brand-blue font-bold text-sm tracking-widest uppercase mb-4 block"
+            data-aos="fade-up"
+            data-aos-duration="600"
+          >
+            Fonctionnalités
+          </span>
+          <h2 
+            className="text-4xl font-bold text-primary mb-16"
+            data-aos="fade-up"
+            data-aos-duration="600"
+            data-aos-delay="100"
+          >
+            Nos points forts
+          </h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+            <div 
+              className="p-8 rounded-3xl bg-surface border border-surface-container hover:shadow-2xl hover:shadow-primary/5 transition-all group"
+              data-aos="fade-up"
+              data-aos-duration="600"
+              data-aos-delay="0"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-sky-50 text-brand-blue flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <span className="material-symbols-outlined">person</span>
+              </div>
+              <h3 className="text-lg font-bold mb-3">Comme assistant </h3>
+              <p className="text-sm text-on-surface-variant leading-relaxed">Simple pour tous les niveaux d'utilisateurs académiques.</p>
+            </div>
+            <div 
+              className="p-8 rounded-3xl bg-surface border border-surface-container hover:shadow-2xl hover:shadow-primary/5 transition-all group"
+              data-aos="fade-up"
+              data-aos-duration="600"
+              data-aos-delay="100"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <span className="material-symbols-outlined">verified_user</span>
+              </div>
+              <h3 className="text-lg font-bold mb-3">Application de confiance</h3>
+              <p className="text-sm text-on-surface-variant leading-relaxed">Sécurité maximale pour vos données d'établissement.</p>
+            </div>
+            <div 
+              className="p-8 rounded-3xl bg-surface border border-surface-container hover:shadow-2xl hover:shadow-primary/5 transition-all group"
+              data-aos="fade-up"
+              data-aos-duration="600"
+              data-aos-delay="200"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <span className="material-symbols-outlined">dashboard_customize</span>
+              </div>
+              <h3 className="text-lg font-bold mb-3">Flexibilité</h3>
+              <p className="text-sm text-on-surface-variant leading-relaxed">S'adapte à tous les types de cursus scolaires.</p>
+            </div>
+            <div 
+              className="p-8 rounded-3xl bg-surface border border-surface-container hover:shadow-2xl hover:shadow-primary/5 transition-all group"
+              data-aos="fade-up"
+              data-aos-duration="600"
+              data-aos-delay="300"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <span className="material-symbols-outlined">rocket_launch</span>
+              </div>
+              <h3 className="text-lg font-bold mb-3">100% Efficace</h3>
+              <p className="text-sm text-on-surface-variant leading-relaxed">Gagnez du temps sur vos tâches administratives.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      {/* END: Features Brief */}
+
+      {/* BEGIN: System Feature */}
+      <section className="py-24 bg-surface">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex flex-col lg:flex-row items-center gap-20">
+            <div 
+              className="lg:w-1/2"
+              data-aos="fade-right"
+              data-aos-duration="800"
+            >
+              <div className="bg-white p-8 rounded-3xl shadow-2xl border border-surface-container relative">
+                <div className="flex justify-between items-center mb-8">
+                  <h4 className="font-bold text-sm">Today Graphic</h4>
+                  <span className="text-[10px] text-on-surface-variant">Jan - Mai 2024</span>
+                </div>
+                <div className="h-40 flex items-end gap-3 mb-8">
+                  <div className="flex-1 bg-brand-blue/10 rounded-t-lg h-24" data-aos="zoom-in-up" data-aos-delay="100"></div>
+                  <div className="flex-1 bg-brand-blue/20 rounded-t-lg h-32" data-aos="zoom-in-up" data-aos-delay="200"></div>
+                  <div className="flex-1 bg-brand-blue rounded-t-lg h-40" data-aos="zoom-in-up" data-aos-delay="300"></div>
+                  <div className="flex-1 bg-brand-blue/40 rounded-t-lg h-28" data-aos="zoom-in-up" data-aos-delay="400"></div>
+                  <div className="flex-1 bg-brand-blue/15 rounded-t-lg h-36" data-aos="zoom-in-up" data-aos-delay="500"></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-surface p-4 rounded-2xl" data-aos="fade-right" data-aos-delay="400">
+                    <p className="text-[10px] text-on-surface-variant mb-1">Activité Statistique</p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-8 bg-brand-blue rounded-full"></div>
+                      <div className="w-2 h-6 bg-brand-blue/40 rounded-full"></div>
+                      <div className="w-2 h-10 bg-brand-blue/60 rounded-full"></div>
+                    </div>
+                  </div>
+                  <div className="bg-brand-blue text-primary p-4 rounded-2xl" data-aos="fade-left" data-aos-delay="400">
+                    <p className="text-[10px] text-primary/80 mb-1">Nouveaux plannings</p>
+                    <div className="flex justify-between items-center">
+                      <div className="flex -space-x-2">
+                        <div className="w-6 h-6 rounded-full border border-primary/20 bg-primary/20"></div>
+                        <div className="w-6 h-6 rounded-full border border-primary/20 bg-primary/40"></div>
+                      </div>
+                      <span className="text-xs font-bold">87%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div 
+              className="lg:w-1/2"
+              data-aos="fade-left"
+              data-aos-duration="800"
+            >
+              <span className="text-brand-blue font-bold text-sm uppercase tracking-widest mb-4 block">Supériorité</span>
+              <h2 className="text-4xl font-bold text-primary mb-6">Système intelligent &amp; interface conviviale</h2>
+              <p className="text-on-surface-variant mb-10 text-lg leading-relaxed">
+                L'utilisation d'EMIT est extrêmement fluide, en plus d'offrir de nombreuses fonctionnalités exclusives que les autres gestionnaires d'établissements ne possèdent pas. La gestion des tâches scolaires devient un plaisir.
+              </p>
+              <button className="px-8 py-3.5 bg-primary text-white font-bold rounded-2xl hover:bg-slate-800 transition-colors">En savoir plus</button>
+            </div>
+          </div>
+        </div>
+      </section>
+      {/* END: System Feature */}
+
+      {/* BEGIN: How It Works */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex flex-col lg:flex-row-reverse items-center gap-20">
+            <div 
+              className="lg:w-1/2"
+              data-aos="fade-left"
+              data-aos-duration="800"
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div className="bg-slate-50 p-6 rounded-3xl border border-surface-container" data-aos="fade-up" data-aos-delay="100">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="material-symbols-outlined text-brand-blue">description</span>
+                      <span className="text-xs font-bold uppercase">Documents</span>
+                    </div>
+                    <ul className="space-y-3">
+                      <li className="h-2 w-full bg-slate-200 rounded-full"></li>
+                      <li className="h-2 w-3/4 bg-slate-200 rounded-full"></li>
+                      <li className="h-2 w-5/6 bg-slate-200 rounded-full"></li>
+                    </ul>
+                  </div>
+                  <div className="bg-brand-blue/5 p-6 rounded-3xl border border-brand-blue/10" data-aos="fade-up" data-aos-delay="200">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 rounded-full bg-slate-300"></div>
+                      <span className="text-[10px] font-bold">Contact Support</span>
+                    </div>
+                    <p className="text-[9px] text-on-surface-variant">Réponse en moins de 5 min</p>
+                  </div>
+                </div>
+                <div className="pt-8" data-aos="fade-up" data-aos-delay="300">
+                  <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl relative overflow-hidden h-full">
+                    <span className="text-xs font-bold uppercase opacity-60 block mb-4">Tutorial videos</span>
+                    <div className="aspect-video bg-slate-800 rounded-xl mb-4 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-4xl opacity-50">play_circle</span>
+                    </div>
+                    <p className="text-[10px] opacity-80 leading-relaxed">Apprenez à gérer vos cours en seulement 5 minutes.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div 
+              className="lg:w-1/2"
+              data-aos="fade-right"
+              data-aos-duration="800"
+            >
+              <span className="text-brand-blue font-bold text-sm uppercase tracking-widest mb-4 block">Comment ça marche</span>
+              <h2 className="text-4xl font-bold text-primary mb-6">Comment fonctionne EMIT ? Nous avons 3 options</h2>
+              <p className="text-on-surface-variant mb-10 text-lg leading-relaxed">
+                Si vous rencontrez la moindre difficulté, nous avons 3 solutions pour vous : plus de 100 documents lisibles, des tutoriels vidéos complets que vous pouvez consulter partout, et un service client 24/7.
+              </p>
+              <button className="px-8 py-3.5 bg-primary text-white font-bold rounded-2xl hover:bg-slate-800 transition-colors">Découvrir les options</button>
+            </div>
+          </div>
+        </div>
+      </section>
+      {/* END: How It Works */}
+
+      {/* BEGIN: Download App */}
+      <section className="py-24 bg-surface overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="bg-white rounded-[3rem] p-12 lg:p-20 shadow-xl border border-surface-container flex flex-col lg:flex-row items-center gap-16 relative">
+            <div 
+              className="lg:w-1/2 relative"
+              data-aos="fade-right"
+              data-aos-duration="800"
+            >
+              <div className="absolute -inset-10 bg-brand-blue/10 rounded-full blur-3xl opacity-50"></div>
+              <div className="relative w-64 mx-auto bg-slate-900 rounded-[3rem] p-3 shadow-2xl border-8 border-slate-800">
+                <div className="bg-white h-[450px] rounded-[2.5rem] overflow-hidden p-4">
+                  <div className="flex justify-between items-center mb-6">
+                    <span className="text-[10px] font-black">EMIT</span>
+                    <span className="material-symbols-outlined text-sm">notifications</span>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="h-20 bg-slate-100 rounded-2xl p-3">
+                      <div className="w-1/2 h-2 bg-slate-300 rounded-full mb-2"></div>
+                      <div className="w-full h-2 bg-slate-200 rounded-full"></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="h-24 bg-brand-blue/10 rounded-2xl"></div>
+                      <div className="h-24 bg-sky-50 rounded-2xl"></div>
+                    </div>
+                    <div className="h-32 bg-slate-100 rounded-2xl"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div 
+              className="lg:w-1/2"
+              data-aos="fade-left"
+              data-aos-duration="800"
+            >
+              <span className="text-brand-blue font-bold text-sm uppercase tracking-widest mb-4 block">Télécharger</span>
+              <h2 className="text-4xl font-bold text-primary mb-6">Téléchargez EMIT sur tous vos appareils</h2>
+              <p className="text-on-surface-variant mb-10 text-lg leading-relaxed">
+                La meilleure solution pour la gestion scolaire est enfin là, et elle est gratuite ! N'oubliez pas de télécharger EMIT pour ressentir la façon la plus simple de gérer votre établissement.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <a className="flex items-center gap-3 bg-primary text-white px-6 py-3 rounded-2xl hover:bg-slate-800 transition-all" href="#">
+                  <img alt="App Store" className="w-5 h-5" src="src/assets/appstore.png" />
+                  <div className="text-left">
+                    <p className="text-[8px] uppercase font-bold opacity-60">Download on the</p>
+                    <p className="text-sm font-bold">App Store</p>
+                  </div>
+                </a>
+                <a className="flex items-center gap-3 bg-primary text-white px-6 py-3 rounded-2xl hover:bg-slate-800 transition-all" href="#">
+                  <img alt="Play Store" className="h-5" src="src/assets/google.png" />
+                  <div className="text-left">
+                    <p className="text-[8px] uppercase font-bold opacity-60">Get it on</p>
+                    <p className="text-sm font-bold">Google Play</p>
+                  </div>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      {/* END: Download App */}
+
+      {/* BEGIN: Contact Section */}
+      <section id="contact" className="py-24 bg-white font-poppins">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 
+              className="text-4xl font-bold text-primary mb-4"
+              data-aos="fade-up"
+              data-aos-duration="600"
+            >
+              Contactez-nous
+            </h2>
+            <p 
+              className="text-on-surface-variant text-lg"
+              data-aos="fade-up"
+              data-aos-duration="600"
+              data-aos-delay="100"
+            >
+              Une question ? Notre équipe est là pour vous accompagner.
+            </p>
+          </div>
+          <div className="grid lg:grid-cols-2 gap-16">
+            <div 
+              className="bg-surface p-8 lg:p-12 rounded-3xl border border-surface-container"
+              data-aos="fade-right"
+              data-aos-duration="800"
+            >
+              <form className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-primary mb-2">Nom complet</label>
+                  <input className="w-full px-5 py-3 rounded-xl border border-outline/20 focus:outline-none focus:ring-2 focus:ring-brand-blue/50 transition-all bg-white" placeholder="Votre nom" type="text" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-primary mb-2">Email</label>
+                  <input className="w-full px-5 py-3 rounded-xl border border-outline/20 focus:outline-none focus:ring-2 focus:ring-brand-blue/50 transition-all bg-white" placeholder="votre@email.com" type="email" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-primary mb-2">Sujet</label>
+                  <input className="w-full px-5 py-3 rounded-xl border border-outline/20 focus:outline-none focus:ring-2 focus:ring-brand-blue/50 transition-all bg-white" placeholder="Comment pouvons-nous vous aider ?" type="text" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-primary mb-2">Message</label>
+                  <textarea className="w-full px-5 py-3 rounded-xl border border-outline/20 focus:outline-none focus:ring-2 focus:ring-brand-blue/50 transition-all bg-white" placeholder="Votre message..." rows="4"></textarea>
+                </div>
+                <button className="w-full py-4 bg-brand-blue text-white font-bold rounded-2xl hover:shadow-lg hover:shadow-brand-blue/30 transition-all" type="submit">Envoyer le message</button>
+              </form>
+            </div>
+            <div 
+              className="flex flex-col justify-center space-y-10"
+              data-aos="fade-left"
+              data-aos-duration="800"
+            >
+              <div className="flex items-start gap-6">
+                <div className="w-14 h-14 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue shrink-0">
+                  <span className="material-symbols-outlined">mail</span>
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-primary mb-1">Email</h4>
+                  <p className="text-on-surface-variant">contact@uptime-emit.com</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-6">
+                <div className="w-14 h-14 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue shrink-0">
+                  <span className="material-symbols-outlined">call</span>
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-primary mb-1">Téléphone</h4>
+                  <p className="text-on-surface-variant">+33 (0)1 23 45 67 89</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-6">
+                <div className="w-14 h-14 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue shrink-0">
+                  <span className="material-symbols-outlined">location_on</span>
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-primary mb-1">Adresse</h4>
+                  <p className="text-on-surface-variant">123 Avenue de l'Innovation, Paris</p>
+                </div>
+              </div>
+              <div className="pt-8">
+                <p className="text-sm text-on-surface-variant leading-relaxed">
+                  Vous préférez discuter en direct ? Notre centre de support est ouvert 24h/24 et 7j/7 pour répondre à vos besoins techniques.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      {/* END: Contact Section */}
+
+      {/* BEGIN: Footer */}
+      <footer id='apropos' className="bg-primary text-white pt-24 pb-12">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 mb-20">
+            <div 
+              className="lg:col-span-2 space-y-6"
+              data-aos="fade-right"
+              data-aos-duration="600"
+            >
+              <p className="text-white/60 text-sm leading-relaxed max-w-sm">
+                Utilisez le temps de la manière la plus courte possible pour créer des plannings, utilisez toutes les fonctionnalités gratuites pour tirer le meilleur parti de votre éducation.
+              </p>
+              <div className="flex gap-4">
+                <a className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-brand-blue hover:text-primary transition-all" href="#">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  </svg>
+                </a>
+                <a className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-brand-blue hover:text-primary transition-all" href="#">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                  </svg>
+                </a>
+                <a className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-brand-blue hover:text-primary transition-all" href="#">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.919-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zM5.838 12a6.162 6.162 0 1112.324 0 6.162 6.162 0 01-12.324 0zM12 16a4 4 0 110-8 4 4 0 010 8zm4.965-10.405a1.44 1.44 0 112.881.001 1.44 1.44 0 01-2.881-.001z"/>
+                  </svg>
+                </a>
+                <a className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-brand-blue hover:text-primary transition-all" href="#">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                </a>
+                <a className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-brand-blue hover:text-primary transition-all" href="#">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0c-6.627 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.387.6.113.82-.26.82-.58 0-.287-.01-1.05-.015-2.06-3.338.726-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.73.083-.73 1.205.085 1.838 1.237 1.838 1.237 1.07 1.834 2.807 1.304 3.492.997.108-.775.418-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.468-2.38 1.235-3.22-.123-.3-.535-1.52.117-3.16 0 0 1.008-.322 3.3 1.23.96-.267 1.98-.4 3-.405 1.02.005 2.04.138 3 .405 2.29-1.552 3.297-1.23 3.297-1.23.653 1.64.24 2.86.118 3.16.768.84 1.233 1.91 1.233 3.22 0 4.61-2.804 5.62-5.476 5.92.43.37.824 1.102.824 2.22 0 1.602-.015 2.894-.015 3.287 0 .322.216.698.83.578 4.765-1.588 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+            <div data-aos="fade-up" data-aos-delay="0">
+              <h4 className="text-lg font-bold mb-8">Produit</h4>
+              <ul className="space-y-4 text-white/60 text-sm font-medium">
+                <li><a className="hover:text-white transition-colors" href="#">Fonctionnalités</a></li>
+                <li><a className="hover:text-white transition-colors" href="#">Tarifs</a></li>
+                <li><a className="hover:text-white transition-colors" href="#">Témoignages</a></li>
+                <li><a className="hover:text-white transition-colors" href="#">Intégrations</a></li>
+              </ul>
+            </div>
+            <div data-aos="fade-up" data-aos-delay="100">
+              <h4 className="text-lg font-bold mb-8">Support &amp; Aide</h4>
+              <ul className="space-y-4 text-white/60 text-sm font-medium">
+                <li><a className="hover:text-white transition-colors" href="#">FAQ's</a></li>
+                <li><a className="hover:text-white transition-colors" href="#">Contactez-nous</a></li>
+                <li><a className="hover:text-white transition-colors" href="#">Centre de support</a></li>
+                <li><a className="hover:text-white transition-colors" href="#">Sécurité</a></li>
+              </ul>
+            </div>
+            <div data-aos="fade-up" data-aos-delay="200">
+              <h4 className="text-lg font-bold mb-8">Partenaires</h4>
+              <ul className="space-y-4 text-white/60 text-sm font-medium">
+                <li><a className="hover:text-white transition-colors" href="#">Nos partenaires</a></li>
+                <li><a className="hover:text-white transition-colors" href="#">Devenir partenaire</a></li>
+                <li><a className="hover:text-white transition-colors" href="#">Affiliation</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] text-white/40 uppercase font-bold tracking-widest">
+            <p>© 2024 upTime Academic - All rights reserved @emit.co</p>
+            <div className="flex gap-8">
+              <a className="hover:text-white transition-colors" href="#">Privacy Policy</a>
+              <a className="hover:text-white transition-colors" href="#">Terms of Service</a>
+              <a className="hover:text-white transition-colors" href="#">Cookies</a>
+            </div>
+          </div>
+        </div>
       </footer>
+      {/* END: Footer */}
     </div>
   );
 };

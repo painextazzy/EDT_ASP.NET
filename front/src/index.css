@@ -1,1 +1,61 @@
+/* src/index.css - Pas besoin de @tailwind directives */
+/* src/index.css */
 @import "tailwindcss";
+
+@theme {
+  --color-primary: #073b4c;
+  --color-secondary: #006686;
+  --color-brand-blue: #73d2fd;
+  --color-surface: #f9f9fb;
+  --color-surface-container: #edeeef;
+  --color-on-surface: #1a1c1d;
+  --color-on-surface-variant: #41484b;
+  --color-outline: #71787c;
+  
+  --font-family-sans: 'Poppins', 'Inter', system-ui, sans-serif;
+  
+  --radius-default: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2.5rem;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.hero-circle-bg {
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%);
+}
+
+.floating {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.hero-circle-bg {
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%);
+}
+
+.floating {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}

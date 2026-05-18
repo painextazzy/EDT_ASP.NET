@@ -10,7 +10,7 @@ const Login = () => {
       {/* Arrière-plan conservé avec aspect flouté */}
       <div className="absolute inset-0 z-0">
         <img 
-          src="/src/image/EMIT.PNG" 
+          src="/src/assets/EMIT.jpg" 
           alt="Fond Campus" 
           className="w-full h-full object-cover blur-md scale-105 opacity-50" 
         />
@@ -24,7 +24,7 @@ const Login = () => {
           
           {/* Logo centré */}
           <div className="flex flex-col items-center mb-10">
-            <img src="/src/image/logo.png" alt="Logo EMIT" className="h-16 w-auto mb-4" />
+            <img src="/src/assets/logo.jpg" alt="Logo EMIT" className="h-16 w-auto mb-4" />
             <div className="h-1 w-12 bg-slate-200 rounded-full"></div>
           </div>
 
