@@ -28,7 +28,7 @@ const Accueil = () => {
           <div className="hidden md:flex items-center gap-10">
             <button onClick={scrollToTop} className="text-base font-bold text-indigo-600">Accueil</button>
             <button onClick={() => scrollToSection(aboutRef)} className="text-base font-semibold text-gray-600 hover:text-indigo-600 transition-colors">À propos</button>
-            <button onClick={() => scrollToSection(contactRef)} className="text-base font-semibold text-gray-600 hover:text-indigo-600 transition-colors">Contact</button>
+            <button onClick={() => scrollToSection(contactRef)} className="text-base font-semibold text-gray-600 hover:text-indigo-600 transition-colors">Contacts</button>
           </div>
         </nav>
       </header>
