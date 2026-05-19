@@ -1,10 +1,14 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Classe from "./pages/Classe";
+import Classe from "./pages/classes";
+
 function App() {
   return (
-    <h1 className="text-4xl font-bold text-red-500">
-      Tailwind fonctionne
-    </h1>
+  <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Classe />} />
+       
+      </Routes>
+    </BrowserRouter>
   )
 }
 
