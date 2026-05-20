@@ -36,9 +36,13 @@ const Accueil = () => {
           </div>
           <div className="flex items-center gap-6">
             <a className="text-sm font-semibold text-on-surface-variant hover:text-brand-blue transition-colors" href="login">Connexion</a>
-            <button className="px-7 py-2.5 bg-brand-blue text-sm font-bold rounded-full hover:shadow-lg hover:shadow-brand-blue/30 transition-all text-white">
+           
+              <a href="/inscription">
+               <button className="px-7 py-2.5 bg-brand-blue text-sm font-bold rounded-full hover:shadow-lg hover:shadow-brand-blue/30 transition-all text-white">
               S'inscrire
+            
             </button>
+              </a>
           </div>
         </div>
       </nav>
@@ -418,7 +422,7 @@ const Accueil = () => {
                 </div>
                 <div>
                   <h4 className="text-lg font-bold text-primary mb-1">Email</h4>
-                  <p className="text-on-surface-variant">contact@uptime-emit.com</p>
+                  <p className="text-on-surface-variant">contact@univ-emit.com</p>
                 </div>
               </div>
               <div className="flex items-start gap-6">
@@ -427,7 +431,7 @@ const Accueil = () => {
                 </div>
                 <div>
                   <h4 className="text-lg font-bold text-primary mb-1">Téléphone</h4>
-                  <p className="text-on-surface-variant">+33 (0)1 23 45 67 89</p>
+                  <p className="text-on-surface-variant">+261 (0) 34 45 67 89</p>
                 </div>
               </div>
               <div className="flex items-start gap-6">
@@ -436,7 +440,7 @@ const Accueil = () => {
                 </div>
                 <div>
                   <h4 className="text-lg font-bold text-primary mb-1">Adresse</h4>
-                  <p className="text-on-surface-variant">123 Avenue de l'Innovation, Paris</p>
+                  <p className="text-on-surface-variant">EMIT Fianarantsoa, Andrainjato Fianarantsoa BP 301</p>
                 </div>
               </div>
               <div className="pt-8">
@@ -518,11 +522,11 @@ const Accueil = () => {
             </div>
           </div>
           <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] text-white/40 uppercase font-bold tracking-widest">
-            <p>© 2024 upTime Academic - All rights reserved @emit.co</p>
+            <p>© 2026 projet ASN.NET - All rights reserved @emit.co</p>
             <div className="flex gap-8">
               <a className="hover:text-white transition-colors" href="#">Privacy Policy</a>
               <a className="hover:text-white transition-colors" href="#">Terms of Service</a>
-              <a className="hover:text-white transition-colors" href="#">Cookies</a>
+             
             </div>
           </div>
         </div>

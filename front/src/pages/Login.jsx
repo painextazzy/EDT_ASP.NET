@@ -20,7 +20,7 @@ const Login = () => {
       
       <div className="relative z-10 w-full max-w-md">
         {/* Formulaire avec ombre portée accentuée (shadow-2xl + shadow-black/50) */}
-        <div className="bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] p-10 md:p-14 border border-slate-100">
+        <div className="bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] p-10 md:p-12 border border-slate-100">
           
           {/* Logo centré */}
           <div className="flex flex-col items-center mb-10">
@@ -31,7 +31,7 @@ const Login = () => {
           <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-[0.15em] mb-2 ml-1">
-                Identifiant
+                email
               </label>
               <input
                 type="email"
@@ -46,9 +46,7 @@ const Login = () => {
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-[0.15em]">
                   Mot de passe
                 </label>
-                <button type="button" className="text-[10px] font-bold text-slate-800 hover:text-indigo-600 transition-colors uppercase">
-                  Oublié ?
-                </button>
+               
               </div>
               <div className="relative">
                 <input
@@ -75,7 +73,11 @@ const Login = () => {
                   )}
                 </button>
               </div>
+               
             </div>
+            <button type="button" className="text-[12px] font-bold text-slate-800 hover:text-indigo-600 transition-colors ">
+                  Mot de passe oublié ?
+                </button>
 
             <button className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-black transition-all shadow-lg active:scale-[0.98]">
               Se connecter
@@ -84,13 +86,16 @@ const Login = () => {
 
           <div className="mt-10 text-center space-y-4">
             <p className="text-sm text-slate-500">
-              Nouveau à l'EMIT ? <button className="font-bold text-slate-900 hover:underline">Créer un compte</button>
+              Vous n'avez pas de compte ?  
+              <a href="/inscription">
+              <button className="font-bold text-brand-blue hover:underline">Créer un compte</button>
+              </a>
             </p>
             <button 
               onClick={() => navigate('/')} 
               className="text-[10px] text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-[0.2em] font-bold"
             >
-              ← Retour au site
+              ← Retour 
             </button>
           </div>
         </div>
