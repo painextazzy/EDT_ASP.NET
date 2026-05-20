@@ -1,9 +1,19 @@
+import React, { useState } from 'react';
+import ProfesseursInterface from './components/Professeurs';
+import DemandesInterface from './components/Demandes';
+
 function App() {
+  const [currentView, setCurrentView] = useState('professeurs');
+
   return (
-    <h1 className="text-4xl font-bold text-red-500">
-      Tailwind fonctionne
-    </h1>
-  )
+    <>
+      {currentView === 'professeurs' ? (
+        <ProfesseursInterface setCurrentView={setCurrentView} />
+      ) : (
+        <DemandesInterface setCurrentView={setCurrentView} />
+      )}
+    </>
+  );
 }
 
-export default App
+export default App;
