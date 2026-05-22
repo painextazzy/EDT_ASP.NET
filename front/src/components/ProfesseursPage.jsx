@@ -1,211 +1,175 @@
-// src/components/DemandesPage.jsx (avec menu contextuel)
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
-const DemandesPage = () => {
+const ProfesseursPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatut, setFilterStatut] = useState('');
   const [openMenuId, setOpenMenuId] = useState(null);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingProfessor, setEditingProfessor] = useState(null);
+  const menuRef = useRef(null);
 
-  const demandes = [
-    // ... mêmes données que ci-dessus
-  ];
+  const [professeurs, setProfesseurs] = useState([
+    {
+      id: 1,
+      name: "Dr. Jean Dupont",
+      code: "801-B9EF-2C2B",
+      email: "j.dupont@universite.fr",
+      avatar: "https://lh3.googleusercontent.com/aida/ADBb0uixm0pyguio8cE1I03EYmkKrDNaVEDc4-nYi5NwwBK1WhpUeReyCZSC8teLtCY0Xuq9cvzOMOij-UzfpOVKHNt-1X-ggHib5aKvEwrXyShZaPBJ-ELtkU7VshN7LU7wkxnMYpLaZ7ZTs93OJf8p2TB1PcbScDWZPq6OUT2figGN_vOwe0X4zeqs65g29pS7FMb2FE4JmiBmPGs8aKaLnpu4zUNuOMTQAQqu46KwVEW4eUXdeV7R2UCn"
+    },
+    {
+      id: 2,
+      name: "M. Pierre Leroux",
+      code: "742-X88A-9P2D",
+      email: "p.leroux@universite.fr",
+      avatar: "https://lh3.googleusercontent.com/aida/ADBb0ujorJmxAYAHiKqyxukJO1fG5-oMa5DwGgkSmHe6dDIOmfa-51v-YB0LEHoINZpTbLbXyUDwURQFhAircyg3Xic2XnnB2eascnenQ2K5xTswgtBVBJm4ccJbVfRXoKnNST8VHhYY_UGinagVpseaDmxh9pgJuwhC9V4wcd-OW8Dqu94rxkqtA5gxIOfICcKqbklEHpGzyNoqSxoaRB8y95wg0wSHUe57YwPbOURB1SkoAarI7TrL84u5"
+    },
+    {
+      id: 3,
+      name: "Pr. Marie Curie",
+      code: "552-Y33C-1K9L",
+      email: "m.curie@universite.fr",
+      avatar: "https://lh3.googleusercontent.com/aida/ADBb0ujWbvdoxYvWL7CHFyEOtE8EMkRpRdk_Fg4xN5Q10VtnhggoUFw1cxTPusUvzHXe8PLsRpk7c_m-bMcn0o5tcFBEWyDDbWRjxbf8J9CBNds_em2QR3rwysR0chVHQGp-y6O7gf5CtZFwGcY8NMxHUXG8sbpPcb_qoh4oUHbV80k4t2DPWFVl_TOnTez5pAX_67KxxSgfQqNtiJPo-C8ouU_7t2wvATE61eDu1NYBLND7QYdJF_2Zi5ur"
+    }
+  ]);
 
-  const filteredDemandes = demandes.filter(d => {
-    const matchSearch = searchTerm === '' || 
-      d.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.im.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchStatut = filterStatut === '' || d.statut === filterStatut;
-    
-    return matchSearch && matchStatut;
+  const [editProfessor, setEditProfessor] = useState({
+    name: '',
+    code: '',
+    email: '',
+    avatar: ''
   });
 
-  const handleMenuToggle = (id) => {
+  // Filtrer les professeurs
+  const filteredProfesseurs = professeurs.filter(prof => 
+    prof.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    prof.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    prof.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Fermer le menu quand on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // Ouvrir/Fermer le menu
+  const toggleMenu = (id, event) => {
+    event.stopPropagation();
     setOpenMenuId(openMenuId === id ? null : id);
   };
 
-  const handleValidate = (demande) => {
-    setToastMessage(`Demande de ${demande.nom} validée avec succès`);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
-    setOpenMenuId(null);
+  // Générer un code aléatoire
+  const generateCode = () => {
+    const part1 = Math.random().toString(36).substring(2, 5).toUpperCase();
+    const part2 = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const part3 = Math.random().toString(36).substring(2, 5).toUpperCase();
+    return `${part1}-${part2}-${part3}`;
   };
 
-  const handleReject = (demande) => {
-    setToastMessage(`Demande de ${demande.nom} refusée`);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
-    setOpenMenuId(null);
-  };
-
-  const handleDelete = (demande) => {
-    if (window.confirm(`Supprimer la demande de ${demande.nom} ?`)) {
-      setToastMessage(`Demande de ${demande.nom} supprimée`);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
+  // Supprimer un professeur
+  const handleDeleteProfessor = (id, name) => {
+    if (window.confirm(`Supprimer le professeur "${name}" ?`)) {
+      setProfesseurs(professeurs.filter(prof => prof.id !== id));
     }
     setOpenMenuId(null);
   };
 
-  const statutOptions = ['En attente', 'Validé', 'Refusé'];
-
   return (
-    <div>
-      <main className="mx-auto max-w-[1100px]">
-        {/* Search & Filters */}
-        <div className="w-full flex flex-col md:flex-row gap-4 items-center justify-start mb-6">
-          <div className="relative w-full md:w-1/2">
-            <span className="material-symbols-outlined absolute top-1/2 -translate-y-1/2 text-outline left-5">
-              search
-            </span>
-            <input 
-              className="w-full pr-4 py-2.5 bg-white border border-border-subtle focus:ring-2 focus:ring-secondary focus:border-secondary outline-none transition-all placeholder:text-outline/60 rounded-full pl-14" 
-              placeholder="Rechercher une demande..." 
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Header avec barre de recherche - bordure solide grise 1px */}
+      <header className="mb-8">
+        <div className="relative max-w-2xl">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <span className="material-symbols-outlined text-outline">search</span>
           </div>
-          <div className="flex gap-3 w-full md:w-auto">
-            <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-border-subtle rounded-xl hover:bg-surface-container transition-colors group">
-              <span className="text-sm font-medium">Date</span>
-              <span className="material-symbols-outlined text-outline group-hover:text-primary transition-colors">expand_more</span>
-            </button>
-            <select 
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-border-subtle rounded-xl hover:bg-surface-container transition-colors outline-none cursor-pointer"
-              value={filterStatut}
-              onChange={(e) => setFilterStatut(e.target.value)}
-            >
-              <option value="">Statut</option>
-              {statutOptions.map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-          </div>
+          <input 
+            className="block w-full pl-10 pr-4 py-3 bg-white border border-gray-300 text-on-surface placeholder:text-gray-400 focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all outline-none text-sm rounded-lg" 
+            id="search" 
+            name="search" 
+            placeholder="Rechercher un professeur par nom ou matière..." 
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
+      </header>
 
-        {/* Content Area: List View */}
-        <div className="border border-border-subtle rounded-xl overflow-hidden shadow-sm bg-white">
-          <div className="divide-y divide-border-subtle">
-            {filteredDemandes.map((demande) => (
-              <div 
-                key={demande.id} 
-                className="grid grid-cols-[1.5fr_1fr_1.5fr_1fr_auto] items-center gap-4 px-4 py-3 hover:bg-surface-container-low transition-colors group"
-              >
-                {/* Nom avec avatar */}
-                <div className="flex items-center gap-3 min-w-0">
-                  {demande.avatar ? (
-                    <img 
-                      alt="Avatar" 
-                      className="rounded-full object-cover w-9 h-9 border border-surface-container shrink-0" 
-                      src={demande.avatar} 
-                    />
-                  ) : (
-                    <div className="rounded-full bg-secondary/10 text-secondary flex items-center justify-center font-bold text-[13px] border border-secondary/20 w-9 h-9 shrink-0">
-                      {demande.initiales}
-                    </div>
-                  )}
-                  <span className="truncate text-sm text-primary font-medium">
-                    {demande.nom}
-                  </span>
-                </div>
+      {/* Liste des professeurs - Cartes sans bordure solide, uniquement box shadow */}
+      <section className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProfesseurs.map((professeur) => (
+            <article 
+              key={professeur.id} 
+              className="bg-white flex items-center p-4 rounded-xl shadow-md hover:shadow-lg transition-shadow gap-4 relative"
+            >
+              {/* Avatar */}
+              <div className="w-12 h-12 flex-shrink-0 rounded-full overflow-hidden bg-gray-100">
+                <img 
+                  alt={professeur.name} 
+                  className="w-full h-full object-cover" 
+                  src={professeur.avatar} 
+                />
+              </div>
 
-                {/* IM */}
-                <div className="text-[11px] font-mono tracking-wider truncate text-outline/80">
-                  {demande.im}
-                </div>
-
-                {/* Email */}
-                <div className="flex items-center gap-2 truncate text-text-muted">
-                  <span className="material-symbols-outlined text-sm shrink-0">mail</span>
-                  <span className="text-xs truncate">{demande.email}</span>
-                </div>
-
-                {/* Statut */}
-                <div className="flex justify-center">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[9px] uppercase tracking-wider border font-semibold ${demande.statutClass}`}>
-                    {demande.statut}
-                  </span>
-                </div>
-
-                {/* Actions avec menu contextuel */}
-                <div className="relative">
-                  <button 
-                    onClick={() => handleMenuToggle(demande.id)}
-                    className="p-1.5 text-outline hover:text-primary transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-lg">settings</span>
-                  </button>
-                  
-                  {openMenuId === demande.id && (
-                    <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-border-subtle py-1 z-10">
-                      <button 
-                        onClick={() => handleValidate(demande)}
-                        className="w-full text-left px-3 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
-                      >
-                        <span className="material-symbols-outlined text-sm">check_circle</span>
-                        Valider
-                      </button>
-                      <button 
-                        onClick={() => handleReject(demande)}
-                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      >
-                        <span className="material-symbols-outlined text-sm">cancel</span>
-                        Refuser
-                      </button>
-                      <hr className="my-1" />
-                      <button 
-                        onClick={() => handleDelete(demande)}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2"
-                      >
-                        <span className="material-symbols-outlined text-sm">delete</span>
-                        Supprimer
-                      </button>
-                    </div>
-                  )}
+              {/* Informations */}
+              <div className="flex-grow min-w-0">
+                <h3 className="font-bold text-sm text-on-surface truncate">{professeur.name}</h3>
+                <div className="flex flex-col gap-0.5 mt-1 text-[10px] text-on-surface-variant opacity-60">
+                  <div className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[12px]">qr_code</span>
+                    <span className="">{professeur.code}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[12px]">mail</span>
+                    <span className="truncate">{professeur.email}</span>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Bouton options (more_vert) */}
+              <div className="relative">
+                <button 
+                  onClick={(e) => toggleMenu(professeur.id, e)}
+                  className="p-1 rounded-full hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+                  aria-label="Options"
+                >
+                  <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                </button>
+
+                {/* Menu contextuel - uniquement Supprimer */}
+                {openMenuId === professeur.id && (
+                  <div 
+                    ref={menuRef}
+                    className="absolute top-8 right-0 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 min-w-[140px]"
+                  >
+                    <button 
+                      onClick={() => handleDeleteProfessor(professeur.id, professeur.name)}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">delete</span>
+                      Supprimer
+                    </button>
+                  </div>
+                )}
+              </div>
+            </article>
+          ))}
         </div>
 
         {/* Message si aucun résultat */}
-        {filteredDemandes.length === 0 && (
+        {filteredProfesseurs.length === 0 && (
           <div className="text-center py-12">
-            <span className="material-symbols-outlined text-5xl text-outline">search_off</span>
-            <p className="mt-2 text-on-surface-variant">Aucune demande trouvée</p>
+            <span className="material-symbols-outlined text-5xl text-gray-400">search_off</span>
+            <p className="mt-2 text-gray-500">Aucun professeur trouvé</p>
           </div>
         )}
-      </main>
-
-      {/* Toast notification */}
-      {showToast && (
-        <div className="fixed bottom-8 right-8 flex items-center gap-3 bg-primary text-white px-6 py-4 rounded-xl shadow-2xl animate-slide-up z-50">
-          <span className="material-symbols-outlined text-secondary">check_circle</span>
-          <span className="font-medium text-sm">{toastMessage}</span>
-        </div>
-      )}
-
-      <style>{`
-        @keyframes slide-up {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
-      `}</style>
+      </section>
     </div>
   );
 };
 
-export default DemandesPage;
+export default ProfesseursPage;

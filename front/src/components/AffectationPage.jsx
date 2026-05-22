@@ -1,440 +1,189 @@
-import React, { useState, useRef, useEffect } from 'react';
-
-// Composant SearchableSelect
-const SearchableSelect = ({ options, value, onChange, placeholder, label, required = false }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const dropdownRef = useRef(null);
-
-  const selectedOption = options.find(opt => opt.value === value);
-
-  const filteredOptions = options.filter(opt =>
-    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-        setSearchTerm('');
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  return (
-    <div ref={dropdownRef} className="relative">
-      <label className="block text-sm font-medium text-on-surface-variant mb-2">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2.5 bg-white rounded-lg text-left flex justify-between items-center hover:shadow-md transition-shadow"
-        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-      >
-        <span className={!selectedOption ? 'text-gray-400' : 'text-gray-900'}>
-          {selectedOption ? selectedOption.label : placeholder}
-        </span>
-        <span className={`material-symbols-outlined text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}>
-          expand_more
-        </span>
-      </button>
-
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white rounded-lg shadow-lg overflow-hidden" style={{ boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)' }}>
-          <div className="p-2 border-b border-gray-100">
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                search
-              </span>
-              <input
-                type="text"
-                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
-                placeholder="Rechercher..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-          </div>
-          <div className="max-h-60 overflow-y-auto">
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => {
-                    onChange(option.value);
-                    setIsOpen(false);
-                    setSearchTerm('');
-                  }}
-                  className={`w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors ${
-                    value === option.value ? 'bg-sky-50 text-sky-600' : 'text-gray-900'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))
-            ) : (
-              <div className="px-4 py-3 text-sm text-gray-500 text-center">
-                Aucun résultat
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Modal de modification
-const EditAffectationModal = ({ affectation, onClose, onSave, coursOptions, enseignantOptions, niveauOptions, parcoursOptions }) => {
-  const [formData, setFormData] = useState({
-    coursId: affectation.coursId,
-    enseignantId: affectation.enseignant.id,
-    niveau: affectation.niveau,
-    parcours: affectation.parcours
-  });
-
-  const handleSubmit = () => {
-    if (!formData.coursId || !formData.enseignantId || !formData.niveau || !formData.parcours) {
-      alert('Veuillez remplir tous les champs');
-      return;
-    }
-    onSave(formData);
-    onClose();
-  };
-
-  return (
-    <div 
-      className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div 
-        className="bg-white rounded-xl max-w-md w-full mx-4 overflow-hidden"
-        style={{ boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-5 border-b border-gray-100">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold text-on-surface">Modifier l'affectation</h3>
-            <button 
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
-          <SearchableSelect
-            options={coursOptions}
-            value={formData.coursId}
-            onChange={(val) => setFormData({ ...formData, coursId: val })}
-            placeholder="-- Sélectionner un cours --"
-            label="Cours"
-            required={true}
-          />
-          <SearchableSelect
-            options={enseignantOptions}
-            value={formData.enseignantId}
-            onChange={(val) => setFormData({ ...formData, enseignantId: val })}
-            placeholder="-- Sélectionner un enseignant --"
-            label="Enseignant"
-            required={true}
-          />
-          <SearchableSelect
-            options={niveauOptions}
-            value={formData.niveau}
-            onChange={(val) => setFormData({ ...formData, niveau: val })}
-            placeholder="-- Sélectionner un niveau --"
-            label="Niveau"
-            required={true}
-          />
-          <SearchableSelect
-            options={parcoursOptions}
-            value={formData.parcours}
-            onChange={(val) => setFormData({ ...formData, parcours: val })}
-            placeholder="-- Sélectionner un parcours --"
-            label="Parcours"
-            required={true}
-          />
-        </div>
-
-        <div className="p-5 border-t border-gray-100 flex justify-end gap-3">
-          <button 
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            Annuler
-          </button>
-          <button 
-            onClick={handleSubmit}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-sky-500 text-white hover:bg-sky-600 transition-colors"
-          >
-            Enregistrer
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+// src/components/AffectationPage.jsx
+import React, { useState } from 'react';
 
 const AffectationPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMention, setSelectedMention] = useState('Toutes les Mentions');
   const [selectedNiveau, setSelectedNiveau] = useState('Tous les Niveaux');
-  const [showMenu, setShowMenu] = useState(null);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editingAffectation, setEditingAffectation] = useState(null);
-  const [newAffectation, setNewAffectation] = useState({
-    coursId: '',
-    enseignantId: '',
-    niveau: '',
-    parcours: ''
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingCourse, setEditingCourse] = useState(null);
+  const [editingMention, setEditingMention] = useState(null);
+  
+  const [affectations, setAffectations] = useState({
+    Informatique: [
+      {
+        id: 1,
+        code: "INF401",
+        name: "Développement Web Avancé",
+        professor: "Jean Dupont",
+        professorAvatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuC4U7yEadfbt4gC2hddNoThU9Oi0zcPZ1Hv3dgUyblBTdJMHeu9_JYOTo_sy73gXjG4T1MTp3yyw-CSmSx795ZQj_yNJnMfLJUP8FwAPgVXQuf5JZRg6_y0Rv6EYFsaMoiAfEAG72CDmK9xpC0y-HBnl5wtBivE3DuhdS7gibAvNSX6Jg2rR23nQPEJtP13JWiuMqbWPUFZc75w-viIr46IlpN8d1DzydC8JxgX36SruPQ635duUHIJZbjRDAe2J2o73Q24p8aJ",
+        mention: "INFO",
+        niveau: "L3"
+      },
+      {
+        id: 2,
+        code: "INF202",
+        name: "Algorithmique",
+        professor: "Marie Curie",
+        professorAvatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuCdYPZU4oNrukQaVXf1xYtDz_Qp2ELS-zvoSCR-OyRtRunxYhqm2yOxgwP1Hpso3_Z6sUKApWoIk9CnuWmQG4NSLIE0bskTwRo4w89bCs7-EEc3BBOtVQN0sKsQOntaCPOg0v-6b64TdKcGXqyKdNRJ6GkZxKaeVzBm0w-9d8M9tVUYO1YrGp9bzw4s2CJRMcjIq9-76rb34Y5tdzOcApfCe6zS2Amq2sPS-cY936GXIi_4otK7D1OQOYEP3RN3VwZfL3NyeDoO",
+        mention: "INFO",
+        niveau: "L1"
+      }
+    ],
+    Management: [
+      {
+        id: 3,
+        code: "MGT501",
+        name: "Stratégie d'Entreprise",
+        professor: "Luc Martin",
+        professorAvatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuC38BD2qGzYvokhxt7h2Yow76YhtKSAX5y-JgeSGZOLtXAd6SymKf5cPtkN_xOOcVfJMXX4--itBpleo-EZcNFGo12uJe5ZNQtldfeBj5Erl7vdB_03Bq9BRCWx2Kip3ROcNt8JO4mSOAmVXrR4RAJR5CPgpPjLMvPVrf3e93rALlEvd-hmH9nomciJhLb_4ngjuoZWg13b8fS0geVNTQa4inbvce9XqC0LhSlib84S498R86jwsLNeOyNpNwbjMnvPKrrL7OHo",
+        mention: "MGT",
+        niveau: "M1"
+      }
+    ],
+    Multimedia: [
+      {
+        id: 4,
+        code: "MMD305",
+        name: "Design UI/UX",
+        professor: "Sophie Bernard",
+        professorAvatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDTtKDvXw42K-4dsxKiDO798bK0FHxZzg4d5-5mFyoGX-oowXx6uxtNnITA8uUAjmqTJ5NxegeisrrK8ASTSU4xL2lZWIS7aYbaVV5ga5PD1KVQ8dpjZJfZJWTlfwaJonvy3Y4RNDYe4Zj3W9Px6jzY3M3XsmQO7aZ6czgY6WwRjAsLSvGz262LjJaqYGP2o2mt8Rb_LpFMDLg6RBsJQkLj1eBVMw9sS5Hg7yl6Z03ekM2HEQG4cDd8jLwyLh53f-DShXW2dZrA",
+        mention: "MMD",
+        niveau: "L2"
+      }
+    ]
   });
 
-  // Données des cours
-  const coursList = [
-    { id: 1, code: "INF401", name: "Développement Web Avancé", mention: "Informatique", niveau: "L3", parcours: "Informatique" },
-    { id: 2, code: "INF202", name: "Algorithmique", mention: "Informatique", niveau: "L1", parcours: "Informatique" },
-    { id: 3, code: "INF303", name: "Base de Données", mention: "Informatique", niveau: "L2", parcours: "Informatique" },
-    { id: 4, code: "INF404", name: "Intelligence Artificielle", mention: "Informatique", niveau: "M1", parcours: "Informatique" },
-    { id: 5, code: "MGT501", name: "Stratégie d'Entreprise", mention: "Management", niveau: "M1", parcours: "Management" },
-    { id: 6, code: "MGT202", name: "Marketing Digital", mention: "Management", niveau: "L2", parcours: "Management" },
-    { id: 7, code: "MGT303", name: "Gestion de Projet", mention: "Management", niveau: "L3", parcours: "Management" },
-    { id: 8, code: "MMD305", name: "Design UI/UX", mention: "Multimedia", niveau: "L3", parcours: "Multimedia" },
-    { id: 9, code: "MMD202", name: "Animation 3D", mention: "Multimedia", niveau: "L2", parcours: "Multimedia" },
-    { id: 10, code: "MMD401", name: "Réalité Virtuelle", mention: "Multimedia", niveau: "M1", parcours: "Multimedia" }
-  ];
+  const [newAffectation, setNewAffectation] = useState({
+    code: '',
+    name: '',
+    professor: '',
+    mention: 'Informatique',
+    niveau: 'L3'
+  });
 
-  // Données des enseignants
-  const enseignantsList = [
-    { id: 1, name: "Jean Dupont", specialite: "Informatique" },
-    { id: 2, name: "Marie Curie", specialite: "Informatique" },
-    { id: 3, name: "Luc Martin", specialite: "Management" },
-    { id: 4, name: "Sophie Bernard", specialite: "Multimedia" },
-    { id: 5, name: "Pierre Durand", specialite: "Informatique" },
-    { id: 6, name: "Isabelle Moreau", specialite: "Management" },
-    { id: 7, name: "Thomas Petit", specialite: "Multimedia" }
-  ];
-
-  // Niveaux disponibles
-  const niveauxList = [
-    { value: "L1", label: "Licence 1" },
-    { value: "L2", label: "Licence 2" },
-    { value: "L3", label: "Licence 3" },
-    { value: "M1", label: "Master 1" },
-    { value: "M2", label: "Master 2" }
-  ];
-
-  // Parcours disponibles
-  const parcoursList = [
-    { value: "Informatique", label: "Informatique" },
-    { value: "Management", label: "Management" },
-    { value: "Multimedia", label: "Multimédia" },
-    { value: "Cybersécurité", label: "Cybersécurité" },
-    { value: "Data Science", label: "Data Science" },
-    { value: "Cloud Computing", label: "Cloud Computing" }
-  ];
-
-  // Options pour les selects
-  const coursOptions = coursList.map(c => ({
-    value: c.id,
-    label: `${c.code} - ${c.name} (${c.mention} - ${c.niveau})`
-  }));
-
-  const enseignantOptions = enseignantsList.map(e => ({
-    value: e.id,
-    label: `${e.name} (${e.specialite})`
-  }));
-
-  const niveauOptions = niveauxList;
-  const parcoursOptions = parcoursList;
-
-  // Données des affectations existantes
-  const [affectations, setAffectations] = useState([
-    {
-      id: 1,
-      coursId: 1,
-      cours: { code: "INF401", name: "Développement Web Avancé" },
-      enseignant: { id: 1, name: "Jean Dupont", avatar: "https://ui-avatars.com/api/?background=0D8ABC&color=fff&name=Jean+Dupont" },
-      mention: "Informatique",
-      niveau: "L3",
-      parcours: "Informatique"
-    },
-    {
-      id: 2,
-      coursId: 2,
-      cours: { code: "INF202", name: "Algorithmique" },
-      enseignant: { id: 2, name: "Marie Curie", avatar: "https://ui-avatars.com/api/?background=0D8ABC&color=fff&name=Marie+Curie" },
-      mention: "Informatique",
-      niveau: "L1",
-      parcours: "Informatique"
-    },
-    {
-      id: 3,
-      coursId: 5,
-      cours: { code: "MGT501", name: "Stratégie d'Entreprise" },
-      enseignant: { id: 3, name: "Luc Martin", avatar: "https://ui-avatars.com/api/?background=22c55e&color=fff&name=Luc+Martin" },
-      mention: "Management",
-      niveau: "M1",
-      parcours: "Management"
-    },
-    {
-      id: 4,
-      coursId: 8,
-      cours: { code: "MMD305", name: "Design UI/UX" },
-      enseignant: { id: 4, name: "Sophie Bernard", avatar: "https://ui-avatars.com/api/?background=ec4899&color=fff&name=Sophie+Bernard" },
-      mention: "Multimedia",
-      niveau: "L3",
-      parcours: "Multimedia"
-    }
-  ]);
-
-  // Filtrer les affectations
-  const filterAffectations = () => {
-    return affectations.filter(aff => {
-      const matchSearch = searchTerm === '' || 
-        aff.cours.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        aff.cours.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        aff.enseignant.name.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchMention = selectedMention === 'Toutes les Mentions' || aff.mention === selectedMention;
-      const matchNiveau = selectedNiveau === 'Tous les Niveaux' || aff.niveau === selectedNiveau;
-      
-      return matchSearch && matchMention && matchNiveau;
-    });
+  // Ouvrir le menu contextuel
+  const handleMenuToggle = (id) => {
+    setOpenMenuId(openMenuId === id ? null : id);
   };
 
-  // Obtenir les détails du cours sélectionné
-  const getSelectedCours = () => {
-    return coursList.find(c => c.id === parseInt(newAffectation.coursId));
+  // Ouvrir le modal de modification
+  const handleOpenEditModal = (mention, course) => {
+    setEditingMention(mention);
+    setEditingCourse({ ...course });
+    setShowEditModal(true);
+    setOpenMenuId(null);
+  };
+
+  // Sauvegarder la modification
+  const handleSaveEdit = () => {
+    if (!editingCourse.name || !editingCourse.professor) {
+      alert("Veuillez remplir tous les champs");
+      return;
+    }
+
+    setAffectations(prev => ({
+      ...prev,
+      [editingMention]: prev[editingMention].map(c => 
+        c.id === editingCourse.id ? editingCourse : c
+      )
+    }));
+    setShowEditModal(false);
+    setEditingCourse(null);
+    setEditingMention(null);
+  };
+
+  // Supprimer une affectation
+  const handleDelete = (mention, courseId, courseName) => {
+    if (window.confirm(`Supprimer l'affectation "${courseName}" ?`)) {
+      setAffectations(prev => ({
+        ...prev,
+        [mention]: prev[mention].filter(c => c.id !== courseId)
+      }));
+    }
+    setOpenMenuId(null);
   };
 
   // Ajouter une affectation
   const handleAddAffectation = () => {
-    if (!newAffectation.coursId || !newAffectation.enseignantId || !newAffectation.niveau || !newAffectation.parcours) {
-      alert('Veuillez remplir tous les champs');
+    if (!newAffectation.code || !newAffectation.name || !newAffectation.professor) {
+      alert("Veuillez remplir tous les champs");
       return;
     }
 
-    const selectedCours = coursList.find(c => c.id === parseInt(newAffectation.coursId));
-    const selectedEnseignant = enseignantsList.find(e => e.id === parseInt(newAffectation.enseignantId));
-    
-    if (!selectedCours || !selectedEnseignant) {
-      alert('Cours ou enseignant non trouvé');
-      return;
-    }
+    const newId = Math.max(...Object.values(affectations).flat().map(c => c.id), 0) + 1;
+    const avatarUrl = `https://ui-avatars.com/api/?background=0EA5E9&color=fff&name=${encodeURIComponent(newAffectation.professor)}`;
 
-    const newId = Math.max(...affectations.map(a => a.id), 0) + 1;
-    
-    setAffectations([...affectations, {
-      id: newId,
-      coursId: selectedCours.id,
-      cours: { code: selectedCours.code, name: selectedCours.name },
-      enseignant: { 
-        id: selectedEnseignant.id, 
-        name: selectedEnseignant.name, 
-        avatar: `https://ui-avatars.com/api/?background=0D8ABC&color=fff&name=${encodeURIComponent(selectedEnseignant.name)}`
-      },
-      mention: selectedCours.mention,
-      niveau: newAffectation.niveau,
-      parcours: newAffectation.parcours
-    }]);
-    
+    setAffectations(prev => ({
+      ...prev,
+      [newAffectation.mention]: [
+        ...(prev[newAffectation.mention] || []),
+        {
+          id: newId,
+          code: newAffectation.code,
+          name: newAffectation.name,
+          professor: newAffectation.professor,
+          professorAvatar: avatarUrl,
+          mention: newAffectation.mention === 'Informatique' ? 'INFO' : 
+                   newAffectation.mention === 'Management' ? 'MGT' : 'MMD',
+          niveau: newAffectation.niveau
+        }
+      ]
+    }));
+
     setNewAffectation({
-      coursId: '',
-      enseignantId: '',
-      niveau: '',
-      parcours: ''
+      code: '',
+      name: '',
+      professor: '',
+      mention: 'Informatique',
+      niveau: 'L3'
     });
     setShowAddModal(false);
   };
 
-  // Modifier une affectation
-  const handleEditAffectation = (updatedData) => {
-    const selectedCours = coursList.find(c => c.id === parseInt(updatedData.coursId));
-    const selectedEnseignant = enseignantsList.find(e => e.id === parseInt(updatedData.enseignantId));
-    
-    if (!selectedCours || !selectedEnseignant) return;
-
-    setAffectations(affectations.map(aff => 
-      aff.id === editingAffectation.id ? {
-        ...aff,
-        coursId: selectedCours.id,
-        cours: { code: selectedCours.code, name: selectedCours.name },
-        enseignant: { 
-          id: selectedEnseignant.id, 
-          name: selectedEnseignant.name, 
-          avatar: `https://ui-avatars.com/api/?background=0D8ABC&color=fff&name=${encodeURIComponent(selectedEnseignant.name)}`
-        },
-        mention: selectedCours.mention,
-        niveau: updatedData.niveau,
-        parcours: updatedData.parcours
-      } : aff
-    ));
-    setShowEditModal(false);
-    setEditingAffectation(null);
-  };
-
-  // Supprimer une affectation
-  const handleDelete = (id) => {
-    if (window.confirm('Supprimer cette affectation ?')) {
-      setAffectations(affectations.filter(aff => aff.id !== id));
-      setShowMenu(null);
-    }
-  };
-
-  // Ouvrir le modal de modification
-  const openEditModal = (affectation) => {
-    setEditingAffectation(affectation);
-    setShowEditModal(true);
-    setShowMenu(null);
-  };
-
-  // Grouper par mention
-  const groupByMention = (filtered) => {
-    const groups = {};
-    filtered.forEach(aff => {
-      if (!groups[aff.mention]) {
-        groups[aff.mention] = [];
+  const filterAffectations = () => {
+    const filtered = {};
+    Object.keys(affectations).forEach(mention => {
+      const filteredCourses = affectations[mention].filter(course => {
+        const matchSearch = searchTerm === '' || 
+          course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          course.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          course.professor.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const matchMention = selectedMention === 'Toutes les Mentions' || mention === selectedMention;
+        const matchNiveau = selectedNiveau === 'Tous les Niveaux' || course.niveau === selectedNiveau;
+        
+        return matchSearch && matchMention && matchNiveau;
+      });
+      if (filteredCourses.length > 0) {
+        filtered[mention] = filteredCourses;
       }
-      groups[aff.mention].push(aff);
     });
-    return groups;
+    return filtered;
   };
 
   const filteredAffectations = filterAffectations();
-  const groupedAffectations = groupByMention(filteredAffectations);
   const mentionsOrder = ['Informatique', 'Management', 'Multimedia'];
-  const selectedCoursInfo = getSelectedCours();
 
   return (
     <div>
       {/* Search and Filters */}
       <div className="flex flex-col md:flex-row gap-4 mb-10">
         <div className="w-full md:w-[40%] relative">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">
-            search
-          </span>
-          <input
-            className="w-full pl-10 pr-4 py-2 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-            placeholder="Rechercher un cours..."
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+          <input 
+            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0EA5E9] focus:border-transparent outline-none transition-all" 
+            placeholder="Rechercher un cours..." 
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <div className="flex gap-4">
-          <select
-            className="px-4 py-2 bg-white rounded-lg text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-sky-500/20 transition-all cursor-pointer"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+          <select 
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-[#252A34] outline-none focus:ring-2 focus:ring-[#0EA5E9] transition-all cursor-pointer"
             value={selectedMention}
             onChange={(e) => setSelectedMention(e.target.value)}
           >
@@ -443,9 +192,8 @@ const AffectationPage = () => {
             <option>Management</option>
             <option>Multimedia</option>
           </select>
-          <select
-            className="px-4 py-2 bg-white rounded-lg text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-sky-500/20 transition-all cursor-pointer"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+          <select 
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-[#252A34] outline-none focus:ring-2 focus:ring-[#0EA5E9] transition-all cursor-pointer"
             value={selectedNiveau}
             onChange={(e) => setSelectedNiveau(e.target.value)}
           >
@@ -454,83 +202,84 @@ const AffectationPage = () => {
             <option>L2</option>
             <option>L3</option>
             <option>M1</option>
-            <option>M2</option>
           </select>
         </div>
       </div>
 
       {/* Sections by Mention */}
       <div className="space-y-12">
-        {mentionsOrder.map(mention => {
-          const courses = groupedAffectations[mention] || [];
-          if (courses.length === 0) return null;
+        {mentionsOrder.map((mention, idx) => {
+          const courses = filteredAffectations[mention];
+          if (!courses || courses.length === 0 && idx !== 0) return null;
           
           return (
             <section key={mention}>
               <div className="flex items-center gap-4 mb-6">
-                <h2 className="text-xl font-bold text-primary">{mention}</h2>
+                <h2 className="text-xl font-bold text-[#252A34]">{mention}</h2>
                 <div className="h-px flex-1 bg-gray-200"></div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {courses.map((aff) => (
-                  <div
-                    key={aff.id}
-                    className="bg-white p-5 rounded-xl relative group hover:shadow-lg transition-shadow"
-                    style={{ boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+                {/* Cardbox Ajouter */}
+                {idx === 0 && (
+                  <div 
+                    className="bg-white p-5 border-2 border-dashed border-gray-300 relative group transition-all rounded-2xl hover:shadow-md flex flex-col items-center justify-center gap-3 cursor-pointer min-h-[280px]"
+                    onClick={() => setShowAddModal(true)}
+                  >
+                    <div className="w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-gray-400">add</span>
+                    </div>
+                    <span className="text-gray-400 uppercase tracking-widest text-xs">Ajouter une affectation</span>
+                  </div>
+                )}
+
+                {/* Cartes des affectations */}
+                {courses.map((course) => (
+                  <div 
+                    key={course.id} 
+                    className="bg-white p-5 border border-transparent relative group transition-all rounded-2xl shadow-sm hover:shadow-md"
                   >
                     <div className="mb-4">
-                      <span className="font-bold font-mono text-xs tracking-wider text-sky-600">
-                        {aff.cours.code}
-                      </span>
-                      <h3 className="text-lg font-semibold text-on-surface mt-1">
-                        {aff.cours.name}
-                      </h3>
-                    </div>
-                    <div className="mb-6">
-                      <p className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider mb-2">
-                        Assigné à
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-                          <img
-                            alt="Prof"
-                            className="w-full h-full object-cover"
-                            src={aff.enseignant.avatar}
-                          />
-                        </div>
-                        <span className="text-sm font-medium">{aff.enseignant.name}</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      <span className="px-2 py-0.5 text-[10px] font-bold border border-gray-200 rounded-full text-on-surface-variant">
-                        {aff.parcours}
-                      </span>
-                      <span className="px-2 py-0.5 text-[10px] font-bold border border-gray-200 rounded-full text-on-surface-variant">
-                        {aff.niveau}
-                      </span>
+                      <span className="font-bold font-label text-xs tracking-wider text-[#0EA5E9]">{course.code}</span>
+                      <h3 className="text-lg font-semibold text-[#252A34] mt-1">{course.name}</h3>
                     </div>
                     
-                    {/* Bouton settings avec menu */}
+                    <div className="mb-6">
+                      <p className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">Assigné à</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
+                          <img alt="Prof" className="w-full h-full object-cover" src={course.professorAvatar} />
+                        </div>
+                        <span className="text-sm font-medium">{course.professor}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <span className="px-2 py-0.5 text-[10px] font-bold border border-gray-200 rounded-full text-gray-600">{course.mention}</span>
+                      <span className="px-2 py-0.5 text-[10px] font-bold border border-gray-200 rounded-full text-gray-600">{course.niveau}</span>
+                    </div>
+                    
+                    {/* Bouton paramètre avec menu contextuel */}
                     <div className="absolute bottom-4 right-4">
-                      <button
-                        className="text-gray-400 hover:text-sky-500 transition-colors p-1 rounded-full hover:bg-gray-100"
-                        onClick={() => setShowMenu(showMenu === aff.id ? null : aff.id)}
+                      <button 
+                        onClick={() => handleMenuToggle(course.id)}
+                        className="text-gray-400 hover:text-[#0EA5E9] transition-colors"
                       >
-                        <span className="material-symbols-outlined text-xl">settings</span>
+                        <span className="material-symbols-outlined text-xl">more_vert</span>
                       </button>
-                      
-                      {showMenu === aff.id && (
-                        <div className="absolute bottom-8 right-0 bg-white rounded-lg shadow-lg py-1 z-10 min-w-[140px]" style={{ boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)' }}>
-                          <button
+
+                      {/* Menu contextuel - Modifier / Supprimer */}
+                      {openMenuId === course.id && (
+                        <div className="absolute bottom-8 right-0 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 min-w-[140px]">
+                          <button 
+                            onClick={() => handleOpenEditModal(mention, course)}
                             className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
-                            onClick={() => openEditModal(aff)}
                           >
                             <span className="material-symbols-outlined text-sm">edit</span>
                             Modifier
                           </button>
-                          <button
+                          <button 
+                            onClick={() => handleDelete(mention, course.id, course.name)}
                             className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                            onClick={() => handleDelete(aff.id)}
                           >
                             <span className="material-symbols-outlined text-sm">delete</span>
                             Supprimer
@@ -547,23 +296,119 @@ const AffectationPage = () => {
       </div>
 
       {/* Message si aucun résultat */}
-      {filteredAffectations.length === 0 && (
+      {Object.keys(filteredAffectations).length === 0 && (
         <div className="text-center py-12">
-          <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#cbd5e1' }}>search_off</span>
-          <p className="mt-2 text-on-surface-variant">Aucune affectation trouvée</p>
+          <span className="material-symbols-outlined text-5xl text-gray-400">search_off</span>
+          <p className="mt-2 text-gray-500">Aucune affectation trouvée</p>
         </div>
       )}
 
-      {/* Bouton FAB flottant pour ajouter */}
-      <button 
-        onClick={() => setShowAddModal(true)}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-sky-500 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-50"
-        style={{ boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)' }}
-      >
-        <span className="material-symbols-outlined text-[28px]">add</span>
-      </button>
+      {/* Modal de modification */}
+      {showEditModal && editingCourse && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center backdrop-blur-sm"
+          onClick={() => setShowEditModal(false)}
+        >
+          <div 
+            className="bg-white rounded-xl max-w-md w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5 border-b border-gray-100">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold text-[#252A34]">Modifier l'affectation</h3>
+                <button 
+                  onClick={() => setShowEditModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+            </div>
 
-      {/* Modal d'ajout avec scroll */}
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Code du cours</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9] bg-gray-50"
+                  value={editingCourse.code}
+                  disabled
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom du cours</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                  value={editingCourse.name}
+                  onChange={(e) => setEditingCourse({ ...editingCourse, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Professeur</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                  value={editingCourse.professor}
+                  onChange={(e) => setEditingCourse({ ...editingCourse, professor: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mention</label>
+                  <select
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                    value={editingCourse.mention === 'INFO' ? 'Informatique' : 
+                            editingCourse.mention === 'MGT' ? 'Management' : 'Multimedia'}
+                    onChange={(e) => {
+                      const newMention = e.target.value;
+                      setEditingCourse({ 
+                        ...editingCourse, 
+                        mention: newMention === 'Informatique' ? 'INFO' : 
+                                 newMention === 'Management' ? 'MGT' : 'MMD'
+                      });
+                    }}
+                  >
+                    <option>Informatique</option>
+                    <option>Management</option>
+                    <option>Multimedia</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Niveau</label>
+                  <select
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                    value={editingCourse.niveau}
+                    onChange={(e) => setEditingCourse({ ...editingCourse, niveau: e.target.value })}
+                  >
+                    <option>L1</option>
+                    <option>L2</option>
+                    <option>L3</option>
+                    <option>M1</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-gray-100 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={handleSaveEdit}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-[#0EA5E9] text-white hover:bg-[#0EA5E9]/90 transition-colors"
+              >
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal d'ajout */}
       {showAddModal && (
         <div 
           className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center backdrop-blur-sm"
@@ -571,12 +416,11 @@ const AffectationPage = () => {
         >
           <div 
             className="bg-white rounded-xl max-w-md w-full mx-4 overflow-hidden"
-            style={{ boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-5 border-b border-gray-100">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-on-surface">Nouvelle affectation</h3>
+                <h3 className="text-lg font-bold text-[#252A34]">Ajouter une affectation</h3>
                 <button 
                   onClick={() => setShowAddModal(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -586,47 +430,64 @@ const AffectationPage = () => {
               </div>
             </div>
 
-            <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
-              <SearchableSelect
-                options={coursOptions}
-                value={newAffectation.coursId}
-                onChange={(val) => setNewAffectation({ ...newAffectation, coursId: val })}
-                placeholder="-- Sélectionner un cours --"
-                label="Cours"
-                required={true}
-              />
-              {selectedCoursInfo && (
-                <p className="text-xs text-green-600 -mt-2">
-                  ✓ {selectedCoursInfo.mention} - {selectedCoursInfo.niveau}
-                </p>
-              )}
-
-              <SearchableSelect
-                options={enseignantOptions}
-                value={newAffectation.enseignantId}
-                onChange={(val) => setNewAffectation({ ...newAffectation, enseignantId: val })}
-                placeholder="-- Sélectionner un enseignant --"
-                label="Enseignant"
-                required={true}
-              />
-
-              <SearchableSelect
-                options={niveauOptions}
-                value={newAffectation.niveau}
-                onChange={(val) => setNewAffectation({ ...newAffectation, niveau: val })}
-                placeholder="-- Sélectionner un niveau --"
-                label="Niveau"
-                required={true}
-              />
-
-              <SearchableSelect
-                options={parcoursOptions}
-                value={newAffectation.parcours}
-                onChange={(val) => setNewAffectation({ ...newAffectation, parcours: val })}
-                placeholder="-- Sélectionner un parcours --"
-                label="Parcours"
-                required={true}
-              />
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Code du cours</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                  placeholder="Ex: INF999"
+                  value={newAffectation.code}
+                  onChange={(e) => setNewAffectation({ ...newAffectation, code: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom du cours</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                  placeholder="Ex: Nouveau cours"
+                  value={newAffectation.name}
+                  onChange={(e) => setNewAffectation({ ...newAffectation, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Professeur</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                  placeholder="Ex: Jean Dupont"
+                  value={newAffectation.professor}
+                  onChange={(e) => setNewAffectation({ ...newAffectation, professor: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mention</label>
+                  <select
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                    value={newAffectation.mention}
+                    onChange={(e) => setNewAffectation({ ...newAffectation, mention: e.target.value })}
+                  >
+                    <option>Informatique</option>
+                    <option>Management</option>
+                    <option>Multimedia</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Niveau</label>
+                  <select
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                    value={newAffectation.niveau}
+                    onChange={(e) => setNewAffectation({ ...newAffectation, niveau: e.target.value })}
+                  >
+                    <option>L1</option>
+                    <option>L2</option>
+                    <option>L3</option>
+                    <option>M1</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div className="p-5 border-t border-gray-100 flex justify-end gap-3">
@@ -638,29 +499,13 @@ const AffectationPage = () => {
               </button>
               <button 
                 onClick={handleAddAffectation}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-sky-500 text-white hover:bg-sky-600 transition-colors"
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-[#0EA5E9] text-white hover:bg-[#0EA5E9]/90 transition-colors"
               >
-                Affecter
+                Ajouter
               </button>
             </div>
           </div>
         </div>
-      )}
-
-      {/* Modal de modification */}
-      {showEditModal && editingAffectation && (
-        <EditAffectationModal
-          affectation={editingAffectation}
-          onClose={() => {
-            setShowEditModal(false);
-            setEditingAffectation(null);
-          }}
-          onSave={handleEditAffectation}
-          coursOptions={coursOptions}
-          enseignantOptions={enseignantOptions}
-          niveauOptions={niveauOptions}
-          parcoursOptions={parcoursOptions}
-        />
       )}
     </div>
   );

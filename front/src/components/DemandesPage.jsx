@@ -97,10 +97,7 @@ const DemandesPage = () => {
             />
           </div>
           <div className="flex gap-3 w-full md:w-auto">
-            <button className="flex items-center gap-2 px-4 py-2.5 bg-white rounded-xl hover:bg-surface-container transition-colors group shadow-sm">
-              <span className="text-sm font-medium">Date</span>
-              <span className="material-symbols-outlined text-outline group-hover:text-primary transition-colors">expand_more</span>
-            </button>
+            
             <select 
               className="flex items-center gap-2 px-4 py-2.5 bg-white rounded-xl hover:bg-surface-container transition-colors outline-none cursor-pointer shadow-sm"
               value={filterStatut}
@@ -164,7 +161,7 @@ const DemandesPage = () => {
                     onClick={() => handleMenuToggle(demande.id)}
                     className="p-1.5 text-outline hover:text-primary transition-colors"
                   >
-                    <span className="material-symbols-outlined text-lg">settings</span>
+                    <span className="material-symbols-outlined text-lg">more_vert</span>
                   </button>
                   
                   {openMenuId === demande.id && (

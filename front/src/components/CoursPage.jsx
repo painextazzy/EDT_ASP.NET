@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 const CoursPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCourse, setEditingCourse] = useState(null);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, course: null });
   const [courses, setCourses] = useState([
     { id: 1, code: "INFO-402", name: "Algorithmique Avancée" },
     { id: 2, code: "INFO-305", name: "Architecture Réseaux" },
@@ -18,6 +21,8 @@ const CoursPage = () => {
   ]);
 
   const [newCourse, setNewCourse] = useState({ code: '', name: '' });
+  const [editCourse, setEditCourse] = useState({ code: '', name: '' });
+  const menuRef = useRef(null);
 
   // Filtrer les cours
   const filterCourses = () => {
@@ -26,6 +31,44 @@ const CoursPage = () => {
       course.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       course.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
+  };
+
+  // Fermer le menu contextuel quand on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setContextMenu({ visible: false, x: 0, y: 0, course: null });
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // Gestion du clic gauche sur un cours
+  const handleCourseClick = (event, course) => {
+    event.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+      course: course
+    });
+  };
+
+  // Gestion du clic droit sur un cours
+  const handleContextMenu = (event, course) => {
+    event.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+      course: course
+    });
+  };
+
+  // Fermer le menu
+  const closeContextMenu = () => {
+    setContextMenu({ visible: false, x: 0, y: 0, course: null });
   };
 
   // Ajouter un cours
@@ -38,6 +81,40 @@ const CoursPage = () => {
       }]);
       setNewCourse({ code: '', name: '' });
       setShowAddModal(false);
+    }
+  };
+
+  // Ouvrir le modal de modification
+  const handleOpenEditModal = () => {
+    if (contextMenu.course) {
+      setEditingCourse(contextMenu.course);
+      setEditCourse({ code: contextMenu.course.code, name: contextMenu.course.name });
+      setShowEditModal(true);
+      closeContextMenu();
+    }
+  };
+
+  // Modifier un cours
+  const handleEditCourse = () => {
+    if (editCourse.code && editCourse.name) {
+      setCourses(courses.map(course => 
+        course.id === editingCourse.id 
+          ? { ...course, code: editCourse.code, name: editCourse.name }
+          : course
+      ));
+      setShowEditModal(false);
+      setEditingCourse(null);
+      setEditCourse({ code: '', name: '' });
+    }
+  };
+
+  // Supprimer un cours
+  const handleDeleteCourse = () => {
+    if (contextMenu.course) {
+      if (window.confirm(`Supprimer le cours "${contextMenu.course.name}" ?`)) {
+        setCourses(courses.filter(course => course.id !== contextMenu.course.id));
+      }
+      closeContextMenu();
     }
   };
 
@@ -54,7 +131,7 @@ const CoursPage = () => {
           <input
             type="text"
             placeholder="Rechercher un cours par code ou libellé..."
-            className="w-full pl-12 pr-4 py-3 bg-white border border-outline-variant rounded-lg text-sm focus:outline-none focus:ring-2 transition-all focus:ring-sky-500/20 focus:border-sky-500"
+            className="w-full pl-12 pr-4 py-2 bg-white border border-outline-variant rounded-lg text-sm focus:outline-none focus:ring-2 transition-all focus:ring-sky-500/20 focus:border-sky-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ borderColor: '#c3c7c8' }}
@@ -67,18 +144,50 @@ const CoursPage = () => {
         {filteredCourses.map((course) => (
           <div
             key={course.id}
-            className="bg-white rounded-lg border border-outline-variant shadow-sm px-4 py-2 flex items-center justify-center hover:shadow-md transition-all"
+            className="group bg-white rounded-lg border border-outline-variant shadow-sm hover:shadow-md transition-all cursor-pointer"
             style={{ backgroundColor: '#ffffff', borderColor: '#c3c7c8' }}
+            onClick={(e) => handleCourseClick(e, course)}
+            onContextMenu={(e) => handleContextMenu(e, course)}
           >
-            <span className="font-mono font-bold tracking-wider mr-3 text-sky-500 text-sm">
-              {course.code}
-            </span>
-            <span className="text-sm text-on-surface-variant font-medium">
-              {course.name}
-            </span>
+            <div className="px-4 py-2 flex items-center">
+              <span className="font-mono font-bold tracking-wider mr-3 text-sky-500 text-sm">
+                {course.code}
+              </span>
+              <span className="text-sm text-on-surface-variant font-medium">
+                {course.name}
+              </span>
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Menu contextuel personnalisé */}
+      {contextMenu.visible && (
+        <div
+          ref={menuRef}
+          className="fixed bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 min-w-[160px]"
+          style={{
+            top: contextMenu.y,
+            left: contextMenu.x,
+            position: 'fixed'
+          }}
+        >
+          <button 
+            onClick={handleOpenEditModal}
+            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">edit</span>
+            Modifier
+          </button>
+          <button 
+            onClick={handleDeleteCourse}
+            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">delete</span>
+            Supprimer
+          </button>
+        </div>
+      )}
 
       {/* Message si aucun résultat */}
       {filteredCourses.length === 0 && (
@@ -160,6 +269,76 @@ const CoursPage = () => {
                 className="px-4 py-2 rounded-lg text-sm font-medium bg-sky-500 text-white hover:bg-sky-600 transition-colors"
               >
                 Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de modification */}
+      {showEditModal && editingCourse && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center backdrop-blur-sm"
+          onClick={() => setShowEditModal(false)}
+        >
+          <div 
+            className="bg-white rounded-xl max-w-md w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5 border-b border-outline-variant" style={{ borderColor: '#e2e8f0' }}>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold text-on-surface">Modifier le cours</h3>
+                <button 
+                  onClick={() => setShowEditModal(false)}
+                  className="p-2 hover:bg-surface-container rounded-lg transition-colors"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-on-surface-variant mb-1">
+                  Code du cours
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                  placeholder="Ex: INFO-999"
+                  value={editCourse.code}
+                  onChange={(e) => setEditCourse({ ...editCourse, code: e.target.value })}
+                  style={{ borderColor: '#c3c7c8' }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-on-surface-variant mb-1">
+                  Nom du cours
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                  placeholder="Ex: Nouveau cours"
+                  value={editCourse.name}
+                  onChange={(e) => setEditCourse({ ...editCourse, name: e.target.value })}
+                  style={{ borderColor: '#c3c7c8' }}
+                />
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-outline-variant flex justify-end gap-3" style={{ borderColor: '#e2e8f0' }}>
+              <button 
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-on-surface-variant hover:bg-surface-container transition-colors"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={handleEditCourse}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-sky-500 text-white hover:bg-sky-600 transition-colors"
+              >
+                Enregistrer
               </button>
             </div>
           </div>
