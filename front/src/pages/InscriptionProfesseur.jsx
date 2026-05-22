@@ -1,13 +1,9 @@
-// InscriptionProfesseur.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// Import de votre logo/image (remplacez par le chemin de votre image)
-import logo from '../assets/logo.jpg';
 
 const InscriptionProfesseur = () => {
   const navigate = useNavigate();
-  
-  // État du formulaire
+  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     title: 'Pr',
     firstName: '',
@@ -17,511 +13,427 @@ const InscriptionProfesseur = () => {
     password: '',
     confirmPassword: ''
   });
-  
-  // État des erreurs
   const [errors, setErrors] = useState({});
-  // État des champs touchés
-  const [touched, setTouched] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isFormValid, setIsFormValid] = useState(false);
-  
-  // Fonction de validation pour un champ spécifique
-  const validateField = (name, value, allData = formData) => {
-    switch (name) {
-      case 'firstName':
-        if (!value.trim()) return 'Le nom complet est requis';
-        if (value.trim().length < 3) return 'Le nom doit contenir au moins 3 caractères';
-        if (value.trim().length > 50) return 'Le nom est trop long';
-        return '';
-        
-      case 'imNumber':
-        if (!value.trim()) return 'Le numéro IM est requis';
-        if (!/^IM-\d{6}$/.test(value) && !/^\d{6}$/.test(value)) {
-          return 'Format: IM-123456 ou 123456';
-        }
-        return '';
-        
-      case 'email':
-        if (!value.trim()) return 'L\'email est requis';
-        if (!/^[^\s@]+@([^\s@.,]+\.)+[^\s@.,]{2,}$/.test(value)) {
-          return 'Email invalide (ex: nom@domaine.com)';
-        }
-        return '';
-        
-      case 'phone':
-        if (!value.trim()) return 'Le numéro de téléphone est requis';
-        // Supprimer tous les espaces et caractères spéciaux pour la validation
-        const cleanPhone = value.replace(/[\s.-]/g, '');
-        
-        // Vérifier que c'est bien 10 chiffres
-        if (!/^\d{10}$/.test(cleanPhone)) {
-          return 'Le numéro doit contenir exactement 10 chiffres';
-        }
-        
-        // Vérifier que le numéro commence par 02 ou 03
-        if (!cleanPhone.startsWith('02') && !cleanPhone.startsWith('03')) {
-          return 'Le numéro doit commencer par 02 ou 03 (ex: 02xxxxxx ou 03xxxxxx)';
-        }
-        
-        return '';
-        
-      case 'password':
-        if (!value) return 'Le mot de passe est requis';
-        if (value.length < 8) return 'Le mot de passe doit contenir au moins 8 caractères';
-        if (!/(?=.*[a-z])/.test(value)) return 'Doit contenir au moins une minuscule';
-        if (!/(?=.*[A-Z])/.test(value)) return 'Doit contenir au moins une majuscule';
-        if (!/(?=.*[0-9])/.test(value)) return 'Doit contenir au moins un chiffre';
-        return '';
-        
-      case 'confirmPassword':
-        if (!value) return 'Veuillez confirmer le mot de passe';
-        if (value !== allData.password) return 'Les mots de passe ne correspondent pas';
-        return '';
-        
-      default:
-        return '';
+
+  // Validation en temps réel pour le nom (lettres uniquement)
+  const validateName = (value) => {
+    if (!value) return '';
+    // Vérifier que le nom contient uniquement des lettres, espaces et tirets
+    if (!/^[a-zA-ZÀ-ÿ\s-]+$/.test(value)) {
+      return 'Le nom ne doit contenir que des lettres, espaces et tirets';
     }
+    return '';
   };
-  
-  // Validation de tout le formulaire
-  const validateForm = (data = formData) => {
-    const newErrors = {};
-    const fields = ['firstName', 'imNumber', 'email', 'phone', 'password', 'confirmPassword'];
-    
-    fields.forEach(field => {
-      const error = validateField(field, data[field], data);
-      if (error) newErrors[field] = error;
-    });
-    
-    return Object.keys(newErrors).length === 0;
+
+  // Validation en temps réel pour le numéro IM (6 chiffres)
+  const validateImNumber = (value) => {
+    if (!value) return '';
+    const numbersOnly = value.replace(/\D/g, '');
+    if (numbersOnly.length === 0) return '';
+    if (numbersOnly.length < 6) return 'Le numéro IM doit contenir exactement 6 chiffres';
+    if (numbersOnly.length > 6) return 'Le numéro IM ne peut pas dépasser 6 chiffres';
+    return '';
   };
-  
-  // Validation en temps réel
-  useEffect(() => {
+
+  // Validation en temps réel pour le téléphone (10 chiffres, commence par 02 ou 03)
+  const validatePhone = (value) => {
+    if (!value) return '';
+    const numbersOnly = value.replace(/\D/g, '');
+    if (numbersOnly.length === 0) return '';
+    if (numbersOnly.length !== 10) return 'Le numéro doit contenir exactement 10 chiffres';
+    if (!numbersOnly.startsWith('02') && !numbersOnly.startsWith('03')) {
+      return 'Le numéro doit commencer par 02 ou 03';
+    }
+    return '';
+  };
+
+  // Validation de l'étape 1
+  const validateStep1 = () => {
     const newErrors = {};
-    const fields = ['firstName', 'imNumber', 'email', 'phone', 'password', 'confirmPassword'];
     
-    fields.forEach(field => {
-      if (touched[field]) {
-        const error = validateField(field, formData[field], formData);
-        if (error) newErrors[field] = error;
+    // Validation nom
+    if (!formData.firstName.trim()) newErrors.firstName = 'Le nom complet est requis';
+    else if (!/^[a-zA-ZÀ-ÿ\s-]+$/.test(formData.firstName)) {
+      newErrors.firstName = 'Le nom ne doit contenir que des lettres, espaces et tirets';
+    }
+    
+    // Validation IM
+    if (!formData.imNumber.trim()) newErrors.imNumber = 'Le numéro IM est requis';
+    else if (formData.imNumber.replace(/\D/g, '').length !== 6) {
+      newErrors.imNumber = 'Le numéro IM doit contenir exactement 6 chiffres';
+    }
+    
+    // Validation email
+    if (!formData.email.trim()) newErrors.email = 'L\'email est requis';
+    else if (!/^[^\s@]+@([^\s@.,]+\.)+[^\s@.,]{2,}$/.test(formData.email)) {
+      newErrors.email = 'Email invalide';
+    }
+    
+    // Validation téléphone
+    if (!formData.phone.trim()) newErrors.phone = 'Le téléphone est requis';
+    else {
+      const phoneNumbers = formData.phone.replace(/\D/g, '');
+      if (phoneNumbers.length !== 10) newErrors.phone = 'Le numéro doit contenir exactement 10 chiffres';
+      else if (!phoneNumbers.startsWith('02') && !phoneNumbers.startsWith('03')) {
+        newErrors.phone = 'Le numéro doit commencer par 02 ou 03';
       }
-    });
+    }
     
     setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Validation de l'étape 2
+  const validateStep2 = () => {
+    const newErrors = {};
+    if (!formData.password) newErrors.password = 'Le mot de passe est requis';
+    else if (formData.password.length < 8) newErrors.password = '8 caractères minimum';
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Les mots de passe ne correspondent pas';
+    }
     
-    // Vérifier si le formulaire est valide
-    const isValid = validateForm(formData);
-    setIsFormValid(isValid);
-  }, [formData, touched]);
-  
-  // Gestionnaire de changement avec formatage automatique du téléphone
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNextStep = () => {
+    if (validateStep1()) {
+      setStep(2);
+    }
+  };
+
+  const handlePrevStep = () => {
+    setStep(1);
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    if (name === 'phone') {
-      // Supprimer tout ce qui n'est pas un chiffre
-      let cleaned = value.replace(/\D/g, '');
-      
-      // Limiter à 10 chiffres
-      if (cleaned.length > 10) {
-        cleaned = cleaned.slice(0, 10);
-      }
-      
-      // Formater automatiquement (optionnel: pour afficher en format 02 xx xx xx xx)
-      let formatted = cleaned;
-      if (cleaned.length >= 2 && cleaned.length <= 10) {
-        // Vous pouvez décommenter pour un formatage automatique
-        // formatted = cleaned.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5').trim();
-      }
-      
-      setFormData(prev => ({
-        ...prev,
-        [name]: cleaned
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+    // Contrôle pour le nom (lettres uniquement)
+    if (name === 'firstName') {
+      // Autorise les lettres, accents, espaces et tirets
+      const filteredValue = value.replace(/[^a-zA-ZÀ-ÿ\s-]/g, '');
+      setFormData(prev => ({ ...prev, [name]: filteredValue }));
+      const nameError = validateName(filteredValue);
+      setErrors(prev => ({ ...prev, firstName: nameError }));
+    }
+    // Contrôle pour le numéro IM (chiffres uniquement)
+    else if (name === 'imNumber') {
+      const numbersOnly = value.replace(/\D/g, '');
+      const limitedValue = numbersOnly.slice(0, 6);
+      setFormData(prev => ({ ...prev, [name]: limitedValue }));
+      const imError = validateImNumber(limitedValue);
+      setErrors(prev => ({ ...prev, imNumber: imError }));
+    }
+    // Contrôle pour le téléphone (chiffres uniquement, format 02/03)
+    else if (name === 'phone') {
+      const numbersOnly = value.replace(/\D/g, '');
+      const limitedValue = numbersOnly.slice(0, 10);
+      setFormData(prev => ({ ...prev, [name]: limitedValue }));
+      const phoneError = validatePhone(limitedValue);
+      setErrors(prev => ({ ...prev, phone: phoneError }));
+    }
+    else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+      if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
-  
-  // Gestionnaire de focus (marquer le champ comme touché)
-  const handleBlur = (e) => {
-    const { name } = e.target;
-    setTouched(prev => ({
-      ...prev,
-      [name]: true
-    }));
-  };
-  
-  // Gestionnaire de soumission
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Marquer tous les champs comme touchés
-    const allFields = ['firstName', 'imNumber', 'email', 'phone', 'password', 'confirmPassword'];
-    const touchedFields = {};
-    allFields.forEach(field => {
-      touchedFields[field] = true;
-    });
-    setTouched(touchedFields);
-    
-    // Valider tous les champs
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateStep2()) return;
     
     setIsSubmitting(true);
-    
-    // Simuler l'envoi à une API
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      console.log('Données soumises:', formData);
+      console.log('Inscription:', formData);
       alert('Inscription réussie !');
       navigate('/login');
-      
     } catch (error) {
-      console.error('Erreur:', error);
-      alert('Une erreur est survenue. Veuillez réessayer.');
+      alert('Une erreur est survenue');
     } finally {
       setIsSubmitting(false);
     }
   };
-  
-  // Gestionnaire de retour
+
   const handleGoBack = () => {
     navigate(-1);
   };
-  
-  // Fonction pour afficher la force du mot de passe
-  const getPasswordStrength = () => {
-    const password = formData.password;
-    if (!password) return null;
-    
-    let strength = 0;
-    if (password.length >= 8) strength++;
-    if (/[a-z]/.test(password)) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    
-    const strengthMap = {
-      1: { text: 'Faible', color: 'text-red-500', bg: 'bg-red-100' },
-      2: { text: 'Moyen', color: 'text-orange-500', bg: 'bg-orange-100' },
-      3: { text: 'Fort', color: 'text-yellow-500', bg: 'bg-yellow-100' },
-      4: { text: 'Très fort', color: 'text-green-500', bg: 'bg-green-100' }
-    };
-    
-    return strengthMap[strength] || { text: 'Faible', color: 'text-red-500', bg: 'bg-red-100' };
+
+  // Formatage d'affichage du téléphone
+  const formatPhoneDisplay = (phone) => {
+    if (!phone) return '';
+    const numbers = phone.replace(/\D/g, '');
+    if (numbers.length === 10) {
+      return `${numbers.slice(0, 2)} ${numbers.slice(2, 4)} ${numbers.slice(4, 6)} ${numbers.slice(6, 8)} ${numbers.slice(8, 10)}`;
+    }
+    return phone;
   };
-  
-  const passwordStrength = getPasswordStrength();
-  
+
   return (
     <div className="font-sans antialiased text-slate-800">
       {/* Bouton Retour */}
       <button 
         onClick={handleGoBack}
         aria-label="Retour" 
-        className="fixed top-8 left-8 w-12 h-12 bg-white text-slate-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl hover:text-brand-blue transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 z-50"
+        className="fixed top-8 left-8 w-10 h-10 bg-white text-slate-600 rounded-full flex items-center justify-center shadow-md hover:shadow-lg hover:text-brand-blue transition-all duration-200 focus:outline-none z-50"
       >
         <span className="material-symbols-outlined">arrow_back</span>
       </button>
-      
-      {/* BEGIN: RegistrationCard */}
-      <main className="w-full bg-white main-card rounded-3xl md:rounded-4xl p-8 relative max-w-xl md:p-10 shadow-2xl" data-purpose="registration-form-container">
-        {/* HeaderSection avec logo/image */}
-        <header className="mb-8 text-center" data-purpose="form-header">
-          <div className="mb-6 flex justify-center">
-            <img 
-              src={logo} 
-              alt="Logo" 
-              className="h-16 w-auto object-contain"
-            />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-800 mb-2">Inscription Professeur</h1>
-          <p className="text-slate-500">Remplissez les détails ci-dessous pour créer votre compte académique.</p>
-        </header>
-        
-        {/* FormSection */}
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          {/* Row 1: Titre + Nom complet */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-slate-700" htmlFor="title">
-                Nom
-              </label>
-              <div className="relative flex items-center">
-                <div className={`flex w-full rounded-xl border ${errors.firstName && touched.firstName ? 'border-red-500' : 'border-slate-200'} bg-slate-50/50 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-brand-blue transition-all`}>
-                  <select 
-                    className="bg-transparent border-none text-sm font-semibold text-slate-700 pr-2 focus:ring-0 focus:outline-none cursor-pointer border-r border-slate-200 pl-4 py-3" 
-                    name="title" 
-                    id="title"
-                    value={formData.title}
-                    onChange={handleChange}
-                  >
-                    <option value="Pr">Pr</option>
-                    <option value="Dr">Dr</option>
-                    <option value="M.">Mr</option>
-                    <option value="Mme">Mme</option>
-                  </select>
-                  <input 
-                    className="w-full px-3 py-3 bg-transparent border-none text-sm focus:ring-0 focus:outline-none outline-none" 
-                    id="firstName" 
-                    name="firstName" 
-                    placeholder="Ex: Jean Dupont" 
-                    type="text"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    autoComplete="name"
-                  />
-                </div>
+
+      {/* Registration Card */}
+      <main className="bg-white main-card rounded-3xl md:rounded-4xl overflow-hidden relative max-w-[580px] w-full mx-auto" style={{ boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.08)', borderRadius: '2rem' }}>
+        {/* Stepper Header */}
+        <div className="bg-slate-50/50 border-b border-slate-100 p-8">
+          <div className="flex items-start justify-between max-w-sm mx-auto">
+            <div className="flex flex-col items-center">
+              <div 
+                className={`step-dot w-9 h-9 rounded-full flex items-center justify-center font-semibold transition-all z-10 ${
+                  step === 1 
+                    ? 'bg-sky-500 text-white' 
+                    : step > 1 
+                      ? 'bg-sky-500 text-white' 
+                      : 'bg-white border-2 border-slate-200 text-slate-400'
+                }`}
+              >
+                {step > 1 ? <span className="material-symbols-outlined text-lg">check</span> : '1'}
               </div>
-              {errors.firstName && touched.firstName && (
-                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">error</span>
-                  {errors.firstName}
-                </p>
-              )}
+              <span className={`text-[10px] font-bold mt-2 uppercase tracking-wider ${
+                step === 1 ? 'text-slate-500' : 'text-slate-400'
+              }`}>Information</span>
             </div>
-            
-            <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-slate-700" htmlFor="imNumber">
-                Numéro IM
-              </label>
-              <input 
-                className={`w-full px-4 py-3 rounded-xl border ${errors.imNumber && touched.imNumber ? 'border-red-500' : 'border-slate-200'} bg-slate-50/50 text-sm focus:ring-2 focus:ring-blue-500/20 transition-all outline-none pl-4`} 
-                id="imNumber" 
-                name="imNumber" 
-                placeholder="Ex: IM-123456" 
-                type="text"
-                value={formData.imNumber}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                autoComplete="off"
-              />
-              {errors.imNumber && touched.imNumber && (
-                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">error</span>
-                  {errors.imNumber}
-                </p>
-              )}
+            <div className="stepper-line h-[2px] bg-slate-200 flex-grow mx-2.5 relative top-[18px]"></div>
+            <div className="flex flex-col items-center">
+              <div 
+                className={`step-dot w-9 h-9 rounded-full flex items-center justify-center font-semibold transition-all z-10 ${
+                  step === 2 
+                    ? 'bg-sky-500 text-white' 
+                    : step > 2 
+                      ? 'bg-sky-500 text-white' 
+                      : 'bg-white border-2 border-slate-200 text-slate-400'
+                }`}
+              >
+                2
+              </div>
+              <span className={`text-[10px] font-bold mt-2 uppercase tracking-wider ${
+                step === 2 ? 'text-slate-500' : 'text-slate-400'
+              }`}>Sécurité</span>
             </div>
           </div>
-          
-          {/* Row 2: Email & Téléphone */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-slate-700" htmlFor="email">
-                Email professionnel
-              </label>
-              <input 
-                className={`w-full px-4 py-3 rounded-xl border ${errors.email && touched.email ? 'border-red-500' : 'border-slate-200'} bg-slate-50/50 text-sm focus:ring-2 focus:ring-blue-500/20 transition-all outline-none pl-4`} 
-                id="email" 
-                name="email" 
-                placeholder="prof@univ-emit.com" 
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                autoComplete="email"
-              />
-              {errors.email && touched.email && (
-                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">error</span>
-                  {errors.email}
-                </p>
-              )}
-            </div>
-            
-            <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-slate-700" htmlFor="phone">
-                Numéro de Téléphone
-              </label>
-              <input 
-                className={`w-full px-4 py-3 rounded-xl border ${errors.phone && touched.phone ? 'border-red-500' : 'border-slate-200'} bg-slate-50/50 text-sm focus:ring-2 focus:ring-blue-500/20 transition-all outline-none pl-4`} 
-                id="phone" 
-                name="phone" 
-                placeholder="02xxxxxxxx ou 03xxxxxxxx" 
-                type="tel"
-                value={formData.phone}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                autoComplete="tel"
-                maxLength="10"
-                inputMode="numeric"
-              />
-              {errors.phone && touched.phone && (
-                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">error</span>
-                  {errors.phone}
-                </p>
-              )}
-              {formData.phone && !errors.phone && touched.phone && (
-                <p className="text-green-500 text-xs mt-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">check_circle</span>
-                  Numéro valide (02 ou 03 suivi de 8 chiffres)
-                </p>
-              )}
-              {/* Indication des règles */}
-              {!touched.phone && (
-                <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">info</span>
-                  Doit commencer par 02 ou 03 et contenir 10 chiffres
-                </p>
-              )}
-            </div>
-          </div>
-          
-          {/* Row 3: Mot de passe & Confirmation */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-slate-700" htmlFor="password">
-                Mot de passe
-              </label>
-              <input 
-                className={`w-full px-4 py-3 rounded-xl border ${errors.password && touched.password ? 'border-red-500' : 'border-slate-200'} bg-slate-50/50 text-sm focus:ring-2 focus:ring-blue-500/20 transition-all outline-none pl-4`} 
-                id="password" 
-                name="password" 
-                placeholder="••••••••" 
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                autoComplete="new-password"
-              />
-              {errors.password && touched.password && (
-                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">error</span>
-                  {errors.password}
-                </p>
-              )}
-              {formData.password && !errors.password && touched.password && (
-                <>
-                  <div className="mt-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-600">Force du mot de passe:</span>
-                      <span className={`text-xs font-semibold ${passwordStrength?.color}`}>
-                        {passwordStrength?.text}
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1">
-                      <div 
-                        className={`h-1.5 rounded-full transition-all duration-300 ${
-                          passwordStrength?.text === 'Très fort' ? 'w-full bg-green-500' :
-                          passwordStrength?.text === 'Fort' ? 'w-3/4 bg-green-400' :
-                          passwordStrength?.text === 'Moyen' ? 'w-1/2 bg-yellow-500' :
-                          'w-1/4 bg-red-500'
-                        }`}
+        </div>
+
+        <div className="p-8 md:p-10">
+          <header className="mb-8 text-center">
+            <h2 className="text-xl font-bold text-slate-800 mb-2">
+              {step === 1 ? 'Informations de base' : 'Sécurité du compte'}
+            </h2>
+            <p className="text-sm text-slate-500">
+              {step === 1 
+                ? 'Remplissez les détails pour créer votre compte académique.' 
+                : 'Définissez votre mot de passe pour sécuriser votre accès.'}
+            </p>
+          </header>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* STEP 1: Information */}
+            <div className={`space-y-5 ${step !== 1 ? 'hidden' : ''}`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-semibold text-slate-700">Nom complet</label>
+                  <div className="relative flex items-center">
+                    <div className="flex w-full rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden focus-within:border-brand-blue transition-all">
+                      <select 
+                        name="title"
+                        value={formData.title}
+                        onChange={handleChange}
+                        className="bg-transparent border-none text-xs font-semibold text-slate-700 pr-2 focus:ring-0 cursor-pointer border-r border-slate-200 pl-3 py-3"
+                      >
+                        <option value="Pr">Pr</option>
+                        <option value="Dr">Dr</option>
+                        <option value="M.">M.</option>
+                        <option value="Mme">Mme</option>
+                      </select>
+                      <input 
+                        className="w-full px-3 py-3 bg-transparent border-none text-sm focus:ring-0 outline-none" 
+                        name="firstName"
+                        placeholder="Ex: Jean Dupont" 
+                        value={formData.firstName}
+                        onChange={handleChange}
+                        type="text"
                       />
                     </div>
                   </div>
-                  <ul className="text-xs text-slate-500 mt-2 space-y-0.5">
-                    <li className={formData.password.length >= 8 ? "text-green-600" : ""}>
-                      ✓ Au moins 8 caractères
-                    </li>
-                    <li className={/[a-z]/.test(formData.password) ? "text-green-600" : ""}>
-                      ✓ Au moins une minuscule
-                    </li>
-                    <li className={/[A-Z]/.test(formData.password) ? "text-green-600" : ""}>
-                      ✓ Au moins une majuscule
-                    </li>
-                    <li className={/[0-9]/.test(formData.password) ? "text-green-600" : ""}>
-                      ✓ Au moins un chiffre
-                    </li>
-                  </ul>
-                </>
-              )}
+                  {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-semibold text-slate-700">Numéro IM</label>
+                  <input 
+                    className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all focus:border-brand-blue focus:ring-4 focus:ring-blue-100 ${
+                      errors.imNumber ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/50'
+                    }`}
+                    name="imNumber"
+                    placeholder="123456" 
+                    value={formData.imNumber}
+                    onChange={handleChange}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                  />
+                  {errors.imNumber && <p className="text-red-500 text-xs mt-1">{errors.imNumber}</p>}
+                  {formData.imNumber && !errors.imNumber && formData.imNumber.length === 6 && (
+                    <p className="text-green-500 text-xs mt-1 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">check_circle</span>
+                      Numéro IM valide
+                    </p>
+                  )}
+                  <p className="text-[11px] text-slate-400">Format: 6 chiffres (ex: 123456)</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-semibold text-slate-700">Email professionnel</label>
+                  <input 
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm outline-none transition-all focus:border-brand-blue focus:ring-4 focus:ring-blue-100" 
+                    name="email"
+                    placeholder="prof@univ-emit.com" 
+                    value={formData.email}
+                    onChange={handleChange}
+                    type="email"
+                  />
+                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-semibold text-slate-700">Numéro de Téléphone</label>
+                  <input 
+                    className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all focus:border-brand-blue focus:ring-4 focus:ring-blue-100 ${
+                      errors.phone ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/50'
+                    }`}
+                    name="phone"
+                    placeholder="02 12 34 56 78" 
+                    value={formData.phone}
+                    onChange={handleChange}
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                  />
+                  {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                  {formData.phone && !errors.phone && formData.phone.length === 10 && (
+                    <p className="text-green-500 text-xs mt-1 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">check_circle</span>
+                      Numéro valide ({formData.phone.slice(0,2)} xx xx xx xx)
+                    </p>
+                  )}
+                  <p className="text-[11px] text-slate-400">Format: 10 chiffres, commence par 02 ou 03 (ex: 0212345678)</p>
+                </div>
+              </div>
+
+              <div className="pt-4 flex justify-end">
+                <button 
+                  type="button"
+                  onClick={handleNextStep}
+                  className="py-3.5 text-white font-bold shadow-lg shadow-slate-200 transition-all duration-200 flex items-center justify-center gap-2 bg-sky-400 rounded-xl px-8 hover:bg-sky-500"
+                >
+                  Étape suivante
+                  <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                </button>
+              </div>
             </div>
-            
-            <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-slate-700" htmlFor="confirmPassword">
-                Confirmation du mot de passe
-              </label>
-              <input 
-                className={`w-full px-4 py-3 rounded-xl border ${errors.confirmPassword && touched.confirmPassword ? 'border-red-500' : 'border-slate-200'} bg-slate-50/50 text-sm focus:ring-2 focus:ring-blue-500/20 transition-all outline-none pl-4`} 
-                id="confirmPassword" 
-                name="confirmPassword" 
-                placeholder="••••••••" 
-                type="password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                autoComplete="new-password"
-              />
-              {errors.confirmPassword && touched.confirmPassword && (
-                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">error</span>
-                  {errors.confirmPassword}
-                </p>
-              )}
-              {formData.confirmPassword && !errors.confirmPassword && touched.confirmPassword && (
-                <p className="text-green-500 text-xs mt-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">check_circle</span>
-                  Mots de passe identiques
-                </p>
-              )}
+
+            {/* STEP 2: Sécurité */}
+            <div className={`space-y-5 ${step !== 2 ? 'hidden' : ''}`}>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-semibold text-slate-700">Mot de passe</label>
+                <input 
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm outline-none transition-all focus:border-brand-blue focus:ring-4 focus:ring-blue-100" 
+                  name="password"
+                  placeholder="••••••••" 
+                  value={formData.password}
+                  onChange={handleChange}
+                  type="password"
+                />
+                <p className="text-[11px] text-slate-400">Utilisez au moins 8 caractères avec des lettres et chiffres.</p>
+                {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-sm font-semibold text-slate-700">Confirmation du mot de passe</label>
+                <input 
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm outline-none transition-all focus:border-brand-blue focus:ring-4 focus:ring-blue-100" 
+                  name="confirmPassword"
+                  placeholder="••••••••" 
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  type="password"
+                />
+                {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
+              </div>
+
+              <div className="pt-4 grid grid-cols-2 gap-4">
+                <button 
+                  type="button"
+                  onClick={handlePrevStep}
+                  className="py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-all duration-200"
+                >
+                  Précédent
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="py-3.5 bg-[#001f3c] text-white font-bold rounded-xl shadow-lg shadow-slate-200 hover:bg-[#002d56] transition-all duration-200 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Inscription...' : "S'inscrire"}
+                </button>
+              </div>
             </div>
-          </div>
-          
-          {/* Submit Button */}
-          <div className="pt-4">
-            <button 
-              className={`w-full py-4 text-white font-bold rounded-xl shadow-md shadow-blue-200 transition-all duration-200 active:scale-[0.98] ${
-                isSubmitting ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
-              }`}
-              style={{ backgroundColor: '#3ba7d6' }}
-              type="submit"
-              disabled={isSubmitting || !isFormValid}
-            >
-              {isSubmitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Inscription en cours...
-                </span>
-              ) : "S'inscrire"}
-            </button>
-          </div>
-          
-          {/* Footer Link */}
-          <div className="text-right pt-4">
-            <p className="text-sm text-slate-500">
-              Vous avez déjà un compte ? 
-              <a className="text-brand-blue font-semibold hover:underline ml-1" href="/login">Connexion</a>
-            </p>
-          </div>
-        </form>
+
+            {/* Footer Link */}
+            <div className="text-center pt-4">
+              <p className="text-sm text-slate-500">
+                Vous avez déjà un compte ? 
+                <a className="text-brand-blue font-semibold hover:underline ml-1" href="/login">Connexion</a>
+              </p>
+            </div>
+          </form>
+        </div>
       </main>
-      
+
       <style>{`
+        .main-card {
+          box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08);
+          max-width: 580px;
+          width: 100%;
+          border-radius: 2rem;
+        }
+        .stepper-line {
+          height: 2px;
+          background-color: #e2e8f0;
+          flex-grow: 1;
+          margin: 0 10px;
+          position: relative;
+          top: 18px;
+        }
+        .step-dot {
+          transition: all 0.3s ease;
+        }
+        input:focus {
+          border-color: #1a73e8 !important;
+          box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.1) !important;
+        }
         body {
           background: linear-gradient(135deg, #7ec9f5 0%, #ffffff 100%);
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 2rem;
+          padding: 1.5rem;
           margin: 0;
         }
-        .main-card {
-          box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.15);
-          border-radius: 2rem;
-        }
-        /* Pour les très grands écrans */
-        @media (min-width: 768px) {
-          .main-card {
-            border-radius: 2.5rem;
-          }
-        }
-        input:-webkit-autofill,
-        input:-webkit-autofill:focus {
-          transition: background-color 600000s 0s, color 600000s 0s;
+        .rounded-xl {
+          border-radius: 0.75rem;
         }
       `}</style>
     </div>
