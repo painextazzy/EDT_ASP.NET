@@ -76,7 +76,7 @@ const Login = () => {
                
             </div>
             <button type="button" className="text-[12px] font-bold text-slate-800 hover:text-indigo-600 transition-colors ">
-                  Mot de passe oublié ?
+                 <a href="/verify"> Mot de passe oublié ?</a>
                 </button>
 
             <button className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-black transition-all shadow-lg active:scale-[0.98]">

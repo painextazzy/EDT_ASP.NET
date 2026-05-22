@@ -3,6 +3,8 @@ import { Routes, Route } from "react-router-dom";
 import Accueil from "./pages/Accueil";
 import Login from "./pages/Login";
 import InscriptionProfesseur from "./pages/InscriptionProfesseur";
+import VerificationCode from './pages/VerificationCode';
+
 
 
 import DashboardAdmin from "./pages/DashboardAdmin/DashboardAdmin";
@@ -14,7 +16,8 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/inscription" element={<InscriptionProfesseur />} />
      
-     
+      <Route path="/verify" element={<VerificationCode />} />
+      
       <Route path="/admin/*" element={<DashboardAdmin />} />
       
       

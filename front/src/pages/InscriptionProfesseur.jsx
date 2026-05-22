@@ -121,7 +121,7 @@ const InscriptionProfesseur = () => {
     // Contrôle pour le numéro IM (chiffres uniquement)
     else if (name === 'imNumber') {
       const numbersOnly = value.replace(/\D/g, '');
-      const limitedValue = numbersOnly.slice(0, 6);
+      const limitedValue = numbersOnly.slice(0, 4);
       setFormData(prev => ({ ...prev, [name]: limitedValue }));
       const imError = validateImNumber(limitedValue);
       setErrors(prev => ({ ...prev, imNumber: imError }));
@@ -335,7 +335,7 @@ const InscriptionProfesseur = () => {
                 <button 
                   type="button"
                   onClick={handleNextStep}
-                  className="py-3.5 text-white font-bold shadow-lg shadow-slate-200 transition-all duration-200 flex items-center justify-center gap-2 bg-sky-400 rounded-xl px-8 hover:bg-sky-500"
+                  className="py-3.5 text-white font-bold shadow-lg shadow-slate-200 transition-all duration-200 flex items-center justify-center gap-2 bg-sky-400 rounded-2xl px-8 hover:bg-sky-500"
                 >
                   Étape suivante
                   <span className="material-symbols-outlined text-lg">arrow_forward</span>
@@ -376,14 +376,14 @@ const InscriptionProfesseur = () => {
                 <button 
                   type="button"
                   onClick={handlePrevStep}
-                  className="py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-all duration-200"
+                  className="py-3.5 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all duration-200"
                 >
                   Précédent
                 </button>
                 <button 
                   type="submit"
                   disabled={isSubmitting}
-                  className="py-3.5 bg-[#001f3c] text-white font-bold rounded-xl shadow-lg shadow-slate-200 hover:bg-[#002d56] transition-all duration-200 disabled:opacity-50"
+                  className="py-3.5 bg-[#001f3c] text-white font-bold rounded-2xl shadow-lg shadow-slate-200 hover:bg-[#002d56] transition-all duration-200 disabled:opacity-50"
                 >
                   {isSubmitting ? 'Inscription...' : "S'inscrire"}
                 </button>
