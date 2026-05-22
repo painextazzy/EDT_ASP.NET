@@ -6,6 +6,8 @@ import NavbarAdmin from "../../components/NavbarAdmin";
 import AffectationPage from "../../components/AffectationPage";
 import CoursAffectationsInterface from "../../components/CoursAffectationsInterface";
 import Salle from "../../components/Salle";
+import Demandes from "../../components/DemandesPage";
+import ProfesseursDemandesToggle from "../../components/ProfesseursDemandesToggle";
 
 const DashboardAdmin = () => {
   return (
@@ -19,6 +21,9 @@ const DashboardAdmin = () => {
             <Route path="/cours" element={<CoursAffectationsInterface />} />
             <Route path="/affectation" element={<AffectationPage />} />
             <Route path="/salles" element={<Salle />} />
+            <Route path="/demandes" element={<Demandes />} />
+            <Route path="/professeurs" element={<ProfesseursDemandesToggle />} />
+            
           </Routes>
         </main>
       </div>
