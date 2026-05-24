@@ -1,49 +1,165 @@
 // src/components/SidebarAdmin.jsx
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { useSidebar } from './SidebarContext';
+import { 
+  LayoutDashboard, 
+  CalendarDays, 
+  School, 
+  Users, 
+  DoorOpen, 
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles
+} from 'lucide-react';
 
 const SidebarAdmin = () => {
+  const { isSidebarOpen, closeSidebar, isCollapsed, toggleCollapse } = useSidebar();
+  const location = useLocation();
+
   const menuItems = [
-    { label: 'Tableau de bord', icon: 'dashboard', path: '/admin/dashboard' },
-    { label: 'Planning et Events', icon: 'calendar_today', path: '/admin/planning' },
-    { label: 'Cours & Affectation', icon: 'school', path: '/admin/cours' },
-    { label: 'Professeurs', icon: 'person', path: '/admin/professeurs' },
-    { label: 'Salles', icon: 'meeting_room', path: '/admin/salles' },
-    { label: 'Paramètres', icon: 'settings', path: '/admin/parametres' }
+    { label: 'Tableau de bord', icon: LayoutDashboard, path: '/admin/dashboard' },
+    { label: 'Planning', icon: CalendarDays, path: '/admin/planning' },
+    { label: 'Cours & Affectation', icon: School, path: '/admin/cours' },
+    { label: 'Professeurs', icon: Users, path: '/admin/professeurs' },
+    { label: 'Salles', icon: DoorOpen, path: '/admin/salles' },
+    { label: 'Paramètres', icon: Settings, path: '/admin/parametres' }
   ];
 
   return (
-    <aside className="h-screen w-60 flex flex-col fixed left-0 top-0 z-50 bg-[#edeef2] border-r border-[#c3c7c8]/10 shadow-xl py-8">
-      <div className="px-6 mb-10">
-        <div className="text-[#0ea5e9] text-2xl font-black tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
-          Calendar.
+    <div className="relative">
+      {/* Backdrop mobile */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 md:hidden z-30 backdrop-blur-sm animate-fadeIn"
+          onClick={closeSidebar}
+        />
+      )}
+
+      {/* Sidebar - Fond gris avec sélection bleue */}
+      <aside className={`
+        h-screen flex flex-col fixed left-0 top-0 z-50
+        bg-gray-100 border-r border-gray-200
+        shadow-lg transition-all duration-300 ease-in-out
+        ${isCollapsed ? 'w-20' : 'w-64'}
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+        
+        {/* Header avec logo */}
+        <div className={`
+          px-4 py-6 border-b border-gray-200
+          flex items-center justify-between
+          ${isCollapsed ? 'flex-col gap-4' : ''}
+        `}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            {!isCollapsed && (
+              <div>
+                <div className="text-gray-800 text-2xl font-bold tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  Calendar.
+                </div>
+                <div className="text-gray-500 text-[10px] tracking-wider">Gestion emploi du temps</div>
+              </div>
+            )}
+          </div>
+          
+          {/* Bouton toggle collapse */}
+          <button
+            onClick={toggleCollapse}
+            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-200 transition-all duration-200"
+            aria-label="Toggle sidebar"
+            title={isCollapsed ? "Agrandir" : "Réduire"}
+          >
+            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
         </div>
-      </div>
 
-      <nav className="flex-1 px-4">
-        <div className="space-y-1">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.label}
-              to={item.path}
-              className={({ isActive }) => `
-                flex items-center gap-4 px-4 py-3 rounded-lg transition-all duration-200
-                ${isActive 
-                  ? 'bg-[#0ea5e9] text-white font-bold' 
-                  : 'text-[#434749] hover:text-[#191c1f] hover:bg-[#e1e2e6]/50'
-                }
-              `}
-            >
-              <span className="material-symbols-outlined text-[24px]">{item.icon}</span>
-              <span className="font-medium text-[15px]">{item.label}</span>
-            </NavLink>
-          ))}
-        </div>
-      </nav>
+        {/* Navigation principale */}
+        <nav className="flex-1 px-3 py-6 overflow-y-auto custom-scrollbar">
+          <div className="space-y-1">
+            {menuItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              const Icon = item.icon;
+              
+              return (
+                <NavLink
+                  key={item.label}
+                  to={item.path}
+                  onClick={closeSidebar}
+                  className={`
+                    flex items-center gap-3 px-3 py-2.5 rounded-xl
+                    transition-all duration-200 group
+                    ${isCollapsed ? 'justify-center' : ''}
+                    ${isActive 
+                      ? 'bg-blue-500 text-white shadow-md' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
+                    }
+                  `}
+                  title={isCollapsed ? item.label : ''}
+                >
+                  <Icon className={`w-5 h-5 transition-all duration-200 ${isActive ? 'text-white' : 'group-hover:text-gray-800'}`} />
+                  {!isCollapsed && (
+                    <span className={`text-sm font-medium transition-all duration-200 ${isActive ? 'text-white' : 'group-hover:text-gray-900'}`}>
+                      {item.label}
+                    </span>
+                  )}
+                  {isActive && !isCollapsed && (
+                    <div className="ml-auto w-1.5 h-8 bg-white/50 rounded-full" />
+                  )}
+                  {isActive && isCollapsed && (
+                    <div className="absolute left-0 w-1 h-8 bg-blue-500 rounded-r-full" />
+                  )}
+                </NavLink>
+              );
+            })}
+          </div>
+        </nav>
 
+        {/* Version info en bas */}
+        {!isCollapsed && (
+          <div className="px-6 py-4 border-t border-gray-200">
+            <div className="text-center">
+              <p className="text-[10px] text-gray-400">Version 2.0.0</p>
+              <p className="text-[9px] text-gray-300 mt-0.5">© 2024 EMIT - Tous droits réservés</p>
+            </div>
+          </div>
+        )}
+        {isCollapsed && (
+          <div className="px-3 py-4 border-t border-gray-200">
+            <div className="text-center">
+              <p className="text-[8px] text-gray-400">v2.0</p>
+            </div>
+          </div>
+        )}
+      </aside>
 
-      
-    </aside>
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #e5e7eb;
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #9ca3af;
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #6b7280;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
+        }
+      `}</style>
+    </div>
   );
 };
 

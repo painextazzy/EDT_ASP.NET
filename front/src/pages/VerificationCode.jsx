@@ -1,7 +1,6 @@
+// src/components/VerificationCode.jsx (version ultra simple)
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// Import de l'image locale
-import backgroundImage from '../assets/EMIT.jpg';
 
 const VerificationCode = () => {
   const navigate = useNavigate();
@@ -10,114 +9,82 @@ const VerificationCode = () => {
   const [error, setError] = useState('');
 
   const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@([^\s@.,]+\.)+[^\s@.,]{2,}$/;
-    return emailRegex.test(email);
+    return /^[^\s@]+@([^\s@.,]+\.)+[^\s@.,]{2,}$/.test(email);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!email.trim()) {
-      setError('Veuillez entrer votre adresse email');
+      setError('Email requis');
       return;
     }
-    
     if (!validateEmail(email)) {
-      setError('Veuillez entrer une adresse email valide');
+      setError('Email invalide');
       return;
     }
-    
     setError('');
     setIsLoading(true);
-    
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('Email de vérification envoyé à:', email);
       navigate('/verify-otp', { state: { email } });
-    } catch (error) {
-      setError('Une erreur est survenue. Veuillez réessayer.');
+    } catch {
+      setError('Erreur');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCancel = () => {
-    navigate(-1);
-  };
-
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 font-sans">
-      {/* Background Image with Blur */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: `url(${backgroundImage})`,
-          filter: 'blur(8px)',
-          transform: 'scale(1.05)'
-        }}
-      />
-      
-      {/* Dark Overlay */}
-      <div className="absolute inset-0 bg-black/40" />
-
-      {/* Verification Modal */}
-      <main className="relative z-10 bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl shadow-black/20 p-8 md:p-12 text-center">
-        <header className="mb-8 flex flex-col items-center">
-          <div className="w-16 h-16 bg-brand/10 rounded-full flex items-center justify-center mb-6">
-            <span className="material-symbols-outlined text-brand text-3xl">mail</span>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+      <div className="bg-white rounded-2xl shadow-lg w-full max-w-md p-8">
+        {/* Icon */}
+        <div className="flex justify-center mb-6">
+          <div className="w-14 h-14 bg-blue-500 rounded-2xl flex items-center justify-center shadow-md">
+            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800 mb-2">Entrez votre e-mail</h1>
-          <p className="text-slate-500 text-sm">Entrez l'adresse e-mail associée à votre compte.</p>
-        </header>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8" id="otp-form">
-          <div className="relative flex items-center group">
-            <span className="material-symbols-outlined absolute left-4 text-slate-400 group-focus-within:text-brand transition-colors">
-              mail
-            </span>
-            <input 
-              className={`w-full pl-12 pr-4 py-4 border-2 rounded-2xl bg-slate-50 focus:border-brand focus:ring-4 focus:ring-brand/10 transition-all text-slate-700 font-medium placeholder:text-slate-400 outline-none ${
-                error ? 'border-red-500 focus:border-red-500' : 'border-slate-100'
-              }`}
-              id="email-input" 
-              placeholder="nom@exemple.com" 
-              required 
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (error) setError('');
-              }}
-            />
-          </div>
-          {error && <p className="text-red-500 text-sm text-left -mt-4">{error}</p>}
+        {/* Title */}
+        <h2 className="text-xl font-bold text-center text-gray-800 mb-2">Vérification email</h2>
+        <p className="text-sm text-center text-gray-500 mb-6">Entrez votre email pour recevoir un code</p>
 
-          <div className="flex gap-4 flex-row mt-8">
-            <button 
+        {/* Form */}
+        <form onSubmit={handleSubmit}>
+          <input
+            type="email"
+            placeholder="votre@email.com"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (error) setError('');
+            }}
+            className={`w-full px-4 py-3 border rounded-xl mb-3 outline-none transition-all ${
+              error ? 'border-red-500' : email && validateEmail(email) ? 'border-green-500' : 'border-gray-200'
+            } focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20`}
+          />
+          
+          {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
+
+          <div className="flex gap-3">
+            <button
               type="button"
-              onClick={handleCancel}
-              className="w-full border border-slate-200 bg-white text-slate-700 font-semibold py-4 rounded-2xl transition-colors hover:bg-slate-50 active:scale-[0.98]"
+              onClick={() => navigate(-1)}
+              className="flex-1 py-3 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
             >
-              Annuler
+              Retour
             </button>
-            <button 
+            <button
               type="submit"
-              disabled={isLoading}
-              className="w-full bg-brand hover:bg-brand-dark text-white font-semibold py-4 rounded-2xl transition-colors shadow-lg shadow-brand/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: '#0ea5e9' }}
+              disabled={isLoading || !email || !validateEmail(email)}
+              className="flex-1 py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors disabled:opacity-50"
             >
-              {isLoading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Envoi...</span>
-                </div>
-              ) : (
-                'Suivant'
-              )}
+              {isLoading ? 'Envoi...' : 'Envoyer'}
             </button>
           </div>
         </form>
-      </main>
+      </div>
     </div>
   );
 };

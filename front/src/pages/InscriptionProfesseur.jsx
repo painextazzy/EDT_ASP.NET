@@ -251,7 +251,7 @@ const InscriptionProfesseur = () => {
                       >
                         <option value="Pr">Pr</option>
                         <option value="Dr">Dr</option>
-                        <option value="M.">M.</option>
+                        <option value="M.">Mr</option>
                         <option value="Mme">Mme</option>
                       </select>
                       <input 
@@ -337,7 +337,7 @@ const InscriptionProfesseur = () => {
                   onClick={handleNextStep}
                   className="py-3.5 text-white font-bold shadow-lg shadow-slate-200 transition-all duration-200 flex items-center justify-center gap-2 bg-sky-400 rounded-2xl px-8 hover:bg-sky-500"
                 >
-                  Étape suivante
+                  suivant
                   <span className="material-symbols-outlined text-lg">arrow_forward</span>
                 </button>
               </div>
