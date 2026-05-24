@@ -10,7 +10,7 @@ import Salle from "../../components/Salle";
 import Demandes from "../../components/DemandesPage";
 import ProfesseursDemandesToggle from "../../components/ProfesseursDemandesToggle";
 import PlanningPage from "../../components/PlanningPage";
-
+import DashboardHome from "../../components/DashboardHome";
 const DashboardContent = () => {
   const { isSidebarOpen } = useSidebar();
   const [isMobile, setIsMobile] = useState(false);
@@ -55,7 +55,8 @@ const DashboardContent = () => {
         <NavbarAdmin />
         <main className="p-4 md:p-8">
           <Routes>
-            <Route path="/" element={<CoursAffectationsInterface />} />
+            <Route path="/" element={<DashboardHome />} />
+            <Route path="/cours-affectations" element={<CoursAffectationsInterface />} />
             <Route path="/cours" element={<CoursAffectationsInterface />} />
             <Route path="/affectation" element={<AffectationPage />} />
             <Route path="/salles" element={<Salle />} />

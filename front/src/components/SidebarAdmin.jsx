@@ -19,7 +19,7 @@ const SidebarAdmin = () => {
   const location = useLocation();
 
   const menuItems = [
-    { label: 'Tableau de bord', icon: LayoutDashboard, path: '/admin/dashboard' },
+    { label: 'Tableau de bord', icon: LayoutDashboard, path: '/admin' },
     { label: 'Planning', icon: CalendarDays, path: '/admin/planning' },
     { label: 'Cours & Affectation', icon: School, path: '/admin/cours' },
     { label: 'Professeurs', icon: Users, path: '/admin/professeurs' },
