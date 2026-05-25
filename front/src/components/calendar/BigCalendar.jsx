@@ -107,6 +107,8 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const notificationTimeoutRef = useRef(null);
   const [newEvent, setNewEvent] = useState({
     title: '',
     description: '',
@@ -117,6 +119,25 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     type: 'Cours',
     classe: 'L3 DA2I'
   });
+
+  // Nettoyer le timeout de notification
+  useEffect(() => {
+    return () => {
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const showNotification = (message, type) => {
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current);
+    }
+    setNotification({ show: true, message, type });
+    notificationTimeoutRef.current = setTimeout(() => {
+      setNotification({ show: false, message: '', type: '' });
+    }, 3000);
+  };
 
   const hours = ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
   const displayHours = ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
@@ -183,7 +204,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
 
   const handleAddEvent = () => {
     if (!newEvent.title || !newEvent.startDate) {
-      alert("Veuillez remplir le titre et la date");
+      showNotification("Veuillez remplir le titre et la date", 'error');
       return;
     }
 
@@ -232,6 +253,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
       type: 'Cours',
       classe: 'L3 DA2I'
     });
+    showNotification(`Cours "${newEvent.title}" ajouté avec succès`, 'success');
   };
 
   const handleOpenEditModal = (event) => {
@@ -246,7 +268,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
 
   const handleEditEvent = () => {
     if (!editingEvent.title) {
-      alert("Veuillez remplir le titre");
+      showNotification("Veuillez remplir le titre", 'error');
       return;
     }
 
@@ -270,12 +292,14 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     
     setIsEditModalOpen(false);
     setEditingEvent(null);
+    showNotification(`Cours "${editingEvent.title}" modifié avec succès`, 'success');
   };
 
   const handleDeleteEvent = () => {
     if (window.confirm(`Supprimer l'événement "${selectedEvent?.title}" ?`)) {
       setEvents(events.filter(e => e.id !== selectedEvent.id));
       setSelectedEvent(null);
+      showNotification(`Cours "${selectedEvent?.title}" supprimé avec succès`, 'success');
     }
   };
 
@@ -289,7 +313,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
 
   const handleSaveTimetable = () => {
     if (!selectedClasse) {
-      alert("Veuillez sélectionner une classe d'abord");
+      showNotification("Veuillez sélectionner une classe d'abord", 'error');
       return;
     }
     
@@ -319,7 +343,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
     
-    alert(`Emploi du temps pour ${selectedClasse} sauvegardé avec succès !`);
+    showNotification(`Emploi du temps pour ${selectedClasse} sauvegardé avec succès !`, 'success');
   };
 
   const handleRemoveCourse = (eventId, eventTitle) => {
@@ -328,6 +352,18 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
       if (selectedEvent && selectedEvent.id === eventId) {
         setSelectedEvent(null);
       }
+      showNotification(`Cours "${eventTitle}" supprimé avec succès`, 'success');
+    }
+  };
+
+  const getNotificationStyles = (type) => {
+    switch (type) {
+      case 'success':
+        return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+      case 'error':
+        return 'bg-rose-50 text-rose-800 border-rose-200';
+      default:
+        return 'bg-blue-50 text-blue-800 border-blue-200';
     }
   };
 
@@ -336,11 +372,31 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const titleClass = "text-xl font-semibold text-gray-800";
   const badgeClass = "ml-2 text-xs font-normal bg-gray-100 px-2 py-0.5 rounded-full text-gray-500";
   const navButtonClass = "p-2 hover:bg-gray-100 rounded-xl transition-colors";
-  const addButtonClass = "bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all shadow-sm";
-  const saveButtonClass = "bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all shadow-sm";
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="h-full flex flex-col bg-gray-50 rounded-2xl shadow-sm border border-gray-100 overflow-hidden relative">
+      {/* Notification Toast */}
+      {notification.show && (
+        <div className="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 animate-slideDown">
+          <div className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg border ${getNotificationStyles(notification.type)} min-w-[300px] max-w-md`}>
+            <div className="flex-shrink-0">
+              {notification.type === 'success' ? (
+                <span className="text-lg">✓</span>
+              ) : (
+                <span className="text-lg">✗</span>
+              )}
+            </div>
+            <p className="text-sm font-medium">{notification.message}</p>
+            <button 
+              onClick={() => setNotification({ show: false, message: '', type: '' })}
+              className="ml-auto text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header amélioré */}
       <header className={`${headerClass} px-6 py-4`}>
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -397,24 +453,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
                 </svg>
               </div>
             </div>
-
-            {/* Add button */}
-            <button 
-              onClick={() => setIsAddModalOpen(true)}
-              className={addButtonClass}
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Ajouter</span>
-            </button>
-
-            {/* Save button */}
-            <button 
-              onClick={handleSaveTimetable}
-              className={saveButtonClass}
-            >
-              <Save className="w-4 h-4" />
-              <span className="hidden sm:inline">Enregistrer</span>
-            </button>
           </div>
         </div>
       </header>
@@ -530,6 +568,25 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
           <span className="text-blue-600 font-medium">Affichage: {selectedClasse}</span>
         </div>
       </footer>
+
+      {/* Boutons FAB flottants */}
+      {/* Bouton Ajouter */}
+      <button 
+        onClick={() => setIsAddModalOpen(true)}
+        className="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 hover:bg-blue-700 active:scale-95 transition-all z-40"
+        title="Ajouter un cours"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      {/* Bouton Enregistrer */}
+      <button 
+        onClick={handleSaveTimetable}
+        className="fixed bottom-8 right-28 w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 hover:bg-green-700 active:scale-95 transition-all z-40"
+        title="Enregistrer l'emploi du temps"
+      >
+        <Save className="w-5 h-5" />
+      </button>
 
       {/* Modal d'ajout */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
@@ -858,6 +915,19 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: #94a3b8;
+        }
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translate(-50%, -100%);
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+        }
+        .animate-slideDown {
+          animation: slideDown 0.3s ease-out;
         }
       `}</style>
     </div>

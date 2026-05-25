@@ -8,7 +8,8 @@ import {
   School, 
   Users, 
   DoorOpen, 
-  Settings,
+  Save,
+  Layers,
   ChevronLeft,
   ChevronRight,
   Sparkles
@@ -24,7 +25,8 @@ const SidebarAdmin = () => {
     { label: 'Cours & Affectation', icon: School, path: '/admin/cours' },
     { label: 'Professeurs', icon: Users, path: '/admin/professeurs' },
     { label: 'Salles', icon: DoorOpen, path: '/admin/salles' },
-    { label: 'Paramètres', icon: Settings, path: '/admin/parametres' }
+    { label: 'Niveau & Parcours', icon: Layers, path: '/admin/niveaux-parcours' },
+    { label: 'Sauvegarde', icon: Save, path: '/admin/sauvegarde' }
   ];
 
   return (
@@ -53,7 +55,7 @@ const SidebarAdmin = () => {
           ${isCollapsed ? 'flex-col gap-4' : ''}
         `}>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+            <div className="w-8 h-8 bg-sky-500 rounded-xl flex items-center justify-center shadow-md">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             {!isCollapsed && (
@@ -94,7 +96,7 @@ const SidebarAdmin = () => {
                     transition-all duration-200 group
                     ${isCollapsed ? 'justify-center' : ''}
                     ${isActive 
-                      ? 'bg-blue-500 text-white shadow-md' 
+                      ? 'bg-sky-500 text-white shadow-md' 
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
                     }
                   `}

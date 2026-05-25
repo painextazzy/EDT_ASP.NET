@@ -1,3 +1,4 @@
+// src/components/CoursPage.jsx
 import React, { useState, useRef, useEffect } from 'react';
 
 const CoursPage = () => {
@@ -5,7 +6,11 @@ const CoursPage = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
-  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, course: null });
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const menuRef = useRef(null);
+  const notificationTimeoutRef = useRef(null);
+
   const [courses, setCourses] = useState([
     { id: 1, code: "INFO-402", name: "Algorithmique Avancée" },
     { id: 2, code: "INFO-305", name: "Architecture Réseaux" },
@@ -22,328 +27,376 @@ const CoursPage = () => {
 
   const [newCourse, setNewCourse] = useState({ code: '', name: '' });
   const [editCourse, setEditCourse] = useState({ code: '', name: '' });
-  const menuRef = useRef(null);
 
-  // Filtrer les cours
-  const filterCourses = () => {
-    if (searchTerm === '') return courses;
-    return courses.filter(course => 
-      course.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  };
-
-  // Fermer le menu contextuel quand on clique ailleurs
+  // Fermer le menu quand on clique ailleurs
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setContextMenu({ visible: false, x: 0, y: 0, course: null });
+        setOpenMenuId(null);
       }
     };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // Gestion du clic gauche sur un cours
-  const handleCourseClick = (event, course) => {
-    event.preventDefault();
-    setContextMenu({
-      visible: true,
-      x: event.clientX,
-      y: event.clientY,
-      course: course
-    });
+  // Nettoyer le timeout de notification
+  useEffect(() => {
+    return () => {
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const showNotification = (message, type) => {
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current);
+    }
+    setNotification({ show: true, message, type });
+    notificationTimeoutRef.current = setTimeout(() => {
+      setNotification({ show: false, message: '', type: '' });
+    }, 3000);
   };
 
-  // Gestion du clic droit sur un cours
-  const handleContextMenu = (event, course) => {
-    event.preventDefault();
-    setContextMenu({
-      visible: true,
-      x: event.clientX,
-      y: event.clientY,
-      course: course
-    });
-  };
+  const filteredCourses = courses.filter(course => 
+    course.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    course.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  // Fermer le menu
-  const closeContextMenu = () => {
-    setContextMenu({ visible: false, x: 0, y: 0, course: null });
+  const toggleMenu = (id, event) => {
+    event.stopPropagation();
+    setOpenMenuId(openMenuId === id ? null : id);
   };
 
   // Ajouter un cours
   const handleAddCourse = () => {
-    if (newCourse.code && newCourse.name) {
-      setCourses([...courses, { 
-        id: Date.now(), 
-        code: newCourse.code, 
-        name: newCourse.name 
-      }]);
-      setNewCourse({ code: '', name: '' });
-      setShowAddModal(false);
+    if (!newCourse.code || !newCourse.name) {
+      showNotification('Veuillez remplir tous les champs', 'error');
+      return;
     }
+    
+    setCourses([...courses, { 
+      id: Date.now(), 
+      code: newCourse.code, 
+      name: newCourse.name 
+    }]);
+    setNewCourse({ code: '', name: '' });
+    setShowAddModal(false);
+    showNotification(`Cours "${newCourse.name}" ajouté avec succès`, 'success');
   };
 
   // Ouvrir le modal de modification
-  const handleOpenEditModal = () => {
-    if (contextMenu.course) {
-      setEditingCourse(contextMenu.course);
-      setEditCourse({ code: contextMenu.course.code, name: contextMenu.course.name });
-      setShowEditModal(true);
-      closeContextMenu();
-    }
+  const handleOpenEditModal = (course) => {
+    setEditingCourse(course);
+    setEditCourse({ code: course.code, name: course.name });
+    setShowEditModal(true);
+    setOpenMenuId(null);
   };
 
   // Modifier un cours
   const handleEditCourse = () => {
-    if (editCourse.code && editCourse.name) {
-      setCourses(courses.map(course => 
-        course.id === editingCourse.id 
-          ? { ...course, code: editCourse.code, name: editCourse.name }
-          : course
-      ));
-      setShowEditModal(false);
-      setEditingCourse(null);
-      setEditCourse({ code: '', name: '' });
+    if (!editCourse.code || !editCourse.name) {
+      showNotification('Veuillez remplir tous les champs', 'error');
+      return;
     }
+    
+    setCourses(courses.map(course => 
+      course.id === editingCourse.id 
+        ? { ...course, code: editCourse.code, name: editCourse.name }
+        : course
+    ));
+    setShowEditModal(false);
+    setEditingCourse(null);
+    setEditCourse({ code: '', name: '' });
+    showNotification(`Cours "${editCourse.name}" modifié avec succès`, 'success');
   };
 
   // Supprimer un cours
-  const handleDeleteCourse = () => {
-    if (contextMenu.course) {
-      if (window.confirm(`Supprimer le cours "${contextMenu.course.name}" ?`)) {
-        setCourses(courses.filter(course => course.id !== contextMenu.course.id));
-      }
-      closeContextMenu();
+  const handleDeleteCourse = (course) => {
+    if (window.confirm(`Supprimer le cours "${course.name}" ?`)) {
+      setCourses(courses.filter(c => c.id !== course.id));
+      showNotification(`Cours "${course.name}" supprimé avec succès`, 'success');
+    }
+    setOpenMenuId(null);
+  };
+
+  const getNotificationStyles = (type) => {
+    switch (type) {
+      case 'success':
+        return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+      case 'error':
+        return 'bg-rose-50 text-rose-800 border-rose-200';
+      default:
+        return 'bg-blue-50 text-blue-800 border-blue-200';
     }
   };
 
-  const filteredCourses = filterCourses();
-
   return (
-    <div>
-      {/* Barre de recherche */}
-      <div className="mb-8">
-        <div className="relative w-full max-w-lg">
-          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">
-            search
-          </span>
-          <input
-            type="text"
-            placeholder="Rechercher un cours par code ou libellé..."
-            className="w-full pl-12 pr-4 py-2 bg-white border border-outline-variant rounded-lg text-sm focus:outline-none focus:ring-2 transition-all focus:ring-sky-500/20 focus:border-sky-500"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ borderColor: '#c3c7c8' }}
-          />
-        </div>
-      </div>
-
-      {/* Liste des cours en puces */}
-      <div className="flex flex-wrap gap-3">
-        {filteredCourses.map((course) => (
-          <div
-            key={course.id}
-            className="group bg-white rounded-lg border border-outline-variant shadow-sm hover:shadow-md transition-all cursor-pointer"
-            style={{ backgroundColor: '#ffffff', borderColor: '#c3c7c8' }}
-            onClick={(e) => handleCourseClick(e, course)}
-            onContextMenu={(e) => handleContextMenu(e, course)}
-          >
-            <div className="px-4 py-2 flex items-center">
-              <span className="font-mono font-bold tracking-wider mr-3 text-sky-500 text-sm">
-                {course.code}
-              </span>
-              <span className="text-sm text-on-surface-variant font-medium">
-                {course.name}
-              </span>
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Notification Toast */}
+      {notification.show && (
+        <div className="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 animate-slideDown">
+          <div className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg border ${getNotificationStyles(notification.type)} min-w-[300px] max-w-md`}>
+            <div className="flex-shrink-0">
+              {notification.type === 'success' ? (
+                <span className="material-symbols-outlined text-lg">check_circle</span>
+              ) : (
+                <span className="material-symbols-outlined text-lg">error</span>
+              )}
             </div>
+            <p className="text-sm font-medium">{notification.message}</p>
+            <button 
+              onClick={() => setNotification({ show: false, message: '', type: '' })}
+              className="ml-auto text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">close</span>
+            </button>
           </div>
-        ))}
+        </div>
+      )}
+
+      
+
+      {/* Barre de recherche */}
+      <div className="relative max-w-md">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <span className="material-symbols-outlined text-gray-400 text-sm">search</span>
+        </div>
+        <input
+          type="text"
+          placeholder="Rechercher un cours par code ou libellé..."
+          className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
 
-      {/* Menu contextuel personnalisé */}
-      {contextMenu.visible && (
-        <div
-          ref={menuRef}
-          className="fixed bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 min-w-[160px]"
-          style={{
-            top: contextMenu.y,
-            left: contextMenu.x,
-            position: 'fixed'
-          }}
-        >
-          <button 
-            onClick={handleOpenEditModal}
-            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors"
-          >
-            <span className="material-symbols-outlined text-sm">edit</span>
-            Modifier
-          </button>
-          <button 
-            onClick={handleDeleteCourse}
-            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-          >
-            <span className="material-symbols-outlined text-sm">delete</span>
-            Supprimer
-          </button>
+      {/* Liste des cours */}
+      <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Code</th>
+                <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom du cours</th>
+                <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredCourses.map((course) => (
+                <tr key={course.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="py-3 px-6">
+                    <span className="text-sm font-mono font-semibold text-blue-600">{course.code}</span>
+                  </td>
+                  <td className="py-3 px-6">
+                    <span className="text-sm text-gray-700">{course.name}</span>
+                  </td>
+                  <td className="py-3 px-6">
+                    <div className="relative">
+                      <button
+                        onClick={(e) => toggleMenu(course.id, e)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[18px] text-gray-400">more_vert</span>
+                      </button>
+                      {openMenuId === course.id && (
+                        <div 
+                          ref={menuRef}
+                          className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 animate-fadeIn"
+                        >
+                          <button
+                            onClick={() => handleOpenEditModal(course)}
+                            className="w-full text-left px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 flex items-center gap-2 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-sm">edit</span>
+                            Modifier
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCourse(course)}
+                            className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                            Supprimer
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
 
-      {/* Message si aucun résultat */}
-      {filteredCourses.length === 0 && (
-        <div className="text-center py-12">
-          <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#cbd5e1' }}>search_off</span>
-          <p className="mt-2 text-on-surface-variant">Aucun cours trouvé</p>
-        </div>
-      )}
+        {/* Message si aucun résultat */}
+        {filteredCourses.length === 0 && (
+          <div className="text-center py-12">
+            <span className="material-symbols-outlined text-5xl text-gray-300">search_off</span>
+            <p className="mt-2 text-gray-500">Aucun cours trouvé</p>
+            <p className="text-sm text-gray-400">Essayez de modifier vos critères de recherche</p>
+          </div>
+        )}
+      </div>
 
-      {/* Bouton FAB flottant */}
+      {/* Bouton FAB flottant pour ajouter */}
       <button 
         onClick={() => setShowAddModal(true)}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-sky-500 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-50"
+        className="fixed bottom-8 right-8 w-14 h-14 bg-sky-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 hover:bg-blue-700 active:scale-95 transition-all z-50"
       >
         <span className="material-symbols-outlined text-[28px]">add</span>
       </button>
 
       {/* Modal d'ajout */}
       {showAddModal && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center backdrop-blur-sm"
-          onClick={() => setShowAddModal(false)}
-        >
+        <>
           <div 
-            className="bg-white rounded-xl max-w-md w-full mx-4 overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-5 border-b border-outline-variant" style={{ borderColor: '#e2e8f0' }}>
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-on-surface">Ajouter un cours</h3>
+            className="fixed inset-0 backdrop-blur-md bg-white/30 z-40 animate-fadeIn"
+            onClick={() => setShowAddModal(false)}
+          />
+          <div className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-scaleIn">
+            <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
+              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                <h2 className="text-lg font-semibold">Ajouter un cours</h2>
                 <button 
-                  onClick={() => setShowAddModal(false)}
-                  className="p-2 hover:bg-surface-container rounded-lg transition-colors"
+                  onClick={() => setShowAddModal(false)} 
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
-            </div>
-
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-on-surface-variant mb-1">
-                  Code du cours
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
-                  placeholder="Ex: INFO-999"
-                  value={newCourse.code}
-                  onChange={(e) => setNewCourse({ ...newCourse, code: e.target.value })}
-                  style={{ borderColor: '#c3c7c8' }}
-                />
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Code du cours *</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    placeholder="Ex: INFO-999"
+                    value={newCourse.code}
+                    onChange={(e) => setNewCourse({ ...newCourse, code: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nom du cours *</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    placeholder="Ex: Nouveau cours"
+                    value={newCourse.name}
+                    onChange={(e) => setNewCourse({ ...newCourse, name: e.target.value })}
+                  />
+                </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-on-surface-variant mb-1">
-                  Nom du cours
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
-                  placeholder="Ex: Nouveau cours"
-                  value={newCourse.name}
-                  onChange={(e) => setNewCourse({ ...newCourse, name: e.target.value })}
-                  style={{ borderColor: '#c3c7c8' }}
-                />
+              <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+                <button 
+                  onClick={() => setShowAddModal(false)} 
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button 
+                  onClick={handleAddCourse}
+                  className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Ajouter
+                </button>
               </div>
-            </div>
-
-            <div className="p-5 border-t border-outline-variant flex justify-end gap-3" style={{ borderColor: '#e2e8f0' }}>
-              <button 
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-on-surface-variant hover:bg-surface-container transition-colors"
-              >
-                Annuler
-              </button>
-              <button 
-                onClick={handleAddCourse}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-sky-500 text-white hover:bg-sky-600 transition-colors"
-              >
-                Ajouter
-              </button>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Modal de modification */}
       {showEditModal && editingCourse && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center backdrop-blur-sm"
-          onClick={() => setShowEditModal(false)}
-        >
+        <>
           <div 
-            className="bg-white rounded-xl max-w-md w-full mx-4 overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-5 border-b border-outline-variant" style={{ borderColor: '#e2e8f0' }}>
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-on-surface">Modifier le cours</h3>
+            className="fixed inset-0 backdrop-blur-md bg-white/30 z-40 animate-fadeIn"
+            onClick={() => setShowEditModal(false)}
+          />
+          <div className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-scaleIn">
+            <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
+              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                <h2 className="text-lg font-semibold">Modifier le cours</h2>
                 <button 
-                  onClick={() => setShowEditModal(false)}
-                  className="p-2 hover:bg-surface-container rounded-lg transition-colors"
+                  onClick={() => setShowEditModal(false)} 
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
-            </div>
-
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-on-surface-variant mb-1">
-                  Code du cours
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
-                  placeholder="Ex: INFO-999"
-                  value={editCourse.code}
-                  onChange={(e) => setEditCourse({ ...editCourse, code: e.target.value })}
-                  style={{ borderColor: '#c3c7c8' }}
-                />
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Code du cours *</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    value={editCourse.code}
+                    onChange={(e) => setEditCourse({ ...editCourse, code: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nom du cours *</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    value={editCourse.name}
+                    onChange={(e) => setEditCourse({ ...editCourse, name: e.target.value })}
+                  />
+                </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-on-surface-variant mb-1">
-                  Nom du cours
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
-                  placeholder="Ex: Nouveau cours"
-                  value={editCourse.name}
-                  onChange={(e) => setEditCourse({ ...editCourse, name: e.target.value })}
-                  style={{ borderColor: '#c3c7c8' }}
-                />
+              <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+                <button 
+                  onClick={() => setShowEditModal(false)} 
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button 
+                  onClick={handleEditCourse}
+                  className="px-4 py-2 bg-sky-500 text-white rounded-lg"
+                >
+                  Enregistrer
+                </button>
               </div>
-            </div>
-
-            <div className="p-5 border-t border-outline-variant flex justify-end gap-3" style={{ borderColor: '#e2e8f0' }}>
-              <button 
-                onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-on-surface-variant hover:bg-surface-container transition-colors"
-              >
-                Annuler
-              </button>
-              <button 
-                onClick={handleEditCourse}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-sky-500 text-white hover:bg-sky-600 transition-colors"
-              >
-                Enregistrer
-              </button>
             </div>
           </div>
-        </div>
+        </>
       )}
+
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes scaleIn {
+          from { 
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to { 
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translate(-50%, -100%);
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
+        }
+        .animate-scaleIn {
+          animation: scaleIn 0.2s ease-out;
+        }
+        .animate-slideDown {
+          animation: slideDown 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };

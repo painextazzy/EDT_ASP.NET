@@ -159,12 +159,7 @@ const Salle = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-sans p-6 md:p-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-          Gestion des Salles
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">Consultez et gérez toutes les salles disponibles</p>
-      </div>
+    
 
       {/* Filters bar */}
       <div className="flex flex-wrap items-center gap-3 mb-8">
