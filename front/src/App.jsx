@@ -4,6 +4,7 @@ import Accueil from "./pages/Accueil";
 import Login from "./pages/Login";
 import InscriptionProfesseur from "./pages/InscriptionProfesseur";
 import VerificationCode from './pages/VerificationCode';
+import NiveauxParcours from './components/NiveauxParcours';
 
 
 
@@ -19,6 +20,7 @@ function App() {
       <Route path="/verify" element={<VerificationCode />} />
       
       <Route path="/admin/*" element={<DashboardAdmin />} />
+      <Route path="/niveaux-parcours" element={<NiveauxParcours />} /> 
       
       
     </Routes>

@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "YTkN4ORoum8=",
+  "dgSpecHash": "mbjCwNpWeBM=",
   "success": true,
-  "projectFilePath": "C:\\Users\\PAIN\\Desktop\\ASP\\EDT_ASP.NET\\back\\back.csproj",
+  "projectFilePath": "E:\\ASP.Net\\EDT_ASP.NET\\back\\back.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\PAIN\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.8\\microsoft.aspnetcore.openapi.10.0.8.nupkg.sha512",
-    "C:\\Users\\PAIN\\.nuget\\packages\\microsoft.openapi\\2.0.0\\microsoft.openapi.2.0.0.nupkg.sha512"
+    "C:\\Users\\lenovo\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.8\\microsoft.aspnetcore.openapi.10.0.8.nupkg.sha512",
+    "C:\\Users\\lenovo\\.nuget\\packages\\microsoft.openapi\\2.0.0\\microsoft.openapi.2.0.0.nupkg.sha512"
   ],
   "logs": []
 }
