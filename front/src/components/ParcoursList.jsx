@@ -30,12 +30,12 @@ const ParcoursList = ({ items, onAdd, onUpdate, onDelete }) => {
 
   return (
     <>
-      {/* Grille avec plus d'espace entre les cartes */}
+      {/* Grille 5 colonnes avec grand gap */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
-        {/* Carte "Ajouter" avec plus de padding */}
+        {/* Carte "Ajouter" avec padding intérieur augmenté */}
         <div
           onClick={() => setShowAddModal(true)}
-          className="bg-white border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 text-gray-400 hover:text-sky-500 hover:border-sky-500 transition-all cursor-pointer group min-h-[240px]"
+          className="bg-white border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 text-gray-400 hover:text-sky-500 hover:border-sky-500 transition-all cursor-pointer group min-h-[240px]"
         >
           <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-sky-50 transition-colors">
             <Plus className="w-6 h-6 text-gray-400 group-hover:text-sky-500" />
@@ -43,16 +43,16 @@ const ParcoursList = ({ items, onAdd, onUpdate, onDelete }) => {
           <span className="font-semibold text-sm uppercase tracking-wider text-center">Ajouter un parcours</span>
         </div>
 
-        {/* Cartes des parcours existants */}
+        {/* Cartes existantes */}
         {items.map((item) => (
           <div key={item.id}>
             {editId === item.id ? (
-              <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 space-y-3 min-h-[240px] flex flex-col justify-center">
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-5 space-y-3 min-h-[240px] flex flex-col justify-center">
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
                   autoFocus
                 />
                 <div className="flex justify-end gap-2">
@@ -82,7 +82,7 @@ const ParcoursList = ({ items, onAdd, onUpdate, onDelete }) => {
         ))}
       </div>
 
-      {/* Modal d'ajout - inchangée mais avec plus de padding interne */}
+      {/* Modal d'ajout (inchangée mais avec plus de padding) */}
       {showAddModal && (
         <>
           <div
@@ -100,20 +100,20 @@ const ParcoursList = ({ items, onAdd, onUpdate, onDelete }) => {
                   placeholder="Nom du parcours"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
                   onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
                 />
               </div>
               <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm"
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
                 >
                   Annuler
                 </button>
                 <button
                   onClick={handleAdd}
-                  className="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition shadow-sm text-sm"
+                  className="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition shadow-sm"
                 >
                   Ajouter
                 </button>

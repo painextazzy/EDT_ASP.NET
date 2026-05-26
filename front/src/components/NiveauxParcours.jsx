@@ -1,9 +1,9 @@
 // src/components/NiveauxParcours.jsx
 import React, { useState } from 'react';
-import { useLocalStorage } from '../hooks/useLocalStorage';
 import ParcoursList from './ParcoursList';
 import NiveauxList from './NiveauxList';
 
+// Données initiales fixes
 const initialParcours = [
   { id: 1, name: "Administration Économique et Sociale", icon: "account_balance" },
   { id: 2, name: "Dév. et Administration de l'Infra.", icon: "terminal" },
@@ -20,9 +20,10 @@ const initialNiveaux = [
 
 const NiveauxParcours = () => {
   const [activeTab, setActiveTab] = useState('parcours');
-  const [parcours, setParcours] = useLocalStorage('admin_parcours', initialParcours);
-  const [niveaux, setNiveaux] = useLocalStorage('admin_niveaux', initialNiveaux);
+  const [parcours, setParcours] = useState(initialParcours);
+  const [niveaux, setNiveaux] = useState(initialNiveaux);
 
+  // CRUD Parcours
   const addParcours = (name) => {
     const newId = Date.now();
     setParcours([...parcours, { id: newId, name, icon: 'school' }]);
@@ -38,6 +39,7 @@ const NiveauxParcours = () => {
     }
   };
 
+  // CRUD Niveaux
   const addNiveau = (name) => {
     const newId = Date.now();
     setNiveaux([...niveaux, { id: newId, name, code: name.substring(0, 3).toUpperCase() }]);
@@ -54,13 +56,13 @@ const NiveauxParcours = () => {
   };
 
   return (
-    <div className="space-y-8 p-2 md:p-4">
+    <div className="space-y-8 px-4 md:px-6 py-6">
       {/* Onglets */}
       <div className="flex justify-center">
-        <div className="inline-flex bg-white/50 backdrop-blur-sm p-1.5 rounded-full shadow-sm border border-gray-200">
+        <div className="inline-flex bg-white/50 backdrop-blur-sm p-1 rounded-full shadow-sm border border-gray-200">
           <button
             onClick={() => setActiveTab('parcours')}
-            className={`px-6 py-2 text-sm font-medium rounded-full transition-all duration-200 ${
+            className={`px-6 py-2.5 text-sm font-medium rounded-full transition-all duration-200 ${
               activeTab === 'parcours'
                 ? 'bg-sky-500 text-white shadow-md transform scale-105'
                 : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -71,7 +73,7 @@ const NiveauxParcours = () => {
           </button>
           <button
             onClick={() => setActiveTab('niveaux')}
-            className={`px-6 py-2 text-sm font-medium rounded-full transition-all duration-200 ${
+            className={`px-6 py-2.5 text-sm font-medium rounded-full transition-all duration-200 ${
               activeTab === 'niveaux'
                 ? 'bg-sky-500 text-white shadow-md transform scale-105'
                 : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -83,24 +85,22 @@ const NiveauxParcours = () => {
         </div>
       </div>
 
-      {/* Contenu avec marge supplémentaire */}
-      <div className="mt-6">
-        {activeTab === 'parcours' ? (
-          <ParcoursList
-            items={parcours}
-            onAdd={addParcours}
-            onUpdate={updateParcours}
-            onDelete={deleteParcours}
-          />
-        ) : (
-          <NiveauxList
-            items={niveaux}
-            onAdd={addNiveau}
-            onUpdate={updateNiveau}
-            onDelete={deleteNiveau}
-          />
-        )}
-      </div>
+      {/* Contenu */}
+      {activeTab === 'parcours' ? (
+        <ParcoursList
+          items={parcours}
+          onAdd={addParcours}
+          onUpdate={updateParcours}
+          onDelete={deleteParcours}
+        />
+      ) : (
+        <NiveauxList
+          items={niveaux}
+          onAdd={addNiveau}
+          onUpdate={updateNiveau}
+          onDelete={deleteNiveau}
+        />
+      )}
     </div>
   );
 };
