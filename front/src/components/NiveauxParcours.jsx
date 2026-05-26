@@ -69,7 +69,7 @@ const NiveauxParcours = () => {
             }`}
             style={activeTab === 'parcours' ? { boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' } : {}}
           >
-            Parcours
+            Mention
           </button>
           <button
             onClick={() => setActiveTab('niveaux')}

@@ -4,7 +4,7 @@ import Accueil from "./pages/Accueil";
 import Login from "./pages/Login";
 import InscriptionProfesseur from "./pages/InscriptionProfesseur";
 import VerificationCode from './pages/VerificationCode';
-
+import CalendarInterface from "./pages/client/CalendarInterface";
 
 
 import DashboardAdmin from "./pages/DashboardAdmin/DashboardAdmin";
@@ -17,7 +17,7 @@ function App() {
       <Route path="/inscription" element={<InscriptionProfesseur />} />
      
       <Route path="/verify" element={<VerificationCode />} />
-      
+      <Route path="/enseignant" element={<CalendarInterface />} />
       <Route path="/admin/*" element={<DashboardAdmin />} />
       
       

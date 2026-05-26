@@ -12,6 +12,8 @@ import ProfesseursDemandesToggle from "../../components/ProfesseursDemandesToggl
 import PlanningPage from "../../components/PlanningPage";
 import DashboardHome from "../../components/DashboardHome";
 import Sauvegarde from "../../components/SauvegardePage";
+import NiveauxParcours from "../../components/NiveauxParcours";
+
 const DashboardContent = () => {
   const { isSidebarOpen } = useSidebar();
   const [isMobile, setIsMobile] = useState(false);
@@ -65,6 +67,7 @@ const DashboardContent = () => {
             <Route path="/professeurs" element={<ProfesseursDemandesToggle />} />
             <Route path="/planning" element={<PlanningPage />} />
             <Route path="/sauvegarde" element={<Sauvegarde />} />
+            <Route path="/niveaux-parcours" element={<NiveauxParcours />} />
           </Routes>
         </main>
       </div>
