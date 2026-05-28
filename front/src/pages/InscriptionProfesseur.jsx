@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from './../services/api';
 
 const InscriptionProfesseur = () => {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ const InscriptionProfesseur = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const API_URL = import.meta.env.VITE_API_URL;
   // Validation en temps réel pour le nom (lettres uniquement)
   const validateName = (value) => {
     if (!value) return '';
@@ -121,7 +123,7 @@ const InscriptionProfesseur = () => {
     // Contrôle pour le numéro IM (chiffres uniquement)
     else if (name === 'imNumber') {
       const numbersOnly = value.replace(/\D/g, '');
-      const limitedValue = numbersOnly.slice(0, 4);
+      const limitedValue = numbersOnly.slice(0, 6);
       setFormData(prev => ({ ...prev, [name]: limitedValue }));
       const imError = validateImNumber(limitedValue);
       setErrors(prev => ({ ...prev, imNumber: imError }));
@@ -140,22 +142,36 @@ const InscriptionProfesseur = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateStep2()) return;
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!validateStep2()) return;
+  
+  setIsSubmitting(true);
+  try {
+    const data = {
+      title: formData.title,
+      firstName: formData.firstName,
+      imNumber: formData.imNumber,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password
+    };
     
-    setIsSubmitting(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('Inscription:', formData);
-      alert('Inscription réussie !');
+    const result = await api.inscription.inscrireProfesseur(data);
+    
+    if (result.success) {
+      alert(result.message);
       navigate('/login');
-    } catch (error) {
-      alert('Une erreur est survenue');
-    } finally {
-      setIsSubmitting(false);
+    } else {
+      alert(result.message || 'Une erreur est survenue');
     }
-  };
+  } catch (error) {
+    console.error('Erreur:', error);
+    alert(error.message || 'Erreur de connexion au serveur');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleGoBack = () => {
     navigate(-1);

@@ -1,29 +1,45 @@
-using GestionSalles.API.Models;
 using Microsoft.EntityFrameworkCore;
+using back.Models;
 
-namespace GestionSalles.API.Data;
-
-public class AppDbContext : DbContext
+namespace back.Data
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
-
-    public DbSet<Salle> Salles { get; set; }
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    public class AppDbContext : DbContext
     {
-        base.OnModelCreating(modelBuilder);
+        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        // Contrainte unicité : même numéro de salle dans le même bâtiment
-        modelBuilder.Entity<Salle>()
-            .ToTable("salle");
+        public DbSet<Utilisateur> Utilisateurs { get; set; }
+        public DbSet<Enseignant> Enseignants { get; set; }
 
-        modelBuilder.Entity<Salle>()
-            .HasIndex(s => new { s.NomSalle, s.Batiment })
-            .IsUnique()
-            .HasDatabaseName("IX_Salle_NomSalle_Batiment");
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<Salle>()
-            .Property(s => s.Etage)
-            .HasDefaultValue(0);
+            modelBuilder.Entity<Utilisateur>(entity =>
+            {
+                entity.ToTable("utilisateur");
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.Email).HasColumnName("email");
+                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+                entity.Property(e => e.PasswordHash).HasColumnName("password_hash");
+                entity.Property(e => e.EstValide).HasColumnName("est_valide");
+                entity.Property(e => e.Role).HasColumnName("role");
+                entity.HasIndex(e => e.Email).IsUnique();
+            });
+
+            modelBuilder.Entity<Enseignant>(entity =>
+            {
+                entity.ToTable("enseignant");
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.Im).HasColumnName("im");
+                entity.Property(e => e.Nom).HasColumnName("nom");
+                entity.Property(e => e.PhotoUrl).HasColumnName("photo_url");
+                entity.Property(e => e.IdUtilisateur).HasColumnName("id_utilisateur");
+                entity.HasIndex(e => e.Im).IsUnique();
+                entity.HasOne(e => e.Utilisateur)
+                      .WithMany()
+                      .HasForeignKey(e => e.IdUtilisateur)
+                      .OnDelete(DeleteBehavior.SetNull);
+            });
+        }
     }
 }

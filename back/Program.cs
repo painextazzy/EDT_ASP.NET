@@ -1,65 +1,52 @@
-using GestionSalles.API.Data;
-using GestionSalles.API.Middleware;
-using GestionSalles.API.Services;
 using Microsoft.EntityFrameworkCore;
+using DotNetEnv;
+using back.Data;
+using back.Services;  // ← Ajouter cette ligne
+
+Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ─── Services ───────────────────────────────────────────────────────────────
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
+// Configuration CORS
+builder.Services.AddCors(options =>
 {
-    c.SwaggerDoc("v1", new()
+    options.AddPolicy("AllowAll", policy =>
     {
-        Title = "Gestion des Salles API",
-        Version = "v1",
-        Description = "API RESTful pour la gestion des salles par bâtiment et étage."
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
     });
 });
 
-// PostgreSQL + EF Core
+// Base de données
+var host = Environment.GetEnvironmentVariable("DB_HOST");
+var port = Environment.GetEnvironmentVariable("DB_PORT");
+var database = Environment.GetEnvironmentVariable("DB_NAME");
+var username = Environment.GetEnvironmentVariable("DB_USER");
+var password = Environment.GetEnvironmentVariable("DB_PASSWORD");
+
+var connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password}";
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
-           .UseSnakeCaseNamingConvention());
+    options.UseNpgsql(connectionString));
 
-// Injection de dépendances
-builder.Services.AddScoped<ISalleService, SalleService>();
+// Ajouter les services
+builder.Services.AddScoped<InscriptionService>();  // ← Ajouter cette ligne
 
-// CORS — autorise le frontend React (dev)
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend", policy =>
-        policy
-            .WithOrigins("http://localhost:5173", "http://localhost:3000")
-            .AllowAnyHeader()
-            .AllowAnyMethod());
-});
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
-
-// ─── Migrations automatiques au démarrage ───────────────────────────────────
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-}
-
-// ─── Middleware pipeline ─────────────────────────────────────────────────────
-app.UseMiddleware<ErrorHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Gestion des Salles v1");
-        c.RoutePrefix = "swagger";
-    });
+    app.UseSwaggerUI();
 }
 
+app.UseCors("AllowAll");
 app.UseHttpsRedirection();
-app.UseCors("AllowFrontend");
 app.UseAuthorization();
 app.MapControllers();
 
