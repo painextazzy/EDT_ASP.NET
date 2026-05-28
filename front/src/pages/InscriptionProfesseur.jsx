@@ -16,12 +16,16 @@ const InscriptionProfesseur = () => {
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
 
-  const API_URL = import.meta.env.VITE_API_URL;
+  const showNotification = (message, type = 'success') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification({ show: false, message: '', type: '' }), 4000);
+  };
+
   // Validation en temps réel pour le nom (lettres uniquement)
   const validateName = (value) => {
     if (!value) return '';
-    // Vérifier que le nom contient uniquement des lettres, espaces et tirets
     if (!/^[a-zA-ZÀ-ÿ\s-]+$/.test(value)) {
       return 'Le nom ne doit contenir que des lettres, espaces et tirets';
     }
@@ -54,25 +58,21 @@ const InscriptionProfesseur = () => {
   const validateStep1 = () => {
     const newErrors = {};
     
-    // Validation nom
     if (!formData.firstName.trim()) newErrors.firstName = 'Le nom complet est requis';
     else if (!/^[a-zA-ZÀ-ÿ\s-]+$/.test(formData.firstName)) {
       newErrors.firstName = 'Le nom ne doit contenir que des lettres, espaces et tirets';
     }
     
-    // Validation IM
     if (!formData.imNumber.trim()) newErrors.imNumber = 'Le numéro IM est requis';
     else if (formData.imNumber.replace(/\D/g, '').length !== 6) {
       newErrors.imNumber = 'Le numéro IM doit contenir exactement 6 chiffres';
     }
     
-    // Validation email
     if (!formData.email.trim()) newErrors.email = 'L\'email est requis';
     else if (!/^[^\s@]+@([^\s@.,]+\.)+[^\s@.,]{2,}$/.test(formData.email)) {
       newErrors.email = 'Email invalide';
     }
     
-    // Validation téléphone
     if (!formData.phone.trim()) newErrors.phone = 'Le téléphone est requis';
     else {
       const phoneNumbers = formData.phone.replace(/\D/g, '');
@@ -112,15 +112,12 @@ const InscriptionProfesseur = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // Contrôle pour le nom (lettres uniquement)
     if (name === 'firstName') {
-      // Autorise les lettres, accents, espaces et tirets
       const filteredValue = value.replace(/[^a-zA-ZÀ-ÿ\s-]/g, '');
       setFormData(prev => ({ ...prev, [name]: filteredValue }));
       const nameError = validateName(filteredValue);
       setErrors(prev => ({ ...prev, firstName: nameError }));
     }
-    // Contrôle pour le numéro IM (chiffres uniquement)
     else if (name === 'imNumber') {
       const numbersOnly = value.replace(/\D/g, '');
       const limitedValue = numbersOnly.slice(0, 6);
@@ -128,7 +125,6 @@ const InscriptionProfesseur = () => {
       const imError = validateImNumber(limitedValue);
       setErrors(prev => ({ ...prev, imNumber: imError }));
     }
-    // Contrôle pour le téléphone (chiffres uniquement, format 02/03)
     else if (name === 'phone') {
       const numbersOnly = value.replace(/\D/g, '');
       const limitedValue = numbersOnly.slice(0, 10);
@@ -142,58 +138,126 @@ const InscriptionProfesseur = () => {
     }
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (!validateStep2()) return;
+ const getErrorMessage = (error) => {
+  // Suppression des console.log pour nettoyer la console
   
-  setIsSubmitting(true);
-  try {
-    const data = {
-      title: formData.title,
-      firstName: formData.firstName,
-      imNumber: formData.imNumber,
-      email: formData.email,
-      phone: formData.phone,
-      password: formData.password
-    };
+  const serverMessage = 
+    error.response?.data?.message ||
+    error.response?.data?.error ||
+    error.response?.data?.title ||
+    error.message;
+  
+  if (serverMessage) {
+    const msg = serverMessage.toLowerCase();
     
-    const result = await api.inscription.inscrireProfesseur(data);
-    
-    if (result.success) {
-      alert(result.message);
-      navigate('/login');
-    } else {
-      alert(result.message || 'Une erreur est survenue');
+    if (msg.includes('email') && (msg.includes('existe') || msg.includes('déjà') || msg.includes('already'))) {
+      return 'Cet email est déjà utilisé. Veuillez en utiliser un autre.';
     }
-  } catch (error) {
-    console.error('Erreur:', error);
-    alert(error.message || 'Erreur de connexion au serveur');
-  } finally {
-    setIsSubmitting(false);
+    
+    if ((msg.includes('im') || msg.includes('im_number')) && (msg.includes('existe') || msg.includes('déjà') || msg.includes('already'))) {
+      return 'Ce numéro IM est déjà enregistré. Veuillez vérifier vos informations.';
+    }
+    
+    if ((msg.includes('téléphone') || msg.includes('phone')) && (msg.includes('existe') || msg.includes('déjà') || msg.includes('already'))) {
+      return 'Ce numéro de téléphone est déjà utilisé.';
+    }
+    
+    if (msg.includes('email') && (msg.includes('invalide') || msg.includes('invalid'))) {
+      return 'L\'adresse email n\'est pas valide.';
+    }
+    
+    if ((msg.includes('mot de passe') || msg.includes('password')) && (msg.includes('faible') || msg.includes('weak') || msg.includes('8'))) {
+      return 'Le mot de passe doit contenir au moins 8 caractères.';
+    }
+    
+    if (msg.includes('requis') || msg.includes('required')) {
+      return 'Veuillez remplir tous les champs obligatoires.';
+    }
+    
+    return `${serverMessage}`;
+  }
+  
+  switch (error.response?.status) {
+    case 400: return 'Les informations fournies ne sont pas valides.';
+    case 401: return 'Session expirée. Veuillez rafraîchir la page.';
+    case 403: return 'Vous n\'êtes pas autorisé à effectuer cette action.';
+    case 404: return 'Service indisponible.';
+    case 409: return 'Ces informations sont déjà utilisées.';
+    case 500: return 'Erreur technique. Notre équipe a été notifiée.';
+    default: return 'Une erreur est survenue.';
   }
 };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateStep2()) return;
+    
+    setIsSubmitting(true);
+    try {
+      const data = {
+        title: formData.title,
+        firstName: formData.firstName,
+        imNumber: formData.imNumber,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password
+      };
+      
+      const response = await api.inscription.inscrireProfesseur(data);
+      
+      // Succès - message personnalisé
+      showNotification(' Félicitations ! Votre compte professeur a été créé avec succès.', 'success');
+      
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+      
+    } catch (error) {
+      //console.error('Erreur lors de l\'inscription:', error);
+      const userMessage = getErrorMessage(error);
+      showNotification(userMessage, 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleGoBack = () => {
     navigate(-1);
   };
 
-  // Formatage d'affichage du téléphone
-  const formatPhoneDisplay = (phone) => {
-    if (!phone) return '';
-    const numbers = phone.replace(/\D/g, '');
-    if (numbers.length === 10) {
-      return `${numbers.slice(0, 2)} ${numbers.slice(2, 4)} ${numbers.slice(4, 6)} ${numbers.slice(6, 8)} ${numbers.slice(8, 10)}`;
-    }
-    return phone;
-  };
-
   return (
     <div className="font-sans antialiased text-slate-800">
+      {/* Notification Toast */}
+      {notification.show && (
+        <div className="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 animate-slideDown">
+          <div className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg border ${
+            notification.type === 'success' 
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+              : 'bg-rose-50 text-rose-800 border-rose-200'
+          } min-w-[280px] max-w-md`}>
+            <div className="flex-shrink-0">
+              {notification.type === 'success' ? (
+                <span className="material-symbols-outlined text-emerald-500">check_circle</span>
+              ) : (
+                <span className="material-symbols-outlined text-rose-500">error</span>
+              )}
+            </div>
+            <p className="text-sm font-medium flex-1">{notification.message}</p>
+            <button 
+              onClick={() => setNotification({ show: false, message: '', type: '' })}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">close</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Bouton Retour */}
       <button 
         onClick={handleGoBack}
         aria-label="Retour" 
-        className="fixed top-8 left-8 w-10 h-10 bg-white text-slate-600 rounded-full flex items-center justify-center shadow-md hover:shadow-lg hover:text-brand-blue transition-all duration-200 focus:outline-none z-50"
+        className="fixed top-8 left-8 w-10 h-10 bg-white text-slate-600 rounded-full flex items-center justify-center shadow-md hover:shadow-lg hover:text-sky-500 transition-all duration-200 focus:outline-none z-50"
       >
         <span className="material-symbols-outlined">arrow_back</span>
       </button>
@@ -258,7 +322,7 @@ const handleSubmit = async (e) => {
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-slate-700">Nom complet</label>
                   <div className="relative flex items-center">
-                    <div className="flex w-full rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden focus-within:border-brand-blue transition-all">
+                    <div className="flex w-full rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden focus-within:border-sky-400 transition-all">
                       <select 
                         name="title"
                         value={formData.title}
@@ -286,7 +350,7 @@ const handleSubmit = async (e) => {
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-slate-700">Numéro IM</label>
                   <input 
-                    className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all focus:border-brand-blue focus:ring-4 focus:ring-blue-100 ${
+                    className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all focus:border-sky-400 focus:ring-4 focus:ring-sky-100 ${
                       errors.imNumber ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/50'
                     }`}
                     name="imNumber"
@@ -312,7 +376,7 @@ const handleSubmit = async (e) => {
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-slate-700">Email professionnel</label>
                   <input 
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm outline-none transition-all focus:border-brand-blue focus:ring-4 focus:ring-blue-100" 
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm outline-none transition-all focus:border-sky-400 focus:ring-4 focus:ring-sky-100" 
                     name="email"
                     placeholder="prof@univ-emit.com" 
                     value={formData.email}
@@ -325,7 +389,7 @@ const handleSubmit = async (e) => {
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-slate-700">Numéro de Téléphone</label>
                   <input 
-                    className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all focus:border-brand-blue focus:ring-4 focus:ring-blue-100 ${
+                    className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all focus:border-sky-400 focus:ring-4 focus:ring-sky-100 ${
                       errors.phone ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/50'
                     }`}
                     name="phone"
@@ -340,10 +404,10 @@ const handleSubmit = async (e) => {
                   {formData.phone && !errors.phone && formData.phone.length === 10 && (
                     <p className="text-green-500 text-xs mt-1 flex items-center gap-1">
                       <span className="material-symbols-outlined text-xs">check_circle</span>
-                      Numéro valide ({formData.phone.slice(0,2)} xx xx xx xx)
+                      Numéro valide
                     </p>
                   )}
-                  <p className="text-[11px] text-slate-400">Format: 10 chiffres, commence par 02 ou 03 (ex: 0212345678)</p>
+                  <p className="text-[11px] text-slate-400">10 chiffres, commence par 02 ou 03</p>
                 </div>
               </div>
 
@@ -351,7 +415,7 @@ const handleSubmit = async (e) => {
                 <button 
                   type="button"
                   onClick={handleNextStep}
-                  className="py-3.5 text-white font-bold shadow-lg shadow-slate-200 transition-all duration-200 flex items-center justify-center gap-2 bg-sky-400 rounded-2xl px-8 hover:bg-sky-500"
+                  className="py-3.5 text-white font-bold shadow-lg shadow-slate-200 transition-all duration-200 flex items-center justify-center gap-2 bg-sky-500 rounded-2xl px-8 hover:bg-sky-600"
                 >
                   suivant
                   <span className="material-symbols-outlined text-lg">arrow_forward</span>
@@ -364,21 +428,21 @@ const handleSubmit = async (e) => {
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-slate-700">Mot de passe</label>
                 <input 
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm outline-none transition-all focus:border-brand-blue focus:ring-4 focus:ring-blue-100" 
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm outline-none transition-all focus:border-sky-400 focus:ring-4 focus:ring-sky-100" 
                   name="password"
                   placeholder="••••••••" 
                   value={formData.password}
                   onChange={handleChange}
                   type="password"
                 />
-                <p className="text-[11px] text-slate-400">Utilisez au moins 8 caractères avec des lettres et chiffres.</p>
+                <p className="text-[11px] text-slate-400">8 caractères minimum</p>
                 {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-slate-700">Confirmation du mot de passe</label>
                 <input 
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm outline-none transition-all focus:border-brand-blue focus:ring-4 focus:ring-blue-100" 
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm outline-none transition-all focus:border-sky-400 focus:ring-4 focus:ring-sky-100" 
                   name="confirmPassword"
                   placeholder="••••••••" 
                   value={formData.confirmPassword}
@@ -410,7 +474,7 @@ const handleSubmit = async (e) => {
             <div className="text-center pt-4">
               <p className="text-sm text-slate-500">
                 Vous avez déjà un compte ? 
-                <a className="text-brand-blue font-semibold hover:underline ml-1" href="/login">Connexion</a>
+                <a className="text-sky-500 font-semibold hover:underline ml-1" href="/login">Connexion</a>
               </p>
             </div>
           </form>
@@ -436,8 +500,8 @@ const handleSubmit = async (e) => {
           transition: all 0.3s ease;
         }
         input:focus {
-          border-color: #1a73e8 !important;
-          box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.1) !important;
+          border-color: #0ea5e9 !important;
+          box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1) !important;
         }
         body {
           background: linear-gradient(135deg, #7ec9f5 0%, #ffffff 100%);
@@ -450,6 +514,19 @@ const handleSubmit = async (e) => {
         }
         .rounded-xl {
           border-radius: 0.75rem;
+        }
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translate(-50%, -100%);
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+        }
+        .animate-slideDown {
+          animation: slideDown 0.3s ease-out;
         }
       `}</style>
     </div>

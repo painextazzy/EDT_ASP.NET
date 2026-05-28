@@ -1,9 +1,7 @@
 // src/services/api.js
 
-// Configuration depuis .env
-const API_URL = import.meta.env.VITE_API_URL ;
+const API_URL = import.meta.env.VITE_API_URL;
 
-// Client API générique
 const apiClient = async (endpoint, options = {}) => {
   const url = `${API_URL}${endpoint}`;
   const config = {
@@ -17,28 +15,32 @@ const apiClient = async (endpoint, options = {}) => {
   try {
     const response = await fetch(url, config);
 
-    // Si la réponse n'est pas OK (4xx ou 5xx)
     if (!response.ok) {
-      // On tente de lire le texte brut au cas où ce n'est pas du JSON
-      const errorText = await response.text();
-      console.error("Détail de l'erreur serveur :", errorText);
-      throw new Error(errorText || 'Une erreur est survenue');
+      // On tente de parser le JSON pour obtenir un message clair (ex: {"message": "..."})
+      // S'il n'y a pas de JSON, on se rabat sur le texte brut
+      let errorData;
+      try {
+        const text = await response.text();
+        errorData = JSON.parse(text);
+      } catch (e) {
+        errorData = { message: 'Une erreur est survenue' };
+      }
+      
+      // On rejette l'erreur avec les données pour que le composant puisse les utiliser
+      const error = new Error();
+      error.response = { data: errorData, status: response.status };
+      throw error;
     }
 
-    // Si OK, on parse le JSON
     return await response.json();
   } catch (error) {
-    console.error(`API Error: ${endpoint}`, error.message);
+    // Ne plus rien logger ici. L'erreur est remontée au composant (InscriptionProfesseur.jsx)
+    // qui se charge déjà de l'afficher via votre fonction 'getErrorMessage'
     throw error;
   }
 };
 
-// ============================================
-// API INSCRIPTION (à compléter au fur et à mesure)
-// ============================================
-
 export const inscriptionApi = {
-  // Inscription professeur
   inscrireProfesseur: (data) => 
     apiClient('/api/inscription/professeur', { 
       method: 'POST', 
@@ -46,7 +48,6 @@ export const inscriptionApi = {
     }),
 };
 
-// Export unique
 const api = {
   inscription: inscriptionApi,
 };
