@@ -60,10 +60,10 @@ const SidebarAdmin = () => {
             </div>
             {!isCollapsed && (
               <div>
-                <div className="text-gray-800 text-2xl font-bold tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                <div className="text-sky-500 text-3xl font-bold tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
                   Calendar.
                 </div>
-                <div className="text-gray-500 text-[10px] tracking-wider">Gestion emploi du temps</div>
+                
               </div>
             )}
           </div>
@@ -125,7 +125,7 @@ const SidebarAdmin = () => {
           <div className="px-6 py-4 border-t border-gray-200">
             <div className="text-center">
               <p className="text-[10px] text-gray-400">Version 2.0.0</p>
-              <p className="text-[9px] text-gray-300 mt-0.5">© 2024 EMIT - Tous droits réservés</p>
+              <p className="text-[9px] text-gray-300 mt-0.5">© 2026 EMIT - Tous droits réservés</p>
             </div>
           </div>
         )}
