@@ -60,7 +60,7 @@ const SidebarAdmin = () => {
             </div>
             {!isCollapsed && (
               <div>
-                <div className="text-sky-500 text-3xl font-bold tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                <div className="text-sky-500 text-2xl font-bold tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
                   Calendar.
                 </div>
                 
