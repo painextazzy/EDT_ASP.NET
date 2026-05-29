@@ -1,5 +1,3 @@
 - first install node js on your laptop our desktop
 - npm install in terminal vscode
-- npm install tailwindcss @tailwindcss/vite
-- config vite.config for tailwindcss
-- npm install AOS
+
