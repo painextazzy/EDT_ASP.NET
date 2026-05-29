@@ -1,5 +1,6 @@
 // src/components/AffectationPage.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import api from '../services/api';
 
 const AffectationPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -10,59 +11,106 @@ const AffectationPage = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
   const [editingMention, setEditingMention] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Données pour les dropdowns
+  const [coursList, setCoursList] = useState([]);
+  const [professeursList, setProfesseursList] = useState([]);
+  const [mentionsList, setMentionsList] = useState([]);
+  const [niveauxList, setNiveauxList] = useState([]);
   
   const [affectations, setAffectations] = useState({
-    Informatique: [
-      {
-        id: 1,
-        code: "INF401",
-        name: "Développement Web Avancé",
-        professor: "Jean Dupont",
-        professorAvatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuC4U7yEadfbt4gC2hddNoThU9Oi0zcPZ1Hv3dgUyblBTdJMHeu9_JYOTo_sy73gXjG4T1MTp3yyw-CSmSx795ZQj_yNJnMfLJUP8FwAPgVXQuf5JZRg6_y0Rv6EYFsaMoiAfEAG72CDmK9xpC0y-HBnl5wtBivE3DuhdS7gibAvNSX6Jg2rR23nQPEJtP13JWiuMqbWPUFZc75w-viIr46IlpN8d1DzydC8JxgX36SruPQ635duUHIJZbjRDAe2J2o73Q24p8aJ",
-        mention: "INFO",
-        niveau: "L3"
-      },
-      {
-        id: 2,
-        code: "INF202",
-        name: "Algorithmique",
-        professor: "Marie Curie",
-        professorAvatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuCdYPZU4oNrukQaVXf1xYtDz_Qp2ELS-zvoSCR-OyRtRunxYhqm2yOxgwP1Hpso3_Z6sUKApWoIk9CnuWmQG4NSLIE0bskTwRo4w89bCs7-EEc3BBOtVQN0sKsQOntaCPOg0v-6b64TdKcGXqyKdNRJ6GkZxKaeVzBm0w-9d8M9tVUYO1YrGp9bzw4s2CJRMcjIq9-76rb34Y5tdzOcApfCe6zS2Amq2sPS-cY936GXIi_4otK7D1OQOYEP3RN3VwZfL3NyeDoO",
-        mention: "INFO",
-        niveau: "L1"
-      }
-    ],
-    Management: [
-      {
-        id: 3,
-        code: "MGT501",
-        name: "Stratégie d'Entreprise",
-        professor: "Luc Martin",
-        professorAvatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuC38BD2qGzYvokhxt7h2Yow76YhtKSAX5y-JgeSGZOLtXAd6SymKf5cPtkN_xOOcVfJMXX4--itBpleo-EZcNFGo12uJe5ZNQtldfeBj5Erl7vdB_03Bq9BRCWx2Kip3ROcNt8JO4mSOAmVXrR4RAJR5CPgpPjLMvPVrf3e93rALlEvd-hmH9nomciJhLb_4ngjuoZWg13b8fS0geVNTQa4inbvce9XqC0LhSlib84S498R86jwsLNeOyNpNwbjMnvPKrrL7OHo",
-        mention: "MGT",
-        niveau: "M1"
-      }
-    ],
-    Multimedia: [
-      {
-        id: 4,
-        code: "MMD305",
-        name: "Design UI/UX",
-        professor: "Sophie Bernard",
-        professorAvatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDTtKDvXw42K-4dsxKiDO798bK0FHxZzg4d5-5mFyoGX-oowXx6uxtNnITA8uUAjmqTJ5NxegeisrrK8ASTSU4xL2lZWIS7aYbaVV5ga5PD1KVQ8dpjZJfZJWTlfwaJonvy3Y4RNDYe4Zj3W9Px6jzY3M3XsmQO7aZ6czgY6WwRjAsLSvGz262LjJaqYGP2o2mt8Rb_LpFMDLg6RBsJQkLj1eBVMw9sS5Hg7yl6Z03ekM2HEQG4cDd8jLwyLh53f-DShXW2dZrA",
-        mention: "MMD",
-        niveau: "L2"
-      }
-    ]
+    Informatique: [],
+    Management: [],
+    Multimedia: []
   });
 
   const [newAffectation, setNewAffectation] = useState({
-    code: '',
-    name: '',
-    professor: '',
+    coursId: '',
+    professeurId: '',
     mention: 'Informatique',
     niveau: 'L3'
   });
+
+  // Charger toutes les données nécessaires
+  const loadAllData = async () => {
+    try {
+      setLoading(true);
+      
+      // Charger les cours, professeurs, mentions, niveaux en parallèle
+      const [cours, professeurs, mentions, niveaux, affectationsData] = await Promise.all([
+        api.cours.getAll(),
+        api.affectation.getProfesseurs(),
+        api.affectation.getMentions(),
+        api.affectation.getNiveaux(),
+        api.affectation.getAll()
+      ]);
+      
+      setCoursList(cours);
+      setProfesseursList(professeurs);
+      setMentionsList(mentions);
+      setNiveauxList(niveaux);
+      
+      // Regrouper les affectations par mention
+      const grouped = {
+        Informatique: [],
+        Management: [],
+        Multimedia: []
+      };
+      
+      affectationsData.forEach(item => {
+        const mention = item.mention;
+        if (mention === 'Informatique') {
+          grouped.Informatique.push({
+            id: item.id,
+            code: item.code,
+            name: item.name,
+            professor: item.professor,
+            professorAvatar: item.professorAvatar,
+            mention: 'INFO',
+            niveau: item.niveau,
+            coursId: item.id,
+            professeurId: item.professorId
+          });
+        } else if (mention === 'Management') {
+          grouped.Management.push({
+            id: item.id,
+            code: item.code,
+            name: item.name,
+            professor: item.professor,
+            professorAvatar: item.professorAvatar,
+            mention: 'MGT',
+            niveau: item.niveau,
+            coursId: item.id,
+            professeurId: item.professorId
+          });
+        } else if (mention === 'Multimedia') {
+          grouped.Multimedia.push({
+            id: item.id,
+            code: item.code,
+            name: item.name,
+            professor: item.professor,
+            professorAvatar: item.professorAvatar,
+            mention: 'MMD',
+            niveau: item.niveau,
+            coursId: item.id,
+            professeurId: item.professorId
+          });
+        }
+      });
+      
+      setAffectations(grouped);
+    } catch (error) {
+      console.error('Erreur chargement:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Charger les données au démarrage
+  useEffect(() => {
+    loadAllData();
+  }, []);
 
   // Ouvrir le menu contextuel
   const handleMenuToggle = (id) => {
@@ -78,69 +126,84 @@ const AffectationPage = () => {
   };
 
   // Sauvegarder la modification
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingCourse.name || !editingCourse.professor) {
       alert("Veuillez remplir tous les champs");
       return;
     }
 
-    setAffectations(prev => ({
-      ...prev,
-      [editingMention]: prev[editingMention].map(c => 
-        c.id === editingCourse.id ? editingCourse : c
-      )
-    }));
-    setShowEditModal(false);
-    setEditingCourse(null);
-    setEditingMention(null);
+    try {
+      const result = await api.affectation.update(editingCourse.id, {
+        name: editingCourse.name,
+        professor: editingCourse.professor,
+        mention: editingMention,
+        niveau: editingCourse.niveau
+      });
+      
+      if (result.message) {
+        await loadAllData();
+        setShowEditModal(false);
+        setEditingCourse(null);
+        setEditingMention(null);
+      }
+    } catch (error) {
+      alert("Erreur lors de la modification");
+    }
   };
 
   // Supprimer une affectation
-  const handleDelete = (mention, courseId, courseName) => {
+  const handleDelete = async (mention, courseId, courseName) => {
     if (window.confirm(`Supprimer l'affectation "${courseName}" ?`)) {
-      setAffectations(prev => ({
-        ...prev,
-        [mention]: prev[mention].filter(c => c.id !== courseId)
-      }));
+      try {
+        const result = await api.affectation.delete(courseId);
+        if (result.message) {
+          await loadAllData();
+        }
+      } catch (error) {
+        alert("Erreur lors de la suppression");
+      }
     }
     setOpenMenuId(null);
   };
 
   // Ajouter une affectation
-  const handleAddAffectation = () => {
-    if (!newAffectation.code || !newAffectation.name || !newAffectation.professor) {
-      alert("Veuillez remplir tous les champs");
+  const handleAddAffectation = async () => {
+    if (!newAffectation.coursId || !newAffectation.professeurId) {
+      alert("Veuillez sélectionner un cours et un professeur");
       return;
     }
 
-    const newId = Math.max(...Object.values(affectations).flat().map(c => c.id), 0) + 1;
-    const avatarUrl = `https://ui-avatars.com/api/?background=0EA5E9&color=fff&name=${encodeURIComponent(newAffectation.professor)}`;
+    // Trouver le cours sélectionné
+    const selectedCours = coursList.find(c => c.id === parseInt(newAffectation.coursId));
+    const selectedProfesseur = professeursList.find(p => p.id === parseInt(newAffectation.professeurId));
 
-    setAffectations(prev => ({
-      ...prev,
-      [newAffectation.mention]: [
-        ...(prev[newAffectation.mention] || []),
-        {
-          id: newId,
-          code: newAffectation.code,
-          name: newAffectation.name,
-          professor: newAffectation.professor,
-          professorAvatar: avatarUrl,
-          mention: newAffectation.mention === 'Informatique' ? 'INFO' : 
-                   newAffectation.mention === 'Management' ? 'MGT' : 'MMD',
-          niveau: newAffectation.niveau
-        }
-      ]
-    }));
+    if (!selectedCours || !selectedProfesseur) {
+      alert("Erreur lors de la sélection");
+      return;
+    }
 
-    setNewAffectation({
-      code: '',
-      name: '',
-      professor: '',
-      mention: 'Informatique',
-      niveau: 'L3'
-    });
-    setShowAddModal(false);
+    try {
+      const result = await api.affectation.create({
+        code: selectedCours.code,
+        name: selectedCours.nom,
+        professor: selectedProfesseur.nom,
+        mention: newAffectation.mention,
+        niveau: newAffectation.niveau
+      });
+      
+      if (result.message) {
+        await loadAllData();
+        setNewAffectation({
+          coursId: '',
+          professeurId: '',
+          mention: 'Informatique',
+          niveau: 'L3'
+        });
+        setShowAddModal(false);
+      }
+    } catch (error) {
+      alert("Erreur lors de l'ajout");
+    }
   };
 
   const filterAffectations = () => {
@@ -167,6 +230,14 @@ const AffectationPage = () => {
   const filteredAffectations = filterAffectations();
   const mentionsOrder = ['Informatique', 'Management', 'Multimedia'];
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0EA5E9]"></div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Search and Filters */}
@@ -188,9 +259,9 @@ const AffectationPage = () => {
             onChange={(e) => setSelectedMention(e.target.value)}
           >
             <option>Toutes les Mentions</option>
-            <option>Informatique</option>
-            <option>Management</option>
-            <option>Multimedia</option>
+            {mentionsList.map(mention => (
+              <option key={mention}>{mention}</option>
+            ))}
           </select>
           <select 
             className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-[#252A34] outline-none focus:ring-2 focus:ring-[#0EA5E9] transition-all cursor-pointer"
@@ -198,10 +269,9 @@ const AffectationPage = () => {
             onChange={(e) => setSelectedNiveau(e.target.value)}
           >
             <option>Tous les Niveaux</option>
-            <option>L1</option>
-            <option>L2</option>
-            <option>L3</option>
-            <option>M1</option>
+            {niveauxList.map(niveau => (
+              <option key={niveau}>{niveau}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -209,8 +279,7 @@ const AffectationPage = () => {
       {/* Sections by Mention */}
       <div className="space-y-12">
         {mentionsOrder.map((mention, idx) => {
-          const courses = filteredAffectations[mention];
-          if (!courses || courses.length === 0 && idx !== 0) return null;
+          const courses = filteredAffectations[mention] || [];
           
           return (
             <section key={mention}>
@@ -219,7 +288,7 @@ const AffectationPage = () => {
                 <div className="h-px flex-1 bg-gray-200"></div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {/* Cardbox Ajouter */}
+                {/* Cardbox Ajouter - TOUJOURS dans la première section */}
                 {idx === 0 && (
                   <div 
                     className="bg-white p-5 border-2 border-dashed border-gray-300 relative group transition-all rounded-2xl hover:shadow-md flex flex-col items-center justify-center gap-3 cursor-pointer min-h-[280px]"
@@ -358,16 +427,8 @@ const AffectationPage = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Mention</label>
                   <select
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
-                    value={editingCourse.mention === 'INFO' ? 'Informatique' : 
-                            editingCourse.mention === 'MGT' ? 'Management' : 'Multimedia'}
-                    onChange={(e) => {
-                      const newMention = e.target.value;
-                      setEditingCourse({ 
-                        ...editingCourse, 
-                        mention: newMention === 'Informatique' ? 'INFO' : 
-                                 newMention === 'Management' ? 'MGT' : 'MMD'
-                      });
-                    }}
+                    value={editingMention}
+                    onChange={(e) => setEditingMention(e.target.value)}
                   >
                     <option>Informatique</option>
                     <option>Management</option>
@@ -381,10 +442,9 @@ const AffectationPage = () => {
                     value={editingCourse.niveau}
                     onChange={(e) => setEditingCourse({ ...editingCourse, niveau: e.target.value })}
                   >
-                    <option>L1</option>
-                    <option>L2</option>
-                    <option>L3</option>
-                    <option>M1</option>
+                    {niveauxList.map(niveau => (
+                      <option key={niveau}>{niveau}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -408,7 +468,7 @@ const AffectationPage = () => {
         </div>
       )}
 
-      {/* Modal d'ajout */}
+      {/* Modal d'ajout avec dropdowns */}
       {showAddModal && (
         <div 
           className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center backdrop-blur-sm"
@@ -431,62 +491,66 @@ const AffectationPage = () => {
             </div>
 
             <div className="p-5 space-y-4">
+              {/* Dropdown Cours */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Code du cours</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cours *</label>
+                <select
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
-                  placeholder="Ex: INF999"
-                  value={newAffectation.code}
-                  onChange={(e) => setNewAffectation({ ...newAffectation, code: e.target.value })}
-                />
+                  value={newAffectation.coursId}
+                  onChange={(e) => setNewAffectation({ ...newAffectation, coursId: e.target.value })}
+                >
+                  <option value="">-- Sélectionner un cours --</option>
+                  {coursList.map(cours => (
+                    <option key={cours.id} value={cours.id}>
+                      {cours.code} - {cours.nom}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {/* Dropdown Professeur */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nom du cours</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium text-gray-700 mb-1">Professeur *</label>
+                <select
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
-                  placeholder="Ex: Nouveau cours"
-                  value={newAffectation.name}
-                  onChange={(e) => setNewAffectation({ ...newAffectation, name: e.target.value })}
-                />
+                  value={newAffectation.professeurId}
+                  onChange={(e) => setNewAffectation({ ...newAffectation, professeurId: e.target.value })}
+                >
+                  <option value="">-- Sélectionner un professeur --</option>
+                  {professeursList.map(prof => (
+                    <option key={prof.id} value={prof.id}>
+                      {prof.nom}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {/* Dropdown Mention */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Professeur</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mention *</label>
+                <select
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
-                  placeholder="Ex: Jean Dupont"
-                  value={newAffectation.professor}
-                  onChange={(e) => setNewAffectation({ ...newAffectation, professor: e.target.value })}
-                />
+                  value={newAffectation.mention}
+                  onChange={(e) => setNewAffectation({ ...newAffectation, mention: e.target.value })}
+                >
+                  {mentionsList.map(mention => (
+                    <option key={mention}>{mention}</option>
+                  ))}
+                </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mention</label>
-                  <select
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
-                    value={newAffectation.mention}
-                    onChange={(e) => setNewAffectation({ ...newAffectation, mention: e.target.value })}
-                  >
-                    <option>Informatique</option>
-                    <option>Management</option>
-                    <option>Multimedia</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Niveau</label>
-                  <select
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
-                    value={newAffectation.niveau}
-                    onChange={(e) => setNewAffectation({ ...newAffectation, niveau: e.target.value })}
-                  >
-                    <option>L1</option>
-                    <option>L2</option>
-                    <option>L3</option>
-                    <option>M1</option>
-                  </select>
-                </div>
+
+              {/* Dropdown Niveau */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Niveau *</label>
+                <select
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]"
+                  value={newAffectation.niveau}
+                  onChange={(e) => setNewAffectation({ ...newAffectation, niveau: e.target.value })}
+                >
+                  {niveauxList.map(niveau => (
+                    <option key={niveau}>{niveau}</option>
+                  ))}
+                </select>
               </div>
             </div>
 

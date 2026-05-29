@@ -1,5 +1,6 @@
 // src/components/CoursPage.jsx
 import React, { useState, useRef, useEffect } from 'react';
+import api from '../services/api';
 
 const CoursPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -8,25 +9,38 @@ const CoursPage = () => {
   const [editingCourse, setEditingCourse] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const [loading, setLoading] = useState(true);
   const menuRef = useRef(null);
   const notificationTimeoutRef = useRef(null);
 
-  const [courses, setCourses] = useState([
-    { id: 1, code: "INFO-402", name: "Algorithmique Avancée" },
-    { id: 2, code: "INFO-305", name: "Architecture Réseaux" },
-    { id: 3, code: "INFO-501", name: "Intelligence Artificielle" },
-    { id: 4, code: "MGMT-204", name: "Gestion de Projet Agile" },
-    { id: 5, code: "MGMT-410", name: "Marketing Digital" },
-    { id: 6, code: "MULT-301", name: "Design UI/UX" },
-    { id: 7, code: "NET-101", name: "Réseaux et Télécoms" },
-    { id: 8, code: "DATA-202", name: "Analyse de Données" },
-    { id: 9, code: "SOFT-303", name: "Génie Logiciel" },
-    { id: 10, code: "MATH-105", name: "Probabilités et Statistiques" },
-    { id: 11, code: "CYB-404", name: "Cybersécurité" }
-  ]);
+  const [courses, setCourses] = useState([]);
 
   const [newCourse, setNewCourse] = useState({ code: '', name: '' });
   const [editCourse, setEditCourse] = useState({ code: '', name: '' });
+
+  // Charger les cours depuis l'API
+  const loadCourses = async () => {
+    try {
+      setLoading(true);
+      const data = await api.cours.getAll();
+      // Transformer les données pour correspondre au format attendu
+      const formattedCourses = data.map(c => ({
+        id: c.id,
+        code: c.code,
+        name: c.nom
+      }));
+      setCourses(formattedCourses);
+    } catch (error) {
+      showNotification('Erreur lors du chargement des cours', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Charger les cours au démarrage
+  useEffect(() => {
+    loadCourses();
+  }, []);
 
   // Fermer le menu quand on clique ailleurs
   useEffect(() => {
@@ -69,20 +83,24 @@ const CoursPage = () => {
   };
 
   // Ajouter un cours
-  const handleAddCourse = () => {
+  const handleAddCourse = async () => {
     if (!newCourse.code || !newCourse.name) {
       showNotification('Veuillez remplir tous les champs', 'error');
       return;
     }
     
-    setCourses([...courses, { 
-      id: Date.now(), 
-      code: newCourse.code, 
-      name: newCourse.name 
-    }]);
-    setNewCourse({ code: '', name: '' });
-    setShowAddModal(false);
-    showNotification(`Cours "${newCourse.name}" ajouté avec succès`, 'success');
+    try {
+      const result = await api.cours.create({ code: newCourse.code, nom: newCourse.name });
+      if (result.message) {
+        await loadCourses();
+        setNewCourse({ code: '', name: '' });
+        setShowAddModal(false);
+        showNotification(result.message, 'success');
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Erreur lors de l\'ajout';
+      showNotification(errorMessage, 'error');
+    }
   };
 
   // Ouvrir le modal de modification
@@ -94,30 +112,45 @@ const CoursPage = () => {
   };
 
   // Modifier un cours
-  const handleEditCourse = () => {
+  const handleEditCourse = async () => {
     if (!editCourse.code || !editCourse.name) {
       showNotification('Veuillez remplir tous les champs', 'error');
       return;
     }
     
-    setCourses(courses.map(course => 
-      course.id === editingCourse.id 
-        ? { ...course, code: editCourse.code, name: editCourse.name }
-        : course
-    ));
-    setShowEditModal(false);
-    setEditingCourse(null);
-    setEditCourse({ code: '', name: '' });
-    showNotification(`Cours "${editCourse.name}" modifié avec succès`, 'success');
+    try {
+      const result = await api.cours.update(editingCourse.id, { 
+        code: editCourse.code, 
+        nom: editCourse.name 
+      });
+      if (result.message) {
+        await loadCourses();
+        setShowEditModal(false);
+        setEditingCourse(null);
+        setEditCourse({ code: '', name: '' });
+        showNotification(result.message, 'success');
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Erreur lors de la modification';
+      showNotification(errorMessage, 'error');
+    }
   };
 
   // Supprimer un cours
-  const handleDeleteCourse = (course) => {
+  const handleDeleteCourse = async (course) => {
     if (window.confirm(`Supprimer le cours "${course.name}" ?`)) {
-      setCourses(courses.filter(c => c.id !== course.id));
-      showNotification(`Cours "${course.name}" supprimé avec succès`, 'success');
+      try {
+        const result = await api.cours.delete(course.id);
+        if (result.message) {
+          await loadCourses();
+          showNotification(result.message, 'success');
+        }
+      } catch (error) {
+        const errorMessage = error.response?.data?.message || 'Erreur lors de la suppression';
+        showNotification(errorMessage, 'error');
+      }
+      setOpenMenuId(null);
     }
-    setOpenMenuId(null);
   };
 
   const getNotificationStyles = (type) => {
@@ -155,8 +188,6 @@ const CoursPage = () => {
         </div>
       )}
 
-      
-
       {/* Barre de recherche */}
       <div className="relative max-w-md">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -173,63 +204,69 @@ const CoursPage = () => {
 
       {/* Liste des cours */}
       <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Code</th>
-                <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom du cours</th>
-                <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredCourses.map((course) => (
-                <tr key={course.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="py-3 px-6">
-                    <span className="text-sm font-mono font-semibold text-blue-600">{course.code}</span>
-                  </td>
-                  <td className="py-3 px-6">
-                    <span className="text-sm text-gray-700">{course.name}</span>
-                  </td>
-                  <td className="py-3 px-6">
-                    <div className="relative">
-                      <button
-                        onClick={(e) => toggleMenu(course.id, e)}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[18px] text-gray-400">more_vert</span>
-                      </button>
-                      {openMenuId === course.id && (
-                        <div 
-                          ref={menuRef}
-                          className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 animate-fadeIn"
-                        >
-                          <button
-                            onClick={() => handleOpenEditModal(course)}
-                            className="w-full text-left px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 flex items-center gap-2 transition-colors"
-                          >
-                            <span className="material-symbols-outlined text-sm">edit</span>
-                            Modifier
-                          </button>
-                          <button
-                            onClick={() => handleDeleteCourse(course)}
-                            className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-                          >
-                            <span className="material-symbols-outlined text-sm">delete</span>
-                            Supprimer
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </td>
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Code</th>
+                  <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom du cours</th>
+                  <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredCourses.map((course) => (
+                  <tr key={course.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="py-3 px-6">
+                      <span className="text-sm font-mono font-semibold text-blue-600">{course.code}</span>
+                    </td>
+                    <td className="py-3 px-6">
+                      <span className="text-sm text-gray-700">{course.name}</span>
+                    </td>
+                    <td className="py-3 px-6">
+                      <div className="relative">
+                        <button
+                          onClick={(e) => toggleMenu(course.id, e)}
+                          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[18px] text-gray-400">more_vert</span>
+                        </button>
+                        {openMenuId === course.id && (
+                          <div 
+                            ref={menuRef}
+                            className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 animate-fadeIn"
+                          >
+                            <button
+                              onClick={() => handleOpenEditModal(course)}
+                              className="w-full text-left px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 flex items-center gap-2 transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-sm">edit</span>
+                              Modifier
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCourse(course)}
+                              className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-sm">delete</span>
+                              Supprimer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Message si aucun résultat */}
-        {filteredCourses.length === 0 && (
+        {!loading && filteredCourses.length === 0 && (
           <div className="text-center py-12">
             <span className="material-symbols-outlined text-5xl text-gray-300">search_off</span>
             <p className="mt-2 text-gray-500">Aucun cours trouvé</p>
