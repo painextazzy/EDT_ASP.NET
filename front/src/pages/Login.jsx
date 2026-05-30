@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ const Login = () => {
       
       <div className="relative z-10 w-full max-w-md">
         {/* Formulaire avec ombre portée accentuée (shadow-2xl + shadow-black/50) */}
-        <div className="bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] p-10 md:p-12 border border-slate-100">
+        <div className="bg-white rounded-[36px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] p-10 md:p-12 border border-slate-100">
           
           {/* Logo centré */}
           <div className="flex flex-col items-center mb-10">
@@ -33,12 +34,15 @@ const Login = () => {
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-[0.15em] mb-2 ml-1">
                 email
               </label>
-              <input
-                type="email"
-                required
-                className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-800 focus:bg-white outline-none transition-all text-slate-800 placeholder-slate-400"
-                placeholder="nom.prenom@professeur.mg"
-              />
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="email"
+                  required
+                  className="w-full px-12 py-4 bg-slate-50 border border-slate-200 rounded-4xl focus:ring-2 focus:ring-slate-800 focus:bg-white outline-none transition-all text-slate-800 placeholder-slate-400"
+                  placeholder="nom.prenom@professeur.mg"
+                />
+              </div>
             </div>
 
             <div>
@@ -46,40 +50,35 @@ const Login = () => {
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-[0.15em]">
                   Mot de passe
                 </label>
-               
               </div>
               <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
                   type={showPassword ? "text" : "password"}
                   required
-                  className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-800 focus:bg-white outline-none transition-all text-slate-800"
+                  className="w-full px-12 py-4 bg-slate-50 border border-slate-200 rounded-4xl focus:ring-2 focus:ring-slate-800 focus:bg-white outline-none transition-all text-slate-800"
                   placeholder="••••••••"
                 />
-                {/* Bouton Eye Icon pour voir le MDP */}
+                {/* Bouton Eye Icon pour voir le MDP avec Lucide React */}
                 <button 
                   type="button" 
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800 transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800 transition-colors"
                 >
                   {showPassword ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
-                    </svg>
+                    <Eye className="w-5 h-5" />
                   ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
+                    <EyeOff className="w-5 h-5" />
                   )}
                 </button>
               </div>
-               
             </div>
-            <button type="button" className="text-[12px] font-bold text-slate-800 hover:text-indigo-600 transition-colors ">
-                 <a href="/verify"> Mot de passe oublié ?</a>
-                </button>
 
-            <button className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-black transition-all shadow-lg active:scale-[0.98]">
+            <button type="button" className="text-[12px] font-bold text-slate-800 hover:text-indigo-600 transition-colors">
+              <a href="/verify">Mot de passe oublié ?</a>
+            </button>
+
+            <button className="w-full bg-slate-900 text-white font-bold py-4 rounded-4xl hover:bg-black transition-all shadow-lg active:scale-[0.98]">
               Se connecter
             </button>
           </form>
@@ -88,7 +87,7 @@ const Login = () => {
             <p className="text-sm text-slate-500">
               Vous n'avez pas de compte ?  
               <a href="/inscription">
-              <button className="font-bold text-brand-blue hover:underline">Créer un compte</button>
+                <button className="font-bold text-brand-blue hover:underline ml-1">Créer un compte</button>
               </a>
             </p>
             <button 
