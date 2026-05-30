@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using DotNetEnv;
 using back.Data;
-using back.Services;  // ← Ajouter cette ligne
+using back.Services;
 
 Env.Load();
 
@@ -30,8 +30,12 @@ var connectionString = $"Host={host};Port={port};Database={database};Username={u
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// Ajouter les services
-builder.Services.AddScoped<InscriptionService>();  // ← Ajouter cette ligne
+// ========== SERVICES EXISTANTS (vos collègues) ==========
+builder.Services.AddScoped<InscriptionService>();
+
+// ========== NOUVEAUX SERVICES (gestion des cours et affectations) ==========
+builder.Services.AddScoped<CoursService>();
+builder.Services.AddScoped<AffectationService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

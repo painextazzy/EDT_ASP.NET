@@ -1,4 +1,4 @@
-// src/services/api.js
+
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -40,6 +40,7 @@ const apiClient = async (endpoint, options = {}) => {
   }
 };
 
+// ========== PARTIE EXISTANTE (ne pas toucher) ==========
 export const inscriptionApi = {
   inscrireProfesseur: (data) => 
     apiClient('/api/inscription/professeur', { 
@@ -48,8 +49,79 @@ export const inscriptionApi = {
     }),
 };
 
+// ========== NOUVELLES FONCTIONS POUR LA GESTION DES COURS ==========
+
+// Service pour les Cours
+export const coursApi = {
+  // Récupérer tous les cours
+  getAll: () => 
+    apiClient('/api/Cours', { method: 'GET' }),
+  
+  // Récupérer un cours par ID
+  getById: (id) => 
+    apiClient(`/api/Cours/${id}`, { method: 'GET' }),
+  
+  // Créer un nouveau cours
+  create: (data) => 
+    apiClient('/api/Cours', { 
+      method: 'POST', 
+      body: JSON.stringify(data) 
+    }),
+  
+  // Modifier un cours
+  update: (id, data) => 
+    apiClient(`/api/Cours/${id}`, { 
+      method: 'PUT', 
+      body: JSON.stringify(data) 
+    }),
+  
+  // Supprimer un cours
+  delete: (id) => 
+    apiClient(`/api/Cours/${id}`, { method: 'DELETE' }),
+};
+
+// Service pour les Affectations
+export const affectationApi = {
+  // Récupérer toutes les affectations
+  getAll: () => 
+    apiClient('/api/Affectation', { method: 'GET' }),
+  
+  // Récupérer les mentions disponibles
+  getMentions: () => 
+    apiClient('/api/Affectation/mentions', { method: 'GET' }),
+  
+  // Récupérer les niveaux disponibles
+  getNiveaux: () => 
+    apiClient('/api/Affectation/niveaux', { method: 'GET' }),
+  
+  // Récupérer les professeurs disponibles
+  getProfesseurs: () => 
+    apiClient('/api/Affectation/professeurs', { method: 'GET' }),
+  
+  // Créer une nouvelle affectation
+  create: (data) => 
+    apiClient('/api/Affectation', { 
+      method: 'POST', 
+      body: JSON.stringify(data) 
+    }),
+  
+  // Modifier une affectation
+  update: (id, data) => 
+    apiClient(`/api/Affectation/${id}`, { 
+      method: 'PUT', 
+      body: JSON.stringify(data) 
+    }),
+  
+  // Supprimer une affectation
+  delete: (id) => 
+    apiClient(`/api/Affectation/${id}`, { method: 'DELETE' }),
+};
+
+// ========== EXPORT PRINCIPAL (avec les nouvelles API) ==========
 const api = {
   inscription: inscriptionApi,
+  cours: coursApi,
+  affectation: affectationApi,
 };
 
 export default api;
