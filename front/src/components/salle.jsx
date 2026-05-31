@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import SkeletonCard from './ui/SkeletonCard';
 
 const initialData = {
   batiments: [
@@ -85,6 +86,7 @@ const Salle = () => {
   const [filterBatiment, setFilterBatiment] = useState("");
   const [filterEtage, setFilterEtage] = useState("");
   const [filterParcours, setFilterParcours] = useState("");
+  const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showMenuId, setShowMenuId] = useState(null);
@@ -199,15 +201,31 @@ const Salle = () => {
       </div>
 
       {/* Batiments */}
-      {filtered.map((batiment) => (
-        <div key={batiment.id} className="mb-12">
-          <div className="flex items-center gap-3 mb-5">
-            <div className={`w-1 h-8 rounded-full ${batiment.bgColor}`} style={{ backgroundColor: batiment.color }} />
-            <h2 className="text-xl font-semibold text-gray-800">{batiment.label}</h2>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{batiment.salles.length} salle(s)</span>
-          </div>
+      {loading ? (
+        <div className="space-y-12">
+          {Array.from({ length: 2 }).map((_, idx) => (
+            <div key={idx}>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-md w-32 animate-pulse"></div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        filtered.map((batiment) => (
+          <div key={batiment.id} className="mb-12">
+            <div className="flex items-center gap-3 mb-5">
+              <div className={`w-1 h-8 rounded-full ${batiment.bgColor}`} style={{ backgroundColor: batiment.color }} />
+              <h2 className="text-xl font-semibold text-gray-800">{batiment.label}</h2>
+              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{batiment.salles.length} salle(s)</span>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {/* Add card - uniquement pour le premier bâtiment */}
             {batiment.id === "A" && (
               <div

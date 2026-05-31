@@ -1,6 +1,6 @@
-// src/components/AffectationPage.jsx
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import SkeletonCard from './ui/SkeletonCard';
 
 const AffectationPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -232,8 +232,20 @@ const AffectationPage = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0EA5E9]"></div>
+      <div className="space-y-12">
+        {[1, 2, 3].map((section) => (
+          <div key={section}>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-md w-32 animate-pulse"></div>
+              <div className="h-px flex-1 bg-gray-200"></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <SkeletonCard key={i} />
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     );
   }

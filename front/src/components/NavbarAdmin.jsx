@@ -1,13 +1,15 @@
-// src/components/calendar/Navbar.jsx
+// src/components/NavbarAdmin.jsx
 import React, { useState, useRef, useEffect } from "react";
+import { useSidebar } from './SidebarContext';
 
-const Navbar = ({
+const NavbarAdmin = ({
   userSettings = {},
   onOpenSettings,
   onLogout,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
+  const { toggleSidebar, isSidebarOpen } = useSidebar();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -44,9 +46,31 @@ const Navbar = ({
   };
 
   return (
-    <nav className="h-12 bg-gray-100 border-b border-gray-200 flex items-center justify-end px-4 shrink-0">
+    <nav className="h-12 bg-gray-100 border-b border-gray-200 shadow-md flex items-center justify-end px-4 shrink-0">
+      {/* Menu hamburger pour mobile */}
+      <div className="absolute left-4 lg:hidden">
+        <button
+          onClick={toggleSidebar}
+          className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-lg transition-colors"
+          aria-label="Menu"
+        >
+          <svg 
+            className="w-5 h-5" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M4 6h16M4 12h16M4 18h16" 
+            />
+          </svg>
+        </button>
+      </div>
+
       <div className="flex items-center space-x-3">
-        
         {/* Notification */}
         <button className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors">
           <span className="material-symbols-outlined text-lg">
@@ -61,7 +85,7 @@ const Navbar = ({
             onClick={toggleDropdown}
           >
             {/* Avatar */}
-            <div className="w-7 h-7 bg-gradient-to-r from-sky-500 to-sky-600 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm">
+            <div className="w-7 h-7 bg-gradient-to-r from-gray-500 to-gray-600 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm">
               {getInitials(userSettings?.nom || "Admin")}
             </div>
 
@@ -141,4 +165,4 @@ const Navbar = ({
   );
 };
 
-export default Navbar;
+export default NavbarAdmin;

@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Skeleton from './ui/Skeleton';
 
 const ProfesseursPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [openMenuId, setOpenMenuId] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProfessor, setEditingProfessor] = useState(null);
+  const [loading, setLoading] = useState(false);
   const menuRef = useRef(null);
 
   const [professeurs, setProfesseurs] = useState([
@@ -101,63 +103,69 @@ const ProfesseursPage = () => {
       {/* Liste des professeurs - Cartes sans bordure solide, uniquement box shadow */}
       <section className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProfesseurs.map((professeur) => (
-            <article 
-              key={professeur.id} 
-              className="bg-white flex items-center p-4 rounded-xl shadow-md hover:shadow-lg transition-shadow gap-4 relative"
-            >
-              {/* Avatar */}
-              <div className="w-12 h-12 flex-shrink-0 rounded-full overflow-hidden bg-gray-100">
-                <img 
-                  alt={professeur.name} 
-                  className="w-full h-full object-cover" 
-                  src={professeur.avatar} 
-                />
-              </div>
+          {loading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} type="avatar" className="bg-white rounded-xl shadow-md p-4" />
+            ))
+          ) : (
+            filteredProfesseurs.map((professeur) => (
+              <article 
+                key={professeur.id} 
+                className="bg-white flex items-center p-4 rounded-xl shadow-md hover:shadow-lg transition-shadow gap-4 relative"
+              >
+                {/* Avatar */}
+                <div className="w-12 h-12 flex-shrink-0 rounded-full overflow-hidden bg-gray-100">
+                  <img 
+                    alt={professeur.name} 
+                    className="w-full h-full object-cover" 
+                    src={professeur.avatar} 
+                  />
+                </div>
 
-              {/* Informations */}
-              <div className="flex-grow min-w-0">
-                <h3 className="font-bold text-sm text-on-surface truncate">{professeur.name}</h3>
-                <div className="flex flex-col gap-0.5 mt-1 text-[10px] text-on-surface-variant opacity-60">
-                  <div className="flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[12px]">qr_code</span>
-                    <span className="">{professeur.code}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[12px]">mail</span>
-                    <span className="truncate">{professeur.email}</span>
+                {/* Informations */}
+                <div className="flex-grow min-w-0">
+                  <h3 className="font-bold text-sm text-on-surface truncate">{professeur.name}</h3>
+                  <div className="flex flex-col gap-0.5 mt-1 text-[10px] text-on-surface-variant opacity-60">
+                    <div className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[12px]">qr_code</span>
+                      <span className="">{professeur.code}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[12px]">mail</span>
+                      <span className="truncate">{professeur.email}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Bouton options (more_vert) */}
-              <div className="relative">
-                <button 
-                  onClick={(e) => toggleMenu(professeur.id, e)}
-                  className="p-1 rounded-full hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
-                  aria-label="Options"
-                >
-                  <span className="material-symbols-outlined text-[18px]">more_vert</span>
-                </button>
-
-                {/* Menu contextuel - uniquement Supprimer */}
-                {openMenuId === professeur.id && (
-                  <div 
-                    ref={menuRef}
-                    className="absolute top-8 right-0 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 min-w-[140px]"
+                {/* Bouton options (more_vert) */}
+                <div className="relative">
+                  <button 
+                    onClick={(e) => toggleMenu(professeur.id, e)}
+                    className="p-1 rounded-full hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+                    aria-label="Options"
                   >
-                    <button 
-                      onClick={() => handleDeleteProfessor(professeur.id, professeur.name)}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                    <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                  </button>
+
+                  {/* Menu contextuel - uniquement Supprimer */}
+                  {openMenuId === professeur.id && (
+                    <div 
+                      ref={menuRef}
+                      className="absolute top-8 right-0 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 min-w-[140px]"
                     >
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                      Supprimer
-                    </button>
-                  </div>
-                )}
-              </div>
-            </article>
-          ))}
+                      <button 
+                        onClick={() => handleDeleteProfessor(professeur.id, professeur.name)}
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                        Supprimer
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </article>
+            ))
+          )}
         </div>
 
         {/* Message si aucun résultat */}

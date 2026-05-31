@@ -6,10 +6,12 @@ import {
   Calendar, Clock, MapPin, Users, GraduationCap, BookOpen,
   FileText, Award, Bell, Settings, LogOut, Menu, X
 } from 'lucide-react';
+import Skeleton from './ui/Skeleton';
 
 const AcademicDashboard = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date(2024, 4, 1)); // Mai 2024
   const [selectedDate, setSelectedDate] = useState(new Date(2024, 4, 17));
+  const [loading, setLoading] = useState(false);
 
   const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];

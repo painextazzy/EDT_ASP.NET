@@ -1,5 +1,8 @@
 // src/components/DemandesPage.jsx
 import React, { useState, useRef, useEffect } from 'react';
+import api from '../services/api';
+import { BASE_URL, IMAGES_URL } from '../services/config';
+import SkeletonTableRow from './ui/SkeletonTableRow';
 
 const DemandesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -9,51 +12,44 @@ const DemandesPage = () => {
   const [selectedDemande, setSelectedDemande] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const [demandes, setDemandes] = useState([]);
+  const [loading, setLoading] = useState(true);
   const menuRef = useRef(null);
   const notificationTimeoutRef = useRef(null);
 
-  const [demandes, setDemandes] = useState([
-    {
-      id: 1,
-      nom: "M. Jean Valjean",
-      avatar: "https://randomuser.me/api/portraits/men/1.jpg",
-      im: "IM-48291",
-      email: "j.valjean@univ.fr",
-      statut: "En attente"
-    },
-    {
-      id: 2,
-      nom: "Mme Sophie Martin",
-      avatar: "https://randomuser.me/api/portraits/women/1.jpg",
-      im: "IM-48292",
-      email: "s.martin@univ.fr",
-      statut: "Validé"
-    },
-    {
-      id: 3,
-      nom: "M. René Descartes",
-      avatar: "https://randomuser.me/api/portraits/men/2.jpg",
-      im: "IM-48293",
-      email: "r.descartes@univ.fr",
-      statut: "Refusé"
-    },
-    {
-      id: 4,
-      nom: "M. Louis Simon",
-      avatar: "https://randomuser.me/api/portraits/men/3.jpg",
-      im: "IM-48294",
-      email: "l.simon@univ.fr",
-      statut: "En attente"
-    },
-    {
-      id: 5,
-      nom: "Mme Claire Dupont",
-      avatar: "https://randomuser.me/api/portraits/women/2.jpg",
-      im: "IM-48295",
-      email: "c.dupont@univ.fr",
-      statut: "En attente"
+  // Charger les demandes depuis l'API
+  useEffect(() => {
+    loadDemandes();
+  }, []);
+
+  const getPhotoUrl = (photoUrl) => {
+    if (!photoUrl) return `${IMAGES_URL}/images/avatars/default-avatar.jpg`;
+    if (photoUrl.startsWith('http')) return photoUrl;
+    if (photoUrl.startsWith('/')) return `${IMAGES_URL}${photoUrl}`;
+    return `${IMAGES_URL}/${photoUrl}`;
+  };
+
+  const loadDemandes = async () => {
+    try {
+      setLoading(true);
+      const data = await api.validation.getEnseignantsEnAttente();
+      // Transformer les données au format attendu par le tableau
+      const formattedData = data.map(enseignant => ({
+        id: enseignant.id,
+        nom: enseignant.nom,
+       
+        im: enseignant.im,
+        email: enseignant.email,
+        statut: "En attente"
+      }));
+      setDemandes(formattedData);
+    } catch (error) {
+      console.error('Erreur lors du chargement:', error);
+      showNotification('Erreur lors du chargement des demandes', 'error');
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   // Fermer le menu quand on clique ailleurs
   useEffect(() => {
@@ -115,21 +111,31 @@ const DemandesPage = () => {
     setOpenMenuId(null);
   };
 
-  const confirmActionHandler = () => {
+  const confirmActionHandler = async () => {
     if (confirmAction === 'validate' && selectedDemande) {
-      setDemandes(demandes.map(d => 
-        d.id === selectedDemande.id 
-          ? { ...d, statut: "Validé" }
-          : d
-      ));
-      showNotification(`Demande de ${selectedDemande.nom} validée avec succès`, 'success');
+      try {
+        await api.validation.validerEnseignant(selectedDemande.id);
+        
+        // Mettre à jour l'état local
+        setDemandes(demandes.map(d => 
+          d.id === selectedDemande.id 
+            ? { ...d, statut: "Validé" }
+            : d
+        ));
+        showNotification(`Demande de ${selectedDemande.nom} validée avec succès`, 'success');
+      } catch (error) {
+        showNotification(`Erreur lors de la validation: ${error.response?.data?.message || 'Erreur inconnue'}`, 'error');
+      }
     } else if (confirmAction === 'reject' && selectedDemande) {
-      setDemandes(demandes.map(d => 
-        d.id === selectedDemande.id 
-          ? { ...d, statut: "Refusé" }
-          : d
-      ));
-      showNotification(`Demande de ${selectedDemande.nom} refusée`, 'error');
+      try {
+        await api.validation.refuserEnseignant(selectedDemande.id);
+        
+        // Supprimer de l'état local
+        setDemandes(demandes.filter(d => d.id !== selectedDemande.id));
+        showNotification(`Demande de ${selectedDemande.nom} refusée`, 'error');
+      } catch (error) {
+        showNotification(`Erreur lors du refus: ${error.response?.data?.message || 'Erreur inconnue'}`, 'error');
+      }
     }
     setShowConfirmModal(false);
     setSelectedDemande(null);
@@ -175,6 +181,42 @@ const DemandesPage = () => {
         return 'bg-blue-50 text-blue-800 border-blue-200';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-6">
+        <header className="space-y-4">
+          <div className="flex gap-4 items-center">
+            <div className="relative flex-1 max-w-2xl">
+              <div className="h-10 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-lg animate-pulse w-full"></div>
+            </div>
+            <div className="h-10 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-lg animate-pulse w-40"></div>
+          </div>
+        </header>
+
+        <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Demandeur</th>
+                  <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Numéro IM</th>
+                  <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Statut</th>
+                  <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <SkeletonTableRow key={i} columns={5} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -244,10 +286,13 @@ const DemandesPage = () => {
                       <div className="w-8 h-8 flex-shrink-0 rounded-full overflow-hidden bg-gray-100">
                         {demande.avatar ? (
                           <img 
-                            alt={demande.nom} 
-                            className="w-full h-full object-cover" 
-                            src={demande.avatar} 
-                          />
+                src={getPhotoUrl(demande.photoUrl)}
+                alt={demande.nom}
+                className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                onError={(e) => {
+                  e.target.src = `${IMAGES_URL}/images/avatars/default-avatar.png`;
+                }}
+              />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <span className="material-symbols-outlined text-gray-400 text-sm">person</span>
@@ -274,12 +319,14 @@ const DemandesPage = () => {
                   </td>
                   <td className="py-3 px-6">
                     <div className="relative">
-                      <button
-                        onClick={(e) => toggleMenu(demande.id, e)}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[18px] text-gray-400">more_vert</span>
-                      </button>
+                      {demande.statut === 'En attente' && (
+                        <button
+                          onClick={(e) => toggleMenu(demande.id, e)}
+                          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[18px] text-gray-400">more_vert</span>
+                        </button>
+                      )}
                       {openMenuId === demande.id && (
                         <div 
                           ref={menuRef}

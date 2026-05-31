@@ -40,6 +40,21 @@ const apiClient = async (endpoint, options = {}) => {
   }
 };
 
+// ========== VALIDATION DES ENSEIGNANTS (ADMIN) ==========
+export const validationApi = {
+  // Lister les enseignants en attente
+  getEnseignantsEnAttente: () => 
+    apiClient('/api/validation/enseignants-en-attente', { method: 'GET' }),
+  
+  // Valider un enseignant
+  validerEnseignant: (id) => 
+    apiClient(`/api/validation/valider/${id}`, { method: 'PUT' }),
+  
+  // Refuser un enseignant
+  refuserEnseignant: (id) => 
+    apiClient(`/api/validation/refuser/${id}`, { method: 'DELETE' }),
+};
+
 // ========== PARTIE EXISTANTE (ne pas toucher) ==========
 export const inscriptionApi = {
   inscrireProfesseur: (data) => 
@@ -122,6 +137,7 @@ const api = {
   inscription: inscriptionApi,
   cours: coursApi,
   affectation: affectationApi,
+  validation: validationApi,
 };
 
 export default api;

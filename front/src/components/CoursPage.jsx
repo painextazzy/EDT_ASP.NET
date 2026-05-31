@@ -1,6 +1,7 @@
 // src/components/CoursPage.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import api from '../services/api';
+import SkeletonTableRow from './ui/SkeletonTableRow';
 
 const CoursPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -204,22 +205,20 @@ const CoursPage = () => {
 
       {/* Liste des cours */}
       <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-        {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Code</th>
-                  <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom du cours</th>
-                  <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredCourses.map((course) => (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Code</th>
+                <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom du cours</th>
+                <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => <SkeletonTableRow key={i} columns={3} />)
+              ) : (
+                filteredCourses.map((course) => (
                   <tr key={course.id} className="hover:bg-gray-50 transition-colors">
                     <td className="py-3 px-6">
                       <span className="text-sm font-mono font-semibold text-blue-600">{course.code}</span>
@@ -259,11 +258,11 @@ const CoursPage = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {/* Message si aucun résultat */}
         {!loading && filteredCourses.length === 0 && (

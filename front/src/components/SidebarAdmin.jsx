@@ -55,9 +55,7 @@ const SidebarAdmin = () => {
           ${isCollapsed ? 'flex-col gap-4' : ''}
         `}>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-sky-500 rounded-xl flex items-center justify-center shadow-md">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
+           
             {!isCollapsed && (
               <div>
                 <div className="text-sky-500 text-2xl font-bold tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>

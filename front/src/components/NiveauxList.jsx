@@ -1,9 +1,10 @@
 // src/components/NiveauxList.jsx
 import React, { useState } from 'react';
 import ItemCard from './shared/ItemCard';
+import SkeletonCard from './ui/SkeletonCard';
 import { Plus } from 'lucide-react';
 
-const NiveauxList = ({ items, onAdd, onUpdate, onDelete }) => {
+const NiveauxList = ({ items, onAdd, onUpdate, onDelete, loading = false }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [editId, setEditId] = useState(null);
@@ -41,43 +42,47 @@ const NiveauxList = ({ items, onAdd, onUpdate, onDelete }) => {
           <span className="font-semibold text-sm uppercase tracking-wider text-center">Ajouter un niveau</span>
         </div>
 
-        {items.map((item) => (
-          <div key={item.id}>
-            {editId === item.id ? (
-              <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-5 space-y-3 min-h-[240px] flex flex-col justify-center">
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
-                  autoFocus
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setEditId(null)}
-                    className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded-lg transition"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    onClick={handleSaveEdit}
-                    className="px-3 py-1.5 text-xs bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition shadow-sm"
-                  >
-                    Enregistrer
-                  </button>
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+        ) : (
+          items.map((item) => (
+            <div key={item.id}>
+              {editId === item.id ? (
+                <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-5 space-y-3 min-h-[240px] flex flex-col justify-center">
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setEditId(null)}
+                      className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded-lg transition"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={handleSaveEdit}
+                      className="px-3 py-1.5 text-xs bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition shadow-sm"
+                    >
+                      Enregistrer
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <ItemCard
-                item={item}
-                icon="menu_book"
-                extraInfo={item.code}
-                onEdit={() => handleEdit(item)}
-                onDelete={() => onDelete(item.id)}
-              />
-            )}
-          </div>
-        ))}
+              ) : (
+                <ItemCard
+                  item={item}
+                  icon="menu_book"
+                  extraInfo={item.code}
+                  onEdit={() => handleEdit(item)}
+                  onDelete={() => onDelete(item.id)}
+                />
+              )}
+            </div>
+          ))
+        )}
       </div>
 
       {showAddModal && (

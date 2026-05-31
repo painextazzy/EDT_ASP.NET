@@ -6,7 +6,7 @@ namespace back.Models
         public string Im { get; set; } = string.Empty;
         public string Nom { get; set; } = string.Empty;
 
-        public string PhotoUrl { get; set; } = string.Empty;
+        public string PhotoUrl { get; set; } = "/images/avatars/default-avatar.jpg";
 
         public int IdUtilisateur { get; set; }
         public Utilisateur? Utilisateur { get; set; }
