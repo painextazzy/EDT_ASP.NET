@@ -1,5 +1,6 @@
 // src/components/Salle.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import api from '../services/api';
 import { 
   Search, 
   Plus, 
@@ -18,145 +19,140 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import SkeletonCard from './ui/SkeletonCard';
 
-const initialData = {
-  batiments: [
-    {
-      id: "A",
-      label: "Bâtiment A",
-      color: "#6366f1",
-      bgColor: "bg-indigo-50",
-      salles: [
-        {
-          id: "a1",
-          numero: "A-102",
-          statut: "OCCUPÉ",
-          courActuel: "Base de données avancées",
-          etage: "Étage 1",
-          parcours: "Informatique",
-          mention: "M2 - DA2I",
-        },
-        {
-          id: "a2",
-          numero: "A-004",
-          statut: "LIBRE",
-          courActuel: null,
-          etage: "Rez-de-chaussée",
-          parcours: "Management",
-          mention: "L3 - AES",
-        },
-        {
-          id: "a3",
-          numero: "A-205",
-          statut: "LIBRE",
-          courActuel: null,
-          etage: "Étage 2",
-          parcours: "Multimédia",
-          mention: "L2 - ICM",
-        },
-      ],
-    },
-    {
-      id: "B",
-      label: "Bâtiment B",
-      color: "#10b981",
-      bgColor: "bg-emerald-50",
-      salles: [
-        {
-          id: "b1",
-          numero: "B-110",
-          statut: "OCCUPÉ",
-          courActuel: "Base de Données Avancée",
-          etage: "Étage 1",
-          parcours: "Informatique",
-          mention: "M1 - DA2I",
-        },
-      ],
-    },
-  ],
+const buildingColors = {
+  A: { color: "#6366f1", bgColor: "bg-indigo-50" },
+  B: { color: "#10b981", bgColor: "bg-emerald-50" },
+  C: { color: "#f59e0b", bgColor: "bg-amber-50" },
+  D: { color: "#ef4444", bgColor: "bg-rose-50" },
+};
+
+const etageMap = {
+  "Rez-de-chaussée": 0,
+  "Étage 1": 1,
+  "Étage 2": 2,
+  "Étage 3": 3,
+};
+
+const reverseEtageMap = {
+  0: "Rez-de-chaussée",
+  1: "Étage 1",
+  2: "Étage 2",
+  3: "Étage 3",
 };
 
 const allEtages = ["Rez-de-chaussée", "Étage 1", "Étage 2", "Étage 3"];
 const allParcours = ["Informatique", "Management", "Multimédia", "AES"];
 
 const Salle = () => {
-  const [data, setData] = useState(initialData);
+  const [salles, setSalles] = useState([]);
+  const [batiments, setBatiments] = useState([]);
   const [search, setSearch] = useState("");
   const [filterBatiment, setFilterBatiment] = useState("");
   const [filterEtage, setFilterEtage] = useState("");
   const [filterParcours, setFilterParcours] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showMenuId, setShowMenuId] = useState(null);
   const [editingSalle, setEditingSalle] = useState(null);
-  const [editingBatimentId, setEditingBatimentId] = useState(null);
   const [newSalle, setNewSalle] = useState({ numero: "", batiment: "", etage: "" });
 
-  const handleAddRoom = () => {
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Construction manuelle de la query string car apiClient ne gère que l'URL
+      const query = new URLSearchParams({
+        search,
+        batiment: filterBatiment,
+        etage: filterEtage ? etageMap[filterEtage] : ""
+      }).toString();
+
+      const [sallesData, batimentsData] = await Promise.all([
+        api.salle.getAll(query ? `?${query}` : ""),
+        api.salle.getBatiments()
+      ]);
+      
+      setSalles(sallesData);
+      setBatiments(batimentsData);
+    } catch (error) {
+      console.error("Erreur de chargement des salles:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [search, filterBatiment, filterEtage]);
+
+  const handleAddRoom = async () => {
     if (!newSalle.numero || !newSalle.batiment) return;
-    const newRoom = {
-      id: `salle-${Date.now()}`,
-      numero: newSalle.numero,
-      statut: "LIBRE",
-      courActuel: null,
-      etage: newSalle.etage || "",
-      parcours: "",
-      mention: "",
-    };
-    setData(prev => ({
-      ...prev,
-      batiments: prev.batiments.map(b =>
-        b.id === newSalle.batiment ? { ...b, salles: [...b.salles, newRoom] } : b
-      ),
-    }));
-    setNewSalle({ numero: "", batiment: "", etage: "" });
-    setShowAddModal(false);
+    try {
+      await api.salle.create({
+        numero: newSalle.numero,
+        batiment: newSalle.batiment,
+        etage: etageMap[newSalle.etage] || 0
+      });
+      setNewSalle({ numero: "", batiment: "", etage: "" });
+      setShowAddModal(false);
+      loadData();
+    } catch (error) {
+      console.error("Erreur lors de l'ajout:", error);
+    }
   };
 
-  const handleEditRoom = () => {
+  const handleEditRoom = async () => {
     if (!editingSalle) return;
-    setData(prev => ({
-      ...prev,
-      batiments: prev.batiments.map(b => ({
-        ...b,
-        salles: b.salles.map(s =>
-          s.id === editingSalle.id ? { ...s, numero: editingSalle.numero, etage: editingSalle.etage } : s
-        ),
-      })),
-    }));
-    setShowEditModal(false);
-    setEditingSalle(null);
+    try {
+      await api.salle.update(editingSalle.id, {
+        numero: editingSalle.numero,
+        batiment: editingSalle.batiment,
+        etage: etageMap[editingSalle.etageLabel] ?? editingSalle.etage
+      });
+      setShowEditModal(false);
+      setEditingSalle(null);
+      loadData();
+    } catch (error) {
+      console.error("Erreur lors de la modification:", error);
+    }
   };
 
-  const handleDeleteRoom = (salleId) => {
+  const handleDeleteRoom = async (salleId) => {
     if (window.confirm("Supprimer cette salle ?")) {
-      setData(prev => ({
-        ...prev,
-        batiments: prev.batiments.map(b => ({
-          ...b,
-          salles: b.salles.filter(s => s.id !== salleId),
-        })),
-      }));
+      try {
+        await api.salle.delete(salleId);
+        loadData();
+      } catch (error) {
+        console.error("Erreur lors de la suppression:", error);
+      }
     }
     setShowMenuId(null);
   };
 
-  const filtered = useMemo(() => {
-    return data.batiments
-      .filter(b => !filterBatiment || b.id === filterBatiment)
-      .map(b => ({
-        ...b,
-        salles: b.salles.filter(s => {
-          const q = search.toLowerCase();
-          const matchSearch = !q || s.numero.toLowerCase().includes(q) || (s.parcours || "").toLowerCase().includes(q) || (s.mention || "").toLowerCase().includes(q) || (s.courActuel || "").toLowerCase().includes(q);
-          const matchEtage = !filterEtage || s.etage === filterEtage;
-          const matchParcours = !filterParcours || s.parcours === filterParcours;
-          return matchSearch && matchEtage && matchParcours;
-        }),
-      }));
-  }, [data, search, filterBatiment, filterEtage, filterParcours]);
+  const groupedData = useMemo(() => {
+    const filteredByParcours = filterParcours 
+      ? salles.filter(s => s.parcours === filterParcours)
+      : salles;
+
+    const groups = filteredByParcours.reduce((acc, salle) => {
+      const bId = salle.batiment;
+      if (!acc[bId]) {
+        acc[bId] = {
+          id: bId,
+          label: `Bâtiment ${bId}`,
+          color: buildingColors[bId]?.color || "#64748b",
+          bgColor: buildingColors[bId]?.bgColor || "bg-slate-50",
+          salles: []
+        };
+      }
+      acc[bId].salles.push(salle);
+      return acc;
+    }, {});
+
+    return Object.values(groups).sort((a, b) => a.id.localeCompare(b.id));
+  }, [salles, filterParcours]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-sans p-6 md:p-8">
@@ -180,7 +176,7 @@ const Salle = () => {
           className="px-4 py-2.5 border border-gray-200 rounded-2xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
         >
           <option value="">Tous les bâtiments</option>
-          {data.batiments.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
+          {batiments.map(b => <option key={b} value={b}>Bâtiment {b}</option>)}
         </select>
         <select
           value={filterEtage}
@@ -200,34 +196,25 @@ const Salle = () => {
         </select>
       </div>
 
-      {/* Batiments */}
-      {loading ? (
-        <div className="space-y-12">
-          {Array.from({ length: 2 }).map((_, idx) => (
-            <div key={idx}>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-md w-32 animate-pulse"></div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <SkeletonCard key={i} />
-                ))}
-              </div>
-            </div>
-          ))}
+      {loading && (
+        <div className="flex justify-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
         </div>
-      ) : (
-        filtered.map((batiment) => (
-          <div key={batiment.id} className="mb-12">
-            <div className="flex items-center gap-3 mb-5">
-              <div className={`w-1 h-8 rounded-full ${batiment.bgColor}`} style={{ backgroundColor: batiment.color }} />
-              <h2 className="text-xl font-semibold text-gray-800">{batiment.label}</h2>
-              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{batiment.salles.length} salle(s)</span>
-            </div>
+      )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {/* Batiments */}
+      {!loading && groupedData.length === 0 && <div className="text-center py-20 text-gray-400">Aucune salle trouvée</div>}
+      {!loading && groupedData.map((batiment) => (
+        <div key={batiment.id} className="mb-12">
+          <div className="flex items-center gap-3 mb-5">
+            <div className={`w-1 h-8 rounded-full ${batiment.bgColor}`} style={{ backgroundColor: batiment.color }} />
+            <h2 className="text-xl font-semibold text-gray-800">{batiment.label}</h2>
+            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{batiment.salles.length} salle(s)</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {/* Add card - uniquement pour le premier bâtiment */}
-            {batiment.id === "A" && (
+            {groupedData[0]?.id === batiment.id && (
               <div
                 onClick={() => setShowAddModal(true)}
                 className="group border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-3 py-12 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 transition-all duration-300 min-h-[280px] bg-white/50 backdrop-blur-sm"
@@ -280,9 +267,9 @@ const Salle = () => {
                     )}
 
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {salle.etage && (
+                      {salle.etageLabel && (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 rounded-xl text-[11px] font-medium text-gray-600">
-                          <Layers className="w-3.5 h-3.5" /> {salle.etage}
+                          <Layers className="w-3.5 h-3.5" /> {salle.etageLabel}
                         </span>
                       )}
                       {salle.parcours && (
@@ -311,7 +298,6 @@ const Salle = () => {
                         <button
                           onClick={() => {
                             setEditingSalle(salle);
-                            setEditingBatimentId(batiment.id);
                             setShowEditModal(true);
                             setShowMenuId(null);
                           }}
@@ -359,7 +345,10 @@ const Salle = () => {
                 onChange={(e) => setNewSalle({ ...newSalle, batiment: e.target.value })}
               >
                 <option value="">Sélectionner un bâtiment</option>
-                {data.batiments.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
+                <option value="A">Bâtiment A</option>
+                <option value="B">Bâtiment B</option>
+                <option value="C">Bâtiment C</option>
+                <option value="D">Bâtiment D</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -398,11 +387,19 @@ const Salle = () => {
                 />
               </div>
               <div className="space-y-2">
+                <Label className="text-gray-700">Bâtiment</Label>
+                <Input
+                  value={editingSalle.batiment}
+                  onChange={(e) => setEditingSalle({ ...editingSalle, batiment: e.target.value })}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label className="text-gray-700">Étage</Label>
                 <select
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"
-                  value={editingSalle.etage}
-                  onChange={(e) => setEditingSalle({ ...editingSalle, etage: e.target.value })}
+                  value={editingSalle.etageLabel}
+                  onChange={(e) => setEditingSalle({ ...editingSalle, etageLabel: e.target.value })}
                 >
                   <option value="">Sélectionner un étage</option>
                   {allEtages.map(e => <option key={e} value={e}>{e}</option>)}

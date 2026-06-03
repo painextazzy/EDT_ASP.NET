@@ -7,21 +7,18 @@ namespace back.Data
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        // ========== ENTITÉS EXISTANTES (vos collègues) ==========
         public DbSet<Utilisateur> Utilisateurs { get; set; }
         public DbSet<Enseignant> Enseignants { get; set; }
-
-        // ========== NOUVELLES ENTITÉS (gestion des cours et affectations) ==========
-        public DbSet<Cours> Matieres { get; set; }
-        public DbSet<Niveau> Niveaux { get; set; }
-        public DbSet<Parcours> Parcours { get; set; }
-        public DbSet<Enseignement> Enseignements { get; set; }
+        public DbSet<Salle> Salles { get; set; }
+        public DbSet<Cours> Matieres { get; set; } = null!;
+        public DbSet<Niveau> Niveaux { get; set; } = null!;
+        public DbSet<Parcours> Parcours { get; set; } = null!;
+        public DbSet<Enseignement> Enseignements { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // ========== CONFIGURATION EXISTANTE (vos collègues) ==========
             modelBuilder.Entity<Utilisateur>(entity =>
             {
                 entity.ToTable("utilisateur");
@@ -49,37 +46,41 @@ namespace back.Data
                       .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // ========== NOUVELLES CONFIGURATIONS ==========
-            
-            // Table Matiere (Cours)
+             modelBuilder.Entity<Salle>(entity =>
+            {
+                entity.ToTable("salle");
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.NomSalle).HasColumnName("nom_salle");
+                entity.Property(e => e.Batiment).HasColumnName("batiment");
+                entity.Property(e => e.Etage).HasColumnName("etage");
+            });
+
+            // Configuration pour l'entité Cours (Matiere)
             modelBuilder.Entity<Cours>(entity =>
             {
                 entity.ToTable("matiere");
                 entity.Property(e => e.Id).HasColumnName("id");
                 entity.Property(e => e.Code).HasColumnName("code");
                 entity.Property(e => e.Nom).HasColumnName("libelle");
-                entity.HasIndex(e => e.Code).IsUnique();
             });
 
-            // Table Niveau
+            // Configuration pour l'entité Niveau
             modelBuilder.Entity<Niveau>(entity =>
             {
                 entity.ToTable("niveau");
                 entity.Property(e => e.Id).HasColumnName("id");
                 entity.Property(e => e.Libelle).HasColumnName("libelle");
-                entity.HasIndex(e => e.Libelle).IsUnique();
             });
 
-            // Table Parcours
+            // Configuration pour l'entité Parcours
             modelBuilder.Entity<Parcours>(entity =>
             {
                 entity.ToTable("parcours");
                 entity.Property(e => e.Id).HasColumnName("id");
                 entity.Property(e => e.Libelle).HasColumnName("libelle");
-                entity.HasIndex(e => e.Libelle).IsUnique();
             });
 
-            // Table Enseignement
+            // Configuration pour l'entité Enseignement
             modelBuilder.Entity<Enseignement>(entity =>
             {
                 entity.ToTable("enseignement");
@@ -90,30 +91,10 @@ namespace back.Data
                 entity.Property(e => e.IdParcours).HasColumnName("id_parcours");
                 entity.Property(e => e.EstTermine).HasColumnName("est_termine");
 
-                // Relations
-                entity.HasOne(e => e.Enseignant)
-                      .WithMany()
-                      .HasForeignKey(e => e.IdEnseignant)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(e => e.Cours)
-                      .WithMany()
-                      .HasForeignKey(e => e.IdMatiere)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(e => e.Niveau)
-                      .WithMany()
-                      .HasForeignKey(e => e.IdNiveau)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(e => e.Parcours)
-                      .WithMany()
-                      .HasForeignKey(e => e.IdParcours)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                // Index unique pour éviter les doublons
-                entity.HasIndex(e => new { e.IdEnseignant, e.IdMatiere, e.IdNiveau, e.IdParcours })
-                      .IsUnique();
+                entity.HasOne(e => e.Enseignant).WithMany().HasForeignKey(e => e.IdEnseignant);
+                entity.HasOne(e => e.Cours).WithMany().HasForeignKey(e => e.IdMatiere);
+                entity.HasOne(e => e.Niveau).WithMany().HasForeignKey(e => e.IdNiveau);
+                entity.HasOne(e => e.Parcours).WithMany().HasForeignKey(e => e.IdParcours);
             });
         }
     }
