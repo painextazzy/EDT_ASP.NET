@@ -9,13 +9,15 @@ import {
   Trash2,
   Clock,
   Layers,
-  CheckCircle
+  CheckCircle,
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import Skeleton from './ui/Skeleton'; // Import du composant Skeleton
+import Skeleton from './ui/Skeleton';
 
 const buildingColors = {
   A: { color: "#6366f1", bgColor: "bg-indigo-50" },
@@ -33,6 +35,28 @@ const etageLabels = {
 };
 
 const allEtages = ["Rez-de-chaussée", "Etage 1", "Etage 2", "Etage 3", "Etage 4"];
+
+// Composant Toast de notification
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 animate-slide-down">
+      <div className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg ${
+        type === 'success' ? 'bg-green-500' : 'bg-red-500'
+      } text-white min-w-[300px]`}>
+        {type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+        <span className="flex-1 text-sm font-medium">{message}</span>
+        <button onClick={onClose} className="hover:opacity-80">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 // Composant Skeleton pour une carte de salle
 const SalleCardSkeleton = () => (
@@ -61,12 +85,89 @@ const Salle = () => {
   const [filterBatiment, setFilterBatiment] = useState("");
   const [filterEtage, setFilterEtage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showMenuId, setShowMenuId] = useState(null);
   const [editingSalle, setEditingSalle] = useState(null);
   const [newSalle, setNewSalle] = useState({ numero: "", batiment: "", etage: "" });
+
+  // États pour les erreurs de validation
+  const [errors, setErrors] = useState({});
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
+
+  const hideToast = () => setToast(null);
+
+  // Validation pour empêcher les caractères spéciaux (uniquement lettres, chiffres, tiret, espace)
+  const validateAlphanumeric = (value) => {
+    const regex = /^[a-zA-Z0-9\s\-]+$/;
+    return regex.test(value);
+  };
+
+  // Validation du formulaire d'ajout
+  const validateAddForm = () => {
+    const newErrors = {};
+    
+    if (!newSalle.numero.trim()) {
+      newErrors.numero = "Le numéro de la salle est requis";
+    } else if (!validateAlphanumeric(newSalle.numero)) {
+      newErrors.numero = "Le numéro ne peut contenir que des lettres, chiffres, espaces et tirets";
+    } else if (newSalle.numero.length < 2) {
+      newErrors.numero = "Le numéro doit contenir au moins 2 caractères";
+    }
+    
+    if (!newSalle.batiment) {
+      newErrors.batiment = "Veuillez sélectionner un bâtiment";
+    }
+    
+    if (!newSalle.etage) {
+      newErrors.etage = "Veuillez sélectionner un étage";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Validation du formulaire de modification
+  const validateEditForm = () => {
+    const newErrors = {};
+    
+    if (!editingSalle.numero.trim()) {
+      newErrors.numero = "Le numéro de la salle est requis";
+    } else if (!validateAlphanumeric(editingSalle.numero)) {
+      newErrors.numero = "Le numéro ne peut contenir que des lettres, chiffres, espaces et tirets";
+    } else if (editingSalle.numero.length < 2) {
+      newErrors.numero = "Le numéro doit contenir au moins 2 caractères";
+    }
+    
+    if (!editingSalle.batiment) {
+      newErrors.batiment = "Veuillez sélectionner un bâtiment";
+    }
+    
+    if (!editingSalle.etage) {
+      newErrors.etage = "Veuillez sélectionner un étage";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Effacer les erreurs quand on ferme les modales
+  const closeAddModal = () => {
+    setShowAddModal(false);
+    setNewSalle({ numero: "", batiment: "", etage: "" });
+    setErrors({});
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditingSalle(null);
+    setErrors({});
+  };
 
   // Charger les salles depuis l'API
   const loadSalles = async () => {
@@ -82,6 +183,7 @@ const Salle = () => {
       setSalles(data);
     } catch (error) {
       console.error("Erreur lors du chargement des salles:", error);
+      showToast("Erreur lors du chargement des salles", 'error');
     } finally {
       setLoading(false);
     }
@@ -107,60 +209,59 @@ const Salle = () => {
 
   // Ajouter une salle
   const handleAddRoom = async () => {
-    if (!newSalle.numero || !newSalle.batiment || !newSalle.etage) {
-      alert("Veuillez remplir tous les champs");
-      return;
-    }
+    if (!validateAddForm()) return;
     
     try {
       const dataToSend = {
-        numero: newSalle.numero,
+        numero: newSalle.numero.trim(),
         batiment: newSalle.batiment,
         etage: newSalle.etage
       };
       
       await api.salle.create(dataToSend);
-      setNewSalle({ numero: "", batiment: "", etage: "" });
-      setShowAddModal(false);
+      closeAddModal();
       loadSalles();
       loadBatiments();
+      showToast(`✅ Salle "${newSalle.numero}" ajoutée avec succès`, 'success');
     } catch (error) {
       console.error("Erreur lors de l'ajout:", error);
-      alert("Erreur lors de l'ajout de la salle");
+      showToast("❌ Erreur lors de l'ajout de la salle", 'error');
     }
   };
 
   // Modifier une salle
   const handleEditRoom = async () => {
-    if (!editingSalle) return;
+    if (!validateEditForm()) return;
     
     try {
       const dataToSend = {
-        numero: editingSalle.numero,
+        numero: editingSalle.numero.trim(),
         batiment: editingSalle.batiment,
         etage: editingSalle.etage
       };
       
       await api.salle.update(editingSalle.id, dataToSend);
-      setShowEditModal(false);
-      setEditingSalle(null);
+      closeEditModal();
       loadSalles();
       loadBatiments();
+      showToast(` Salle "${editingSalle.numero}" modifiée avec succès`, 'success');
     } catch (error) {
       console.error("Erreur lors de la modification:", error);
-      alert("Erreur lors de la modification");
+      showToast("Erreur lors de la modification", 'error');
     }
   };
 
   // Supprimer une salle
-  const handleDeleteRoom = async (salleId) => {
-    if (window.confirm("Supprimer cette salle ?")) {
+  const handleDeleteRoom = async (salleId, salleNumero) => {
+    if (window.confirm(`Supprimer la salle "${salleNumero}" ?`)) {
       try {
         await api.salle.delete(salleId);
         loadSalles();
         loadBatiments();
+        showToast(` Salle "${salleNumero}" supprimée avec succès`, 'success');
       } catch (error) {
         console.error("Erreur lors de la suppression:", error);
+        showToast(" Erreur lors de la suppression", 'error');
       }
     }
     setShowMenuId(null);
@@ -188,9 +289,14 @@ const Salle = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-sans p-6 md:p-8">
+      {/* Toast Notification */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+
       {/* Header */}
       <div className="mb-6">
-       
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          Gestion des Salles
+        </h1>
         <p className="text-gray-500 text-sm mt-1">Gérez vos salles et leur disponibilité</p>
       </div>
 
@@ -268,7 +374,7 @@ const Salle = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {/* Add card - uniquement pour le premier bâtiment */}
+            {/* Add card */}
             {index === 0 && (
               <div
                 onClick={() => setShowAddModal(true)}
@@ -289,7 +395,6 @@ const Salle = () => {
                   key={salle.id}
                   className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 relative overflow-hidden hover:-translate-y-1"
                 >
-                  {/* Status bar */}
                   <div className={`absolute top-0 left-0 right-0 h-1 ${libre ? 'bg-green-500' : 'bg-red-500'}`} />
                   
                   <div className="p-5">
@@ -321,7 +426,6 @@ const Salle = () => {
                       </div>
                     )}
 
-                    {/* Informations de la salle depuis la base */}
                     <div className="flex flex-wrap gap-2 mb-4">
                       {salle.etage && (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 rounded-xl text-[11px] font-medium text-gray-600">
@@ -331,29 +435,28 @@ const Salle = () => {
                     </div>
                   </div>
 
-                  {/* Menu settings button */}
                   <div className="absolute bottom-3 right-3">
                     <button
                       onClick={() => setShowMenuId(showMenuId === salle.id ? null : salle.id)}
-                      className="p-2 rounded-xl hover:bg-gray-100 transition-all duration-200"
+                      className="p-2 rounded-xl hover:bg-gray-100"
                     >
                       <Settings className="w-4 h-4 text-gray-400 hover:text-gray-600" />
                     </button>
                     {showMenuId === salle.id && (
-                      <div className="absolute bottom-10 right-0 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20 min-w-[140px] animate-fadeIn">
+                      <div className="absolute bottom-10 right-0 bg-white rounded-xl shadow-lg border py-1 z-20 min-w-[140px] animate-fadeIn">
                         <button
                           onClick={() => {
                             setEditingSalle(salle);
                             setShowEditModal(true);
                             setShowMenuId(null);
                           }}
-                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 rounded-t-xl transition-colors"
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 rounded-t-xl"
                         >
                           <Edit className="w-4 h-4" /> Modifier
                         </button>
                         <button
-                          onClick={() => handleDeleteRoom(salle.id)}
-                          className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-b-xl transition-colors"
+                          onClick={() => handleDeleteRoom(salle.id, salle.numero)}
+                          className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-b-xl"
                         >
                           <Trash2 className="w-4 h-4" /> Supprimer
                         </button>
@@ -367,26 +470,34 @@ const Salle = () => {
         </div>
       ))}
 
-      {/* Modal Ajout */}
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="sm:max-w-md rounded-2xl" aria-describedby="add-dialog-description">
+      {/* Modal Ajout avec validation */}
+      <Dialog open={showAddModal} onOpenChange={closeAddModal}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold">Ajouter une salle</DialogTitle>
           </DialogHeader>
-          <div id="add-dialog-description" className="space-y-5 py-4">
+          <div className="space-y-5 py-4">
             <div className="space-y-2">
-              <Label className="text-gray-700">Numéro de la salle</Label>
+              <Label className="text-gray-700">Numéro de la salle <span className="text-red-500">*</span></Label>
               <Input
-                placeholder="ex: A-102"
+                placeholder="ex: A-102 ou B201"
                 value={newSalle.numero}
-                onChange={(e) => setNewSalle({ ...newSalle, numero: e.target.value })}
-                className="rounded-xl"
+                onChange={(e) => {
+                  // Permet seulement lettres, chiffres, tiret, espace
+                  const value = e.target.value;
+                  if (value === "" || /^[a-zA-Z0-9\s-]*$/.test(value)) {
+                    setNewSalle({ ...newSalle, numero: value });
+                  }
+                }}
+                className={`rounded-xl ${errors.numero ? 'border-red-500 focus:ring-red-500' : ''}`}
               />
+              {errors.numero && <p className="text-xs text-red-500">{errors.numero}</p>}
             </div>
+            
             <div className="space-y-2">
-              <Label className="text-gray-700">Bâtiment</Label>
+              <Label className="text-gray-700">Bâtiment <span className="text-red-500">*</span></Label>
               <select
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"
+                className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${errors.batiment ? 'border-red-500' : 'border-gray-200'}`}
                 value={newSalle.batiment}
                 onChange={(e) => setNewSalle({ ...newSalle, batiment: e.target.value })}
               >
@@ -396,11 +507,13 @@ const Salle = () => {
                 <option value="C">Bâtiment C</option>
                 <option value="D">Bâtiment D</option>
               </select>
+              {errors.batiment && <p className="text-xs text-red-500">{errors.batiment}</p>}
             </div>
+            
             <div className="space-y-2">
-              <Label className="text-gray-700">Étage</Label>
+              <Label className="text-gray-700">Étage <span className="text-red-500">*</span></Label>
               <select
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"
+                className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${errors.etage ? 'border-red-500' : 'border-gray-200'}`}
                 value={newSalle.etage}
                 onChange={(e) => setNewSalle({ ...newSalle, etage: e.target.value })}
               >
@@ -411,35 +524,43 @@ const Salle = () => {
                 <option value="Etage 3">Etage 3</option>
                 <option value="Etage 4">Etage 4</option>
               </select>
+              {errors.etage && <p className="text-xs text-red-500">{errors.etage}</p>}
             </div>
           </div>
           <DialogFooter className="gap-3">
-            <Button variant="outline" onClick={() => setShowAddModal(false)} className="rounded-xl">Annuler</Button>
+            <Button variant="outline" onClick={closeAddModal} className="rounded-xl">Annuler</Button>
             <Button onClick={handleAddRoom} className="bg-indigo-500 hover:bg-indigo-600 rounded-xl">Ajouter</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Modal Modification */}
-      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="sm:max-w-md rounded-2xl" aria-describedby="edit-dialog-description">
+      {/* Modal Modification avec validation */}
+      <Dialog open={showEditModal} onOpenChange={closeEditModal}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold">Modifier la salle</DialogTitle>
           </DialogHeader>
           {editingSalle && (
-            <div id="edit-dialog-description" className="space-y-5 py-4">
+            <div className="space-y-5 py-4">
               <div className="space-y-2">
-                <Label className="text-gray-700">Numéro de la salle</Label>
+                <Label className="text-gray-700">Numéro de la salle <span className="text-red-500">*</span></Label>
                 <Input
                   value={editingSalle.numero}
-                  onChange={(e) => setEditingSalle({ ...editingSalle, numero: e.target.value })}
-                  className="rounded-xl"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || /^[a-zA-Z0-9\s-]*$/.test(value)) {
+                      setEditingSalle({ ...editingSalle, numero: value });
+                    }
+                  }}
+                  className={`rounded-xl ${errors.numero ? 'border-red-500' : ''}`}
                 />
+                {errors.numero && <p className="text-xs text-red-500">{errors.numero}</p>}
               </div>
+              
               <div className="space-y-2">
-                <Label className="text-gray-700">Bâtiment</Label>
+                <Label className="text-gray-700">Bâtiment <span className="text-red-500">*</span></Label>
                 <select
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"
+                  className={`w-full px-3 py-2 border rounded-xl text-sm ${errors.batiment ? 'border-red-500' : 'border-gray-200'}`}
                   value={editingSalle.batiment}
                   onChange={(e) => setEditingSalle({ ...editingSalle, batiment: e.target.value })}
                 >
@@ -448,11 +569,13 @@ const Salle = () => {
                   <option value="C">Bâtiment C</option>
                   <option value="D">Bâtiment D</option>
                 </select>
+                {errors.batiment && <p className="text-xs text-red-500">{errors.batiment}</p>}
               </div>
+              
               <div className="space-y-2">
-                <Label className="text-gray-700">Étage</Label>
+                <Label className="text-gray-700">Étage <span className="text-red-500">*</span></Label>
                 <select
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"
+                  className={`w-full px-3 py-2 border rounded-xl text-sm ${errors.etage ? 'border-red-500' : 'border-gray-200'}`}
                   value={editingSalle.etage || ""}
                   onChange={(e) => setEditingSalle({ ...editingSalle, etage: e.target.value })}
                 >
@@ -463,11 +586,12 @@ const Salle = () => {
                   <option value="Etage 3">Etage 3</option>
                   <option value="Etage 4">Etage 4</option>
                 </select>
+                {errors.etage && <p className="text-xs text-red-500">{errors.etage}</p>}
               </div>
             </div>
           )}
           <DialogFooter className="gap-3">
-            <Button variant="outline" onClick={() => setShowEditModal(false)} className="rounded-xl">Annuler</Button>
+            <Button variant="outline" onClick={closeEditModal} className="rounded-xl">Annuler</Button>
             <Button onClick={handleEditRoom} className="bg-indigo-500 hover:bg-indigo-600 rounded-xl">Enregistrer</Button>
           </DialogFooter>
         </DialogContent>
@@ -478,9 +602,12 @@ const Salle = () => {
           from { opacity: 0; transform: translateY(-10px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fadeIn {
-          animation: fadeIn 0.15s ease-out;
+        @keyframes slide-down {
+          from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
+        .animate-fadeIn { animation: fadeIn 0.15s ease-out; }
+        .animate-slide-down { animation: slide-down 0.3s ease-out; }
       `}</style>
     </div>
   );

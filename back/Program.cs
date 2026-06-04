@@ -37,6 +37,8 @@ builder.Services.AddScoped<InscriptionService>();
 builder.Services.AddScoped<CoursService>();
 builder.Services.AddScoped<AffectationService>();
 builder.Services.AddScoped<SalleService>();
+//backup
+builder.Services.AddScoped<IDatabaseBackupService, DatabaseBackupService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
