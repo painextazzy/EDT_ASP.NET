@@ -134,34 +134,47 @@ export const affectationApi = {
 
 
 // Service pour les Salles
+// services/api.js - Modifie la partie salle
 export const salleApi = {
-  // Récupérer toutes les salles (avec filtres éventuels en query string)
-  getAll: (queryString = '') => 
-    apiClient(`/api/Salle${queryString}`, { method: 'GET' }),
+  getAll: (params = '') => 
+    apiClient(`/api/Salle${params}`, { method: 'GET' }),
   
-  // Récupérer les bâtiments uniques
   getBatiments: () => 
     apiClient('/api/Salle/batiments', { method: 'GET' }),
   
-  // Récupérer les étages uniques
-  getEtages: () => 
-    apiClient('/api/Salle/etages', { method: 'GET' }),
-  
-  // Créer une nouvelle salle
-  create: (data) => 
-    apiClient('/api/Salle', { 
+  create: (data) => {
+    // Convertir les noms des propriétés pour correspondre au backend
+    const backendData = {
+      numero: data.numero,
+      batiment: data.batiment,
+      etage: data.etage,
+      statut: data.statut || "LIBRE",
+      courActuel: data.courActuel || null
+    };
+    
+    console.log("Envoi au backend:", backendData);
+    
+    return apiClient('/api/Salle', { 
       method: 'POST', 
-      body: JSON.stringify(data) 
-    }),
+      body: JSON.stringify(backendData) 
+    });
+  },
   
-  // Modifier une salle
-  update: (id, data) => 
-    apiClient(`/api/Salle/${id}`, { 
+  update: (id, data) => {
+    const backendData = {
+      numero: data.numero,
+      batiment: data.batiment,
+      etage: data.etage,
+      statut: data.statut,
+      courActuel: data.courActuel
+    };
+    
+    return apiClient(`/api/Salle/${id}`, { 
       method: 'PUT', 
-      body: JSON.stringify(data) 
-    }),
+      body: JSON.stringify(backendData) 
+    });
+  },
   
-  // Supprimer une salle
   delete: (id) => 
     apiClient(`/api/Salle/${id}`, { method: 'DELETE' }),
 };

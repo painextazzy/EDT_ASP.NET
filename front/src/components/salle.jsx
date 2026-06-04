@@ -9,16 +9,13 @@ import {
   Trash2,
   Clock,
   Layers,
-  Building2,
-  DoorOpen,
-  X,
-  CheckCircle,
-  AlertCircle
+  CheckCircle
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Skeleton from './ui/Skeleton'; // Import du composant Skeleton
 
 const buildingColors = {
   A: { color: "#6366f1", bgColor: "bg-indigo-50" },
@@ -27,22 +24,35 @@ const buildingColors = {
   D: { color: "#ef4444", bgColor: "bg-rose-50" },
 };
 
-const etageMap = {
-  "Rez-de-chaussée": 0,
-  "Étage 1": 1,
-  "Étage 2": 2,
-  "Étage 3": 3,
+const etageLabels = {
+  "Rez-de-chaussée": "Rez-de-chaussée",
+  "Etage 1": "Etage 1",
+  "Etage 2": "Etage 2",
+  "Etage 3": "Etage 3",
+  "Etage 4": "Etage 4",
 };
 
-const reverseEtageMap = {
-  0: "Rez-de-chaussée",
-  1: "Étage 1",
-  2: "Étage 2",
-  3: "Étage 3",
-};
+const allEtages = ["Rez-de-chaussée", "Etage 1", "Etage 2", "Etage 3", "Etage 4"];
 
-const allEtages = ["Rez-de-chaussée", "Étage 1", "Étage 2", "Étage 3"];
-const allParcours = ["Informatique", "Management", "Multimédia", "AES"];
+// Composant Skeleton pour une carte de salle
+const SalleCardSkeleton = () => (
+  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="h-1 bg-gray-200" />
+    <div className="p-5">
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <div className="h-3 w-12 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse mb-2" />
+          <div className="h-7 w-20 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse" />
+        </div>
+        <div className="h-6 w-16 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-full animate-pulse" />
+      </div>
+      <div className="h-12 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-xl animate-pulse mb-4" />
+      <div className="flex gap-2 mb-4">
+        <div className="h-6 w-20 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-xl animate-pulse" />
+      </div>
+    </div>
+  </div>
+);
 
 const Salle = () => {
   const [salles, setSalles] = useState([]);
@@ -50,7 +60,6 @@ const Salle = () => {
   const [search, setSearch] = useState("");
   const [filterBatiment, setFilterBatiment] = useState("");
   const [filterEtage, setFilterEtage] = useState("");
-  const [filterParcours, setFilterParcours] = useState("");
   const [loading, setLoading] = useState(true);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -59,71 +68,97 @@ const Salle = () => {
   const [editingSalle, setEditingSalle] = useState(null);
   const [newSalle, setNewSalle] = useState({ numero: "", batiment: "", etage: "" });
 
-  const loadData = async () => {
+  // Charger les salles depuis l'API
+  const loadSalles = async () => {
     setLoading(true);
     try {
-      // Construction manuelle de la query string car apiClient ne gère que l'URL
-      const query = new URLSearchParams({
-        search,
-        batiment: filterBatiment,
-        etage: filterEtage ? etageMap[filterEtage] : ""
-      }).toString();
-
-      const [sallesData, batimentsData] = await Promise.all([
-        api.salle.getAll(query ? `?${query}` : ""),
-        api.salle.getBatiments()
-      ]);
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (filterBatiment) params.append('batiment', filterBatiment);
+      if (filterEtage !== "") params.append('etage', filterEtage);
       
-      setSalles(sallesData);
-      setBatiments(batimentsData);
+      const queryString = params.toString();
+      const data = await api.salle.getAll(queryString ? `?${queryString}` : '');
+      setSalles(data);
     } catch (error) {
-      console.error("Erreur de chargement des salles:", error);
+      console.error("Erreur lors du chargement des salles:", error);
     } finally {
       setLoading(false);
     }
   };
 
+  // Charger les bâtiments depuis l'API
+  const loadBatiments = async () => {
+    try {
+      const data = await api.salle.getBatiments();
+      setBatiments(data);
+    } catch (error) {
+      console.error("Erreur lors du chargement des bâtiments:", error);
+    }
+  };
+
   useEffect(() => {
-    loadData();
+    loadSalles();
   }, [search, filterBatiment, filterEtage]);
 
+  useEffect(() => {
+    loadBatiments();
+  }, []);
+
+  // Ajouter une salle
   const handleAddRoom = async () => {
-    if (!newSalle.numero || !newSalle.batiment) return;
+    if (!newSalle.numero || !newSalle.batiment || !newSalle.etage) {
+      alert("Veuillez remplir tous les champs");
+      return;
+    }
+    
     try {
-      await api.salle.create({
+      const dataToSend = {
         numero: newSalle.numero,
         batiment: newSalle.batiment,
-        etage: etageMap[newSalle.etage] || 0
-      });
+        etage: newSalle.etage
+      };
+      
+      await api.salle.create(dataToSend);
       setNewSalle({ numero: "", batiment: "", etage: "" });
       setShowAddModal(false);
-      loadData();
+      loadSalles();
+      loadBatiments();
     } catch (error) {
       console.error("Erreur lors de l'ajout:", error);
+      alert("Erreur lors de l'ajout de la salle");
     }
   };
 
+  // Modifier une salle
   const handleEditRoom = async () => {
     if (!editingSalle) return;
+    
     try {
-      await api.salle.update(editingSalle.id, {
+      const dataToSend = {
         numero: editingSalle.numero,
         batiment: editingSalle.batiment,
-        etage: etageMap[editingSalle.etageLabel] ?? editingSalle.etage
-      });
+        etage: editingSalle.etage
+      };
+      
+      await api.salle.update(editingSalle.id, dataToSend);
       setShowEditModal(false);
       setEditingSalle(null);
-      loadData();
+      loadSalles();
+      loadBatiments();
     } catch (error) {
       console.error("Erreur lors de la modification:", error);
+      alert("Erreur lors de la modification");
     }
   };
 
+  // Supprimer une salle
   const handleDeleteRoom = async (salleId) => {
     if (window.confirm("Supprimer cette salle ?")) {
       try {
         await api.salle.delete(salleId);
-        loadData();
+        loadSalles();
+        loadBatiments();
       } catch (error) {
         console.error("Erreur lors de la suppression:", error);
       }
@@ -131,12 +166,9 @@ const Salle = () => {
     setShowMenuId(null);
   };
 
+  // Grouper par bâtiment
   const groupedData = useMemo(() => {
-    const filteredByParcours = filterParcours 
-      ? salles.filter(s => s.parcours === filterParcours)
-      : salles;
-
-    const groups = filteredByParcours.reduce((acc, salle) => {
+    const groups = salles.reduce((acc, salle) => {
       const bId = salle.batiment;
       if (!acc[bId]) {
         acc[bId] = {
@@ -152,12 +184,15 @@ const Salle = () => {
     }, {});
 
     return Object.values(groups).sort((a, b) => a.id.localeCompare(b.id));
-  }, [salles, filterParcours]);
+  }, [salles]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-sans p-6 md:p-8">
       {/* Header */}
-    
+      <div className="mb-6">
+       
+        <p className="text-gray-500 text-sm mt-1">Gérez vos salles et leur disponibilité</p>
+      </div>
 
       {/* Filters bar */}
       <div className="flex flex-wrap items-center gap-3 mb-8">
@@ -166,7 +201,7 @@ const Salle = () => {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filtrer par numéro, cours ou mention..."
+            placeholder="Filtrer par numéro..."
             className="w-full pl-11 pr-4 py-2.5 border border-gray-200 rounded-2xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 shadow-sm transition-all"
           />
         </div>
@@ -176,7 +211,10 @@ const Salle = () => {
           className="px-4 py-2.5 border border-gray-200 rounded-2xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
         >
           <option value="">Tous les bâtiments</option>
-          {batiments.map(b => <option key={b} value={b}>Bâtiment {b}</option>)}
+          <option value="A">Bâtiment A</option>
+          <option value="B">Bâtiment B</option>
+          <option value="C">Bâtiment C</option>
+          <option value="D">Bâtiment D</option>
         </select>
         <select
           value={filterEtage}
@@ -186,25 +224,42 @@ const Salle = () => {
           <option value="">Tous les étages</option>
           {allEtages.map(e => <option key={e} value={e}>{e}</option>)}
         </select>
-        <select
-          value={filterParcours}
-          onChange={(e) => setFilterParcours(e.target.value)}
-          className="px-4 py-2.5 border border-gray-200 rounded-2xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
-        >
-          <option value="">Tous les parcours</option>
-          {allParcours.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
       </div>
 
+      {/* Loading avec Squelettes */}
       {loading && (
-        <div className="flex justify-center py-20">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        <div>
+          {[1, 2].map((batimentIdx) => (
+            <div key={batimentIdx} className="mb-12">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-1 h-8 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-full animate-pulse" />
+                <div className="h-6 w-32 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse" />
+                <div className="h-5 w-16 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-full animate-pulse" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {Array.from({ length: 4 }).map((_, idx) => (
+                  <SalleCardSkeleton key={idx} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Batiments */}
-      {!loading && groupedData.length === 0 && <div className="text-center py-20 text-gray-400">Aucune salle trouvée</div>}
-      {!loading && groupedData.map((batiment) => (
+      {/* Aucune donnée */}
+      {!loading && salles.length === 0 && (
+        <div className="text-center py-20 text-gray-400">
+          <div className="w-16 h-16 mx-auto mb-4 text-gray-300 flex items-center justify-center bg-gray-100 rounded-full">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          </div>
+          <p>Aucune salle trouvée</p>
+        </div>
+      )}
+
+      {/* Bâtiments */}
+      {!loading && groupedData.map((batiment, index) => (
         <div key={batiment.id} className="mb-12">
           <div className="flex items-center gap-3 mb-5">
             <div className={`w-1 h-8 rounded-full ${batiment.bgColor}`} style={{ backgroundColor: batiment.color }} />
@@ -214,7 +269,7 @@ const Salle = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {/* Add card - uniquement pour le premier bâtiment */}
-            {groupedData[0]?.id === batiment.id && (
+            {index === 0 && (
               <div
                 onClick={() => setShowAddModal(true)}
                 className="group border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-3 py-12 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 transition-all duration-300 min-h-[280px] bg-white/50 backdrop-blur-sm"
@@ -266,20 +321,11 @@ const Salle = () => {
                       </div>
                     )}
 
+                    {/* Informations de la salle depuis la base */}
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {salle.etageLabel && (
+                      {salle.etage && (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 rounded-xl text-[11px] font-medium text-gray-600">
-                          <Layers className="w-3.5 h-3.5" /> {salle.etageLabel}
-                        </span>
-                      )}
-                      {salle.parcours && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 rounded-xl text-[11px] font-medium text-gray-600">
-                          <Building2 className="w-3.5 h-3.5" /> {salle.parcours}
-                        </span>
-                      )}
-                      {salle.mention && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 rounded-xl text-[11px] font-medium text-gray-600">
-                          <DoorOpen className="w-3.5 h-3.5" /> {salle.mention}
+                          <Layers className="w-3.5 h-3.5" /> {salle.etage}
                         </span>
                       )}
                     </div>
@@ -323,11 +369,11 @@ const Salle = () => {
 
       {/* Modal Ajout */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="sm:max-w-md rounded-2xl" aria-describedby="add-dialog-description">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold">Ajouter une salle</DialogTitle>
           </DialogHeader>
-          <div className="space-y-5 py-4">
+          <div id="add-dialog-description" className="space-y-5 py-4">
             <div className="space-y-2">
               <Label className="text-gray-700">Numéro de la salle</Label>
               <Input
@@ -359,7 +405,11 @@ const Salle = () => {
                 onChange={(e) => setNewSalle({ ...newSalle, etage: e.target.value })}
               >
                 <option value="">Sélectionner un étage</option>
-                {allEtages.map(e => <option key={e} value={e}>{e}</option>)}
+                <option value="Rez-de-chaussée">Rez-de-chaussée</option>
+                <option value="Etage 1">Etage 1</option>
+                <option value="Etage 2">Etage 2</option>
+                <option value="Etage 3">Etage 3</option>
+                <option value="Etage 4">Etage 4</option>
               </select>
             </div>
           </div>
@@ -372,12 +422,12 @@ const Salle = () => {
 
       {/* Modal Modification */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="sm:max-w-md rounded-2xl" aria-describedby="edit-dialog-description">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold">Modifier la salle</DialogTitle>
           </DialogHeader>
           {editingSalle && (
-            <div className="space-y-5 py-4">
+            <div id="edit-dialog-description" className="space-y-5 py-4">
               <div className="space-y-2">
                 <Label className="text-gray-700">Numéro de la salle</Label>
                 <Input
@@ -388,21 +438,30 @@ const Salle = () => {
               </div>
               <div className="space-y-2">
                 <Label className="text-gray-700">Bâtiment</Label>
-                <Input
+                <select
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"
                   value={editingSalle.batiment}
                   onChange={(e) => setEditingSalle({ ...editingSalle, batiment: e.target.value })}
-                  className="rounded-xl"
-                />
+                >
+                  <option value="A">Bâtiment A</option>
+                  <option value="B">Bâtiment B</option>
+                  <option value="C">Bâtiment C</option>
+                  <option value="D">Bâtiment D</option>
+                </select>
               </div>
               <div className="space-y-2">
                 <Label className="text-gray-700">Étage</Label>
                 <select
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"
-                  value={editingSalle.etageLabel}
-                  onChange={(e) => setEditingSalle({ ...editingSalle, etageLabel: e.target.value })}
+                  value={editingSalle.etage || ""}
+                  onChange={(e) => setEditingSalle({ ...editingSalle, etage: e.target.value })}
                 >
                   <option value="">Sélectionner un étage</option>
-                  {allEtages.map(e => <option key={e} value={e}>{e}</option>)}
+                  <option value="Rez-de-chaussée">Rez-de-chaussée</option>
+                  <option value="Etage 1">Etage 1</option>
+                  <option value="Etage 2">Etage 2</option>
+                  <option value="Etage 3">Etage 3</option>
+                  <option value="Etage 4">Etage 4</option>
                 </select>
               </div>
             </div>

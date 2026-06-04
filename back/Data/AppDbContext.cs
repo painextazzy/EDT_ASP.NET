@@ -46,14 +46,16 @@ namespace back.Data
                       .OnDelete(DeleteBehavior.SetNull);
             });
 
-             modelBuilder.Entity<Salle>(entity =>
-            {
-                entity.ToTable("salle");
-                entity.Property(e => e.Id).HasColumnName("id");
-                entity.Property(e => e.NomSalle).HasColumnName("nom_salle");
-                entity.Property(e => e.Batiment).HasColumnName("batiment");
-                entity.Property(e => e.Etage).HasColumnName("etage");
-            });
+            modelBuilder.Entity<Salle>(entity =>
+     {
+         entity.ToTable("salle");
+         entity.Property(e => e.Id).HasColumnName("id");
+         entity.Property(e => e.Numero).HasColumnName("nom_salle");
+         entity.Property(e => e.Batiment).HasColumnName("batiment");
+         entity.Property(e => e.Etage).HasColumnName("etage");
+         entity.Property(e => e.Statut).HasColumnName("statut").HasDefaultValue("LIBRE");
+         entity.Property(e => e.CourActuel).HasColumnName("cour_actuel");
+     });
 
             // Configuration pour l'entité Cours (Matiere)
             modelBuilder.Entity<Cours>(entity =>

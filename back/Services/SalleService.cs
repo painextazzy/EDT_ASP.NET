@@ -1,95 +1,82 @@
+// Services/SalleService.cs
 using back.Data;
-using back.DTos;
 using back.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace back.Services;
-
-public class SalleService
+namespace back.Services
 {
-    private readonly AppDbContext _context;
-
-    public SalleService(AppDbContext context)
+    public class SalleService
     {
-        _context = context;
-    }
+        private readonly AppDbContext _context;
 
-    public async Task<List<SalleDto>> GetAllSalles(string? batiment, int? etage, string? search)
-    {
-        var query = _context.Salles.AsQueryable();
-
-        // Logique de filtrage
-        if (!string.IsNullOrWhiteSpace(batiment)) query = query.Where(s => s.Batiment == batiment);
-        if (etage.HasValue) query = query.Where(s => s.Etage == etage.Value);
-
-        if (!string.IsNullOrWhiteSpace(search)) {
-            var sLower = search.ToLower();
-            query = query.Where(x => 
-                (x.NomSalle != null && x.NomSalle.ToLower().Contains(sLower)) || 
-                (x.Batiment != null && x.Batiment.ToLower().Contains(sLower))
-            );
+        public SalleService(AppDbContext context)
+        {
+            _context = context;
         }
 
-        return await query.Select(s => new SalleDto {
-            Id = s.Id,
-            Numero = s.NomSalle ?? "Sans nom",
-            Batiment = s.Batiment ?? "Inconnu",
-            Etage = s.Etage,
-            Statut = "LIBRE" // Valeur par défaut, à lier plus tard à l'EDT
-        }).ToListAsync();
-    }
+        // Changer le paramètre etage de int? à string?
+        public async Task<List<Salle>> GetAllSalles(string? batiment, string? etage, string? search)
+        {
+            var query = _context.Salles.AsQueryable();
 
-    public async Task<List<string>> GetUniqueBatiments()
-    {
-        return await _context.Salles
-            .Where(s => s.Batiment != null) // Filtre les nulls pour éviter les erreurs de mapping
-            .Select(s => s.Batiment!)
-            .Distinct()
-            .OrderBy(b => b)
-            .ToListAsync();
-    }
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(s => s.Numero.Contains(search));
+            }
 
-    public async Task<List<int>> GetUniqueEtages()
-    {
-        return await _context.Salles
-            .Select(s => s.Etage)
-            .Distinct()
-            .OrderBy(e => e)
-            .ToListAsync();
-    }
+            if (!string.IsNullOrEmpty(batiment))
+            {
+                query = query.Where(s => s.Batiment == batiment);
+            }
 
-    public async Task<Salle> CreateSalle(SalleDto dto)
-    {
-        var salle = new Salle {
-            NomSalle = dto.Numero,
-            Batiment = dto.Batiment,
-            Etage = dto.Etage
-        };
-        _context.Salles.Add(salle);
-        await _context.SaveChangesAsync();
-        return salle;
-    }
+            // Directement en string
+            if (!string.IsNullOrEmpty(etage))
+            {
+                query = query.Where(s => s.Etage == etage);
+            }
 
-    public async Task<bool> UpdateSalle(int id, SalleDto dto)
-    {
-        var salle = await _context.Salles.FindAsync(id);
-        if (salle == null) return false;
+            return await query.ToListAsync();
+        }
 
-        salle.NomSalle = dto.Numero; // Mapping Numero (Front) -> NomSalle (DB)
-        salle.Batiment = dto.Batiment;
-        salle.Etage = dto.Etage;
+        public async Task<List<string>> GetBatiments()
+        {
+            return await _context.Salles
+                .Select(s => s.Batiment)
+                .Distinct()
+                .OrderBy(b => b)
+                .ToListAsync();
+        }
 
-        await _context.SaveChangesAsync();
-        return true;
-    }
+        public async Task<Salle> CreateSalle(Salle salle)
+        {
+            _context.Salles.Add(salle);
+            await _context.SaveChangesAsync();
+            return salle;
+        }
 
-    public async Task<bool> DeleteSalle(int id)
-    {
-        var salle = await _context.Salles.FindAsync(id);
-        if (salle == null) return false;
+        public async Task<Salle?> UpdateSalle(int id, Salle salle)
+        {
+            var existing = await _context.Salles.FindAsync(id);
+            if (existing == null) return null;
 
-        _context.Salles.Remove(salle);
-        await _context.SaveChangesAsync();
-        return true;
+            existing.Numero = salle.Numero;
+            existing.Batiment = salle.Batiment;
+            existing.Etage = salle.Etage;
+            existing.Statut = salle.Statut;
+            existing.CourActuel = salle.CourActuel;
+
+            await _context.SaveChangesAsync();
+            return existing;
+        }
+
+        public async Task<bool> DeleteSalle(int id)
+        {
+            var salle = await _context.Salles.FindAsync(id);
+            if (salle == null) return false;
+
+            _context.Salles.Remove(salle);
+            await _context.SaveChangesAsync();
+            return true;
+        }
     }
 }
