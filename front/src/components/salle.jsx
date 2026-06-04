@@ -225,7 +225,7 @@ const Salle = () => {
       showToast(`✅ Salle "${newSalle.numero}" ajoutée avec succès`, 'success');
     } catch (error) {
       console.error("Erreur lors de l'ajout:", error);
-      showToast("❌ Erreur lors de l'ajout de la salle", 'error');
+      showToast("Erreur lors de l'ajout de la salle", 'error');
     }
   };
 
@@ -294,9 +294,7 @@ const Salle = () => {
 
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-          Gestion des Salles
-        </h1>
+        
         <p className="text-gray-500 text-sm mt-1">Gérez vos salles et leur disponibilité</p>
       </div>
 
