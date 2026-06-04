@@ -179,6 +179,101 @@ export const salleApi = {
     apiClient(`/api/Salle/${id}`, { method: 'DELETE' }),
 };
 
+
+export const backupApi = {
+  export: async (config = {}) => {
+    try {
+      const response = await fetch(`${API_URL}/api/backup/export`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Response error:', text);
+        throw new Error(`Erreur serveur: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const fileName = `backup_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true, message: 'Export réussi' };
+    } catch (error) {
+      console.error('Export error:', error);
+      throw error;
+    }
+  },
+
+  import: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch(`${API_URL}/api/backup/import`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Erreur lors de l\'import');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Import error:', error);
+      throw error;
+    }
+  },
+
+  validateFile: (file) => {
+    return new Promise((resolve, reject) => {
+      if (!file || !file.name.endsWith('.json')) {
+        reject(new Error('Veuillez sélectionner un fichier JSON valide'));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          resolve({
+            valid: true,
+            foundTables: Object.keys(data).filter(k => !['exportDate', 'version'].includes(k)),
+            exportDate: data.exportDate,
+            version: data.version,
+            hasData: true,
+            counts: {
+              enseignants: data.enseignants?.length || 0,
+              utilisateurs: data.utilisateurs?.length || 0,
+              cours: data.cours?.length || 0,
+              niveaux: data.niveaux?.length || 0,
+              parcours: data.parcours?.length || 0,
+              enseignements: data.enseignements?.length || 0
+            }
+          });
+        } catch (error) {
+          reject(new Error('Fichier JSON invalide'));
+        }
+      };
+      reader.onerror = () => reject(new Error('Erreur de lecture du fichier'));
+      reader.readAsText(file);
+    });
+  }
+};
+
 // ========== EXPORT PRINCIPAL (avec les nouvelles API) ==========
 const api = {
   inscription: inscriptionApi,
@@ -186,6 +281,7 @@ const api = {
   affectation: affectationApi,
   validation: validationApi,
   salle: salleApi,
+  backup: backupApi
 };
 
 export default api;

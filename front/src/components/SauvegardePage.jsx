@@ -7,46 +7,42 @@ import {
   CheckCircle, 
   AlertCircle,
   FileJson,
-  FileSpreadsheet,
-  FileText,
   Database,
-  ChevronDown,
   Users,
   BookOpen,
   DoorOpen,
   Calendar,
-  Settings,
   CloudUpload,
   FileUp,
   X
 } from 'lucide-react';
+import api from '../services/api';
 
 const SauvegardePage = () => {
   const [recentActions, setRecentActions] = useState([]);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importPreview, setImportPreview] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [exportFormat, setExportFormat] = useState('json');
-  const [exportTables, setExportTables] = useState({
-    professeurs: true,
-    cours: true,
-    salles: true,
-    emploisDuTemps: true
-  });
-  const [exportFileName, setExportFileName] = useState(`export_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}`);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null);
   
   const fileInputRef = useRef(null);
   const dragCounterRef = useRef(0);
 
-  // Charger les actions récentes
+  // Afficher une notification
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Charger les actions récentes depuis localStorage (historique local)
   useEffect(() => {
     loadRecentActions();
   }, []);
 
   const loadRecentActions = () => {
-    const actions = JSON.parse(localStorage.getItem('recent_actions') || '[]');
+    const actions = JSON.parse(localStorage.getItem('recent_actions_backup') || '[]');
     setRecentActions(actions);
   };
 
@@ -62,7 +58,7 @@ const SauvegardePage = () => {
     
     const updatedActions = [newAction, ...recentActions].slice(0, 20);
     setRecentActions(updatedActions);
-    localStorage.setItem('recent_actions', JSON.stringify(updatedActions));
+    localStorage.setItem('recent_actions_backup', JSON.stringify(updatedActions));
   };
 
   // Drag and Drop handlers
@@ -101,171 +97,47 @@ const SauvegardePage = () => {
       if (file.type === 'application/json' || file.name.endsWith('.json')) {
         processImportFile(file);
       } else {
-        alert('Veuillez déposer un fichier JSON valide');
+        showToast('Veuillez déposer un fichier JSON valide', 'error');
       }
     }
   };
 
-  const processImportFile = (file) => {
+  const processImportFile = async (file) => {
     setImportFile(file);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        setImportPreview(data);
-        setShowImportModal(true);
-      } catch (error) {
-        alert('Fichier invalide. Veuillez sélectionner un fichier JSON valide.');
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  // Récupérer les données sélectionnées
-  const getSelectedData = () => {
-    const data = {};
-    if (exportTables.professeurs) {
-      data.professeurs = JSON.parse(localStorage.getItem('professeurs') || '[]');
-    }
-    if (exportTables.cours) {
-      data.cours = JSON.parse(localStorage.getItem('cours') || '[]');
-    }
-    if (exportTables.salles) {
-      data.salles = JSON.parse(localStorage.getItem('salles') || '[]');
-    }
-    if (exportTables.emploisDuTemps) {
-      data.emploisDuTemps = JSON.parse(localStorage.getItem('emploisDuTemps') || '[]');
-    }
-    data.exportDate = new Date().toISOString();
-    data.version = '1.0.0';
-    return data;
-  };
-
-  // Export JSON
-  const exportAsJSON = (data) => {
-    const dataStr = JSON.stringify(data, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-    const fileName = `${exportFileName}.json`;
     
-    const link = document.createElement('a');
-    link.setAttribute('href', dataUri);
-    link.setAttribute('download', fileName);
-    link.click();
-    
-    addRecentAction('Export JSON', `Export des données - ${fileName}`);
+    try {
+      // Valider le fichier
+      const validation = await api.backup.validateFile(file);
+      setImportPreview(validation);
+      setShowImportModal(true);
+    } catch (error) {
+      showToast(error.message, 'error');
+      setImportFile(null);
+    }
   };
 
-  // Export CSV
-  const exportAsCSV = (data) => {
-    const tables = Object.keys(data).filter(key => !['exportDate', 'version'].includes(key));
-    let allRows = [];
-    let headers = [];
-
-    tables.forEach(table => {
-      const items = data[table];
-      if (items && items.length > 0) {
-        const tableHeaders = Object.keys(items[0]);
-        headers = [...new Set([...headers, ...tableHeaders.map(h => `${table}_${h}`)])];
-        items.forEach(item => {
-          const row = {};
-          tableHeaders.forEach(header => {
-            row[`${table}_${header}`] = item[header] !== undefined ? item[header] : '';
-          });
-          allRows.push(row);
-        });
-      }
-    });
-
-    let csvContent = headers.join(',') + '\n';
-    allRows.forEach(row => {
-      const rowValues = headers.map(header => {
-        let value = row[header] || '';
-        value = String(value).replace(/"/g, '""');
-        if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-          value = `"${value}"`;
-        }
-        return value;
+  // Export vers l'API
+  const handleExport = async () => {
+    setLoading(true);
+    
+    try {
+      await api.backup.export({
+        includeEnseignants: true,
+        includeUtilisateurs: true,
+        includeCours: true,
+        includeNiveaux: true,
+        includeParcours: true,
+        includeEnseignements: true
       });
-      csvContent += rowValues.join(',') + '\n';
-    });
-
-    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${exportFileName}.csv`);
-    link.click();
-    URL.revokeObjectURL(url);
-    
-    addRecentAction('Export CSV', `Export des données - ${exportFileName}.csv`);
-  };
-
-  // Export TXT
-  const exportAsTXT = (data) => {
-    let txtContent = `========================================\n`;
-    txtContent += `EXPORT DES DONNÉES - CALENDAR\n`;
-    txtContent += `========================================\n\n`;
-    txtContent += `Date d'export : ${new Date(data.exportDate).toLocaleString('fr-FR')}\n`;
-    txtContent += `Version : ${data.version}\n\n`;
-    txtContent += `========================================\n\n`;
-
-    const tables = Object.keys(data).filter(key => !['exportDate', 'version'].includes(key));
-    
-    tables.forEach(table => {
-      const items = data[table];
-      txtContent += `📊 ${table.toUpperCase()} (${items.length} éléments)\n`;
-      txtContent += `----------------------------------------\n`;
       
-      if (items && items.length > 0) {
-        items.forEach((item, index) => {
-          txtContent += `\n[${index + 1}]\n`;
-          Object.entries(item).forEach(([key, value]) => {
-            txtContent += `  ${key}: ${value !== undefined ? value : ''}\n`;
-          });
-          txtContent += `\n`;
-        });
-      } else {
-        txtContent += `Aucune donnée\n\n`;
-      }
-      txtContent += `----------------------------------------\n\n`;
-    });
-
-    const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${exportFileName}.txt`);
-    link.click();
-    URL.revokeObjectURL(url);
-    
-    addRecentAction('Export TXT', `Export des données - ${exportFileName}.txt`);
-  };
-
-  const handleExport = () => {
-    const data = getSelectedData();
-    
-    const hasData = Object.values(exportTables).some(v => v === true);
-    if (!hasData) {
-      alert('Veuillez sélectionner au moins une table à exporter');
-      return;
+      addRecentAction('Export JSON', 'Export des données vers JSON');
+      showToast('Export effectué avec succès !', 'success');
+    } catch (error) {
+      console.error('Export error:', error);
+      showToast('Erreur lors de l\'export: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
-    
-    switch (exportFormat) {
-      case 'json':
-        exportAsJSON(data);
-        break;
-      case 'csv':
-        exportAsCSV(data);
-        break;
-      case 'txt':
-        exportAsTXT(data);
-        break;
-      default:
-        exportAsJSON(data);
-    }
-    
-    setShowExportModal(false);
-    alert('Export effectué avec succès !');
   };
 
   // Import des données
@@ -280,19 +152,27 @@ const SauvegardePage = () => {
     }
   };
 
-  const confirmImport = () => {
-    if (importPreview) {
-      if (importPreview.professeurs) localStorage.setItem('professeurs', JSON.stringify(importPreview.professeurs));
-      if (importPreview.cours) localStorage.setItem('cours', JSON.stringify(importPreview.cours));
-      if (importPreview.salles) localStorage.setItem('salles', JSON.stringify(importPreview.salles));
-      if (importPreview.emploisDuTemps) localStorage.setItem('emploisDuTemps', JSON.stringify(importPreview.emploisDuTemps));
+  const confirmImport = async () => {
+    if (!importFile) return;
+    
+    setLoading(true);
+    
+    try {
+      const result = await api.backup.import(importFile);
       
-      addRecentAction('Import', `Import des données - ${importFile?.name}`);
-      alert('Importation réussie !');
+      addRecentAction('Import', `Import des données - ${importFile.name}`);
+      showToast(`${result.message} (${result.tablesRestored} tables restaurées)`, 'success');
+      
       setShowImportModal(false);
       setImportFile(null);
       setImportPreview(null);
-      window.location.reload();
+      
+      // Recharger la page après import
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (error) {
+      showToast('Erreur lors de l\'import: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -332,17 +212,47 @@ const SauvegardePage = () => {
     }
   };
 
-  const getTableCount = (table) => {
-    const data = JSON.parse(localStorage.getItem(table) || '[]');
-    return data.length;
+  // Composant Toast
+  const ToastNotification = () => {
+    if (!toast) return null;
+    return (
+      <div className="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 animate-slide-down">
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg ${
+          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        } text-white min-w-[300px]`}>
+          {toast.type === 'success' ? (
+            <CheckCircle className="w-5 h-5" />
+          ) : (
+            <AlertCircle className="w-5 h-5" />
+          )}
+          <span className="flex-1 text-sm font-medium">{toast.message}</span>
+          <button onClick={() => setToast(null)} className="hover:opacity-80">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
     <div className="p-6 space-y-6" onDragEnter={handleDragEnter}>
+      {/* Toast Notification */}
+      <ToastNotification />
+
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 min-w-[300px] text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Traitement en cours...</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Sauvegarde des données</h1>
-        <p className="text-sm text-gray-500 mt-1">Exportez ou importez vos données</p>
+        <p className="text-sm text-gray-500 mt-1">Exportez ou importez vos données depuis la base</p>
       </div>
 
       {/* Cardboxes Export & Import */}
@@ -354,18 +264,19 @@ const SauvegardePage = () => {
               <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center">
                 <Download className="w-7 h-7 text-green-600" />
               </div>
-              <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1 rounded-full">Multi-format</span>
+              <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1 rounded-full">JSON uniquement</span>
             </div>
             <h3 className="text-xl font-bold text-gray-800 mb-2">Export des données</h3>
             <p className="text-sm text-gray-500 mb-6">
-              Téléchargez vos données aux formats JSON, CSV ou TXT.
+              Téléchargez toutes vos données au format JSON.
             </p>
             <button
-              onClick={() => setShowExportModal(true)}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+              onClick={handleExport}
+              disabled={loading}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <Download className="w-4 h-4" />
-              Configurer l'export
+              <FileJson className="w-4 h-4" />
+              Exporter en JSON
             </button>
           </div>
         </div>
@@ -451,7 +362,7 @@ const SauvegardePage = () => {
           </div>
         </div>
         
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
           {recentActions.length === 0 ? (
             <div className="text-center py-12">
               <Database className="w-16 h-16 text-gray-300 mx-auto mb-3" />
@@ -493,179 +404,6 @@ const SauvegardePage = () => {
         </div>
       </div>
 
-      {/* Modal d'export avec choix (inchangée) */}
-      {showExportModal && (
-        <>
-          <div 
-            className="fixed inset-0 backdrop-blur-md bg-white/30 z-50"
-            onClick={() => setShowExportModal(false)}
-          />
-          <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
-              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                    <Download className="w-5 h-5 text-green-600" />
-                  </div>
-                  <h2 className="text-xl font-semibold text-gray-800">Configurer l'export</h2>
-                </div>
-                <button onClick={() => setShowExportModal(false)} className="text-gray-400 hover:text-gray-600">
-                  ✕
-                </button>
-              </div>
-              
-              <div className="p-6 space-y-6">
-                {/* Choix du format */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Format d'export
-                  </label>
-                  <div className="grid grid-cols-3 gap-3">
-                    <button
-                      onClick={() => setExportFormat('json')}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        exportFormat === 'json' 
-                          ? 'border-green-500 bg-green-50' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <FileJson className={`w-8 h-8 mx-auto mb-2 ${exportFormat === 'json' ? 'text-green-600' : 'text-gray-400'}`} />
-                      <p className={`text-sm font-medium ${exportFormat === 'json' ? 'text-green-700' : 'text-gray-600'}`}>JSON</p>
-                      <p className="text-xs text-gray-400 mt-1">Structure complète</p>
-                    </button>
-                    <button
-                      onClick={() => setExportFormat('csv')}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        exportFormat === 'csv' 
-                          ? 'border-blue-500 bg-blue-50' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <FileSpreadsheet className={`w-8 h-8 mx-auto mb-2 ${exportFormat === 'csv' ? 'text-blue-600' : 'text-gray-400'}`} />
-                      <p className={`text-sm font-medium ${exportFormat === 'csv' ? 'text-blue-700' : 'text-gray-600'}`}>CSV</p>
-                      <p className="text-xs text-gray-400 mt-1">Tableur Excel</p>
-                    </button>
-                    <button
-                      onClick={() => setExportFormat('txt')}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        exportFormat === 'txt' 
-                          ? 'border-purple-500 bg-purple-50' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <FileText className={`w-8 h-8 mx-auto mb-2 ${exportFormat === 'txt' ? 'text-purple-600' : 'text-gray-400'}`} />
-                      <p className={`text-sm font-medium ${exportFormat === 'txt' ? 'text-purple-700' : 'text-gray-600'}`}>TXT</p>
-                      <p className="text-xs text-gray-400 mt-1">Lisible</p>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Choix des tables */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Tables à exporter
-                  </label>
-                  <div className="space-y-3">
-                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <Users className="w-5 h-5 text-blue-500" />
-                        <div>
-                          <p className="font-medium text-gray-800">Professeurs</p>
-                          <p className="text-xs text-gray-500">{getTableCount('professeurs')} enregistrements</p>
-                        </div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={exportTables.professeurs}
-                        onChange={(e) => setExportTables({...exportTables, professeurs: e.target.checked})}
-                        className="w-5 h-5 text-green-600 rounded border-gray-300 focus:ring-green-500"
-                      />
-                    </label>
-
-                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <BookOpen className="w-5 h-5 text-emerald-500" />
-                        <div>
-                          <p className="font-medium text-gray-800">Cours</p>
-                          <p className="text-xs text-gray-500">{getTableCount('cours')} enregistrements</p>
-                        </div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={exportTables.cours}
-                        onChange={(e) => setExportTables({...exportTables, cours: e.target.checked})}
-                        className="w-5 h-5 text-green-600 rounded border-gray-300 focus:ring-green-500"
-                      />
-                    </label>
-
-                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <DoorOpen className="w-5 h-5 text-purple-500" />
-                        <div>
-                          <p className="font-medium text-gray-800">Salles</p>
-                          <p className="text-xs text-gray-500">{getTableCount('salles')} enregistrements</p>
-                        </div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={exportTables.salles}
-                        onChange={(e) => setExportTables({...exportTables, salles: e.target.checked})}
-                        className="w-5 h-5 text-green-600 rounded border-gray-300 focus:ring-green-500"
-                      />
-                    </label>
-
-                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <Calendar className="w-5 h-5 text-amber-500" />
-                        <div>
-                          <p className="font-medium text-gray-800">Emplois du temps</p>
-                          <p className="text-xs text-gray-500">{getTableCount('emploisDuTemps')} enregistrements</p>
-                        </div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={exportTables.emploisDuTemps}
-                        onChange={(e) => setExportTables({...exportTables, emploisDuTemps: e.target.checked})}
-                        className="w-5 h-5 text-green-600 rounded border-gray-300 focus:ring-green-500"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                {/* Nom du fichier */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Nom du fichier
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={exportFileName}
-                      onChange={(e) => setExportFileName(e.target.value)}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                      placeholder="nom_du_fichier"
-                    />
-                    <span className="text-sm text-gray-500">
-                      .{exportFormat}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 sticky bottom-0 bg-white">
-                <button onClick={() => setShowExportModal(false)} className="px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50">
-                  Annuler
-                </button>
-                <button onClick={handleExport} className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 flex items-center gap-2">
-                  <Download className="w-4 h-4" />
-                  Exporter
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
       {/* Modal d'import */}
       {showImportModal && importPreview && (
         <>
@@ -683,7 +421,7 @@ const SauvegardePage = () => {
                   <h2 className="text-xl font-semibold text-gray-800">Confirmer l'import</h2>
                 </div>
                 <button onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-gray-600">
-                  ✕
+                  <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6">
@@ -693,23 +431,33 @@ const SauvegardePage = () => {
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="bg-gray-50 rounded-lg p-3 text-center">
                     <Users className="w-4 h-4 text-gray-500 mx-auto mb-1" />
-                    <p className="text-xs text-gray-500">Professeurs</p>
-                    <p className="text-lg font-semibold text-gray-800">{importPreview.professeurs?.length || 0}</p>
+                    <p className="text-xs text-gray-500">Enseignants</p>
+                    <p className="text-lg font-semibold text-gray-800">{importPreview.counts?.enseignants || 0}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <Users className="w-4 h-4 text-gray-500 mx-auto mb-1" />
+                    <p className="text-xs text-gray-500">Utilisateurs</p>
+                    <p className="text-lg font-semibold text-gray-800">{importPreview.counts?.utilisateurs || 0}</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3 text-center">
                     <BookOpen className="w-4 h-4 text-gray-500 mx-auto mb-1" />
                     <p className="text-xs text-gray-500">Cours</p>
-                    <p className="text-lg font-semibold text-gray-800">{importPreview.cours?.length || 0}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-3 text-center">
-                    <DoorOpen className="w-4 h-4 text-gray-500 mx-auto mb-1" />
-                    <p className="text-xs text-gray-500">Salles</p>
-                    <p className="text-lg font-semibold text-gray-800">{importPreview.salles?.length || 0}</p>
+                    <p className="text-lg font-semibold text-gray-800">{importPreview.counts?.cours || 0}</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3 text-center">
                     <Calendar className="w-4 h-4 text-gray-500 mx-auto mb-1" />
-                    <p className="text-xs text-gray-500">Emplois du temps</p>
-                    <p className="text-lg font-semibold text-gray-800">{importPreview.emploisDuTemps?.length || 0}</p>
+                    <p className="text-xs text-gray-500">Niveaux</p>
+                    <p className="text-lg font-semibold text-gray-800">{importPreview.counts?.niveaux || 0}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <BookOpen className="w-4 h-4 text-gray-500 mx-auto mb-1" />
+                    <p className="text-xs text-gray-500">Parcours</p>
+                    <p className="text-lg font-semibold text-gray-800">{importPreview.counts?.parcours || 0}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <Database className="w-4 h-4 text-gray-500 mx-auto mb-1" />
+                    <p className="text-xs text-gray-500">Enseignements</p>
+                    <p className="text-lg font-semibold text-gray-800">{importPreview.counts?.enseignements || 0}</p>
                   </div>
                 </div>
                 <div className="bg-amber-50 rounded-xl p-3 border border-amber-100">
@@ -730,6 +478,22 @@ const SauvegardePage = () => {
           </div>
         </>
       )}
+
+      <style>{`
+        @keyframes slide-down {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+          }
+        }
+        .animate-slide-down {
+          animation: slide-down 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
