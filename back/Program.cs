@@ -36,6 +36,7 @@ builder.Services.AddScoped<InscriptionService>();
 // ========== NOUVEAUX SERVICES (gestion des cours et affectations) ==========
 builder.Services.AddScoped<CoursService>();
 builder.Services.AddScoped<AffectationService>();
+builder.Services.AddScoped<SalleService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

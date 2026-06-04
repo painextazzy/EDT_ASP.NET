@@ -132,12 +132,47 @@ export const affectationApi = {
     apiClient(`/api/Affectation/${id}`, { method: 'DELETE' }),
 };
 
+
+// Service pour les Salles
+export const salleApi = {
+  // Récupérer toutes les salles (avec filtres éventuels en query string)
+  getAll: (queryString = '') => 
+    apiClient(`/api/Salle${queryString}`, { method: 'GET' }),
+  
+  // Récupérer les bâtiments uniques
+  getBatiments: () => 
+    apiClient('/api/Salle/batiments', { method: 'GET' }),
+  
+  // Récupérer les étages uniques
+  getEtages: () => 
+    apiClient('/api/Salle/etages', { method: 'GET' }),
+  
+  // Créer une nouvelle salle
+  create: (data) => 
+    apiClient('/api/Salle', { 
+      method: 'POST', 
+      body: JSON.stringify(data) 
+    }),
+  
+  // Modifier une salle
+  update: (id, data) => 
+    apiClient(`/api/Salle/${id}`, { 
+      method: 'PUT', 
+      body: JSON.stringify(data) 
+    }),
+  
+  // Supprimer une salle
+  delete: (id) => 
+    apiClient(`/api/Salle/${id}`, { method: 'DELETE' }),
+};
+
 // ========== EXPORT PRINCIPAL (avec les nouvelles API) ==========
 const api = {
   inscription: inscriptionApi,
   cours: coursApi,
   affectation: affectationApi,
   validation: validationApi,
+  salle: salleApi,
 };
 
 export default api;
