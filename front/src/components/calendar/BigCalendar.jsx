@@ -7,13 +7,15 @@ import api from '../../services/api';
 
 const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedClasse, setSelectedClasse] = useState('');
-  const [classes, setClasses] = useState([]);
+  const [selectedNiveau, setSelectedNiveau] = useState('');
+  const [niveaux, setNiveaux] = useState([]);
   const [cours, setCours] = useState([]);
+  const [coursFiltres, setCoursFiltres] = useState([]);
   const [salles, setSalles] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [sallesDisponibles, setSallesDisponibles] = useState([]);
+  const [loading, setLoading] = useState(true);
   
-  const [events, setEvents] = useState(externalEvents);
+  const [events, setEvents] = useState(externalEvents || []);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -23,10 +25,11 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const [newEvent, setNewEvent] = useState({
     titre: '',
     date: format(new Date(), 'yyyy-MM-dd'),
+    dateDebut: format(new Date(), 'yyyy-MM-dd'),
+    dateFin: format(new Date(), 'yyyy-MM-dd'),
     heureDebut: '09:00',
     heureFin: '10:00',
     type: 'Cours',
-    classeId: '',
     salles: []
   });
 
@@ -34,27 +37,114 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     loadData();
   }, []);
 
+  // Charger les cours filtrés quand le niveau change
+  useEffect(() => {
+    if (selectedNiveau) {
+      loadCoursByNiveau();
+    }
+  }, [selectedNiveau]);
+
+  useEffect(() => {
+    if (newEvent.date && (newEvent.type === 'Examen' || newEvent.type === 'Soutenance')) {
+      loadSallesDisponibles();
+    }
+  }, [newEvent.date, newEvent.type]);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [coursData, classesData, sallesData] = await Promise.all([
-        api.cours.getAll(),
-        api.affectation.getNiveaux(),
-        api.salle.getAll()
-      ]);
+      let coursData = [];
+      let niveauxData = [];
+      let sallesData = [];
       
-      setCours(coursData);
-      setClasses(classesData);
-      setSalles(sallesData);
+      try {
+        coursData = await api.cours.getAll();
+        setCours(Array.isArray(coursData) ? coursData : []);
+      } catch (error) {
+        console.error("Erreur chargement cours:", error);
+        setCours([]);
+      }
       
-      if (classesData.length > 0 && !selectedClasse) {
-        setSelectedClasse(classesData[0].id.toString());
+      try {
+        niveauxData = await api.affectation.getNiveaux();
+        if (niveauxData && Array.isArray(niveauxData)) {
+          setNiveaux(niveauxData);
+          if (niveauxData.length > 0 && !selectedNiveau) {
+            setSelectedNiveau(niveauxData[0]?.id?.toString() || '');
+          }
+        } else {
+          setNiveaux([]);
+        }
+      } catch (error) {
+        console.error("Erreur chargement niveaux:", error);
+        setNiveaux([]);
+      }
+      
+      try {
+        sallesData = await api.salle.getAll();
+        setSalles(Array.isArray(sallesData) ? sallesData : []);
+      } catch (error) {
+        console.error("Erreur chargement salles:", error);
+        setSalles([]);
       }
     } catch (error) {
       console.error("Erreur chargement données:", error);
       showNotification("Erreur lors du chargement des données", 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Charger les cours filtrés par niveau depuis les affectations
+  const loadCoursByNiveau = async () => {
+    try {
+      // Récupérer toutes les affectations
+      const affectations = await api.affectation.getAll();
+      
+      // Filtrer les affectations par niveau sélectionné
+      const niveauLibelle = niveaux.find(n => n.id === parseInt(selectedNiveau))?.libelle;
+      
+      const coursDuNiveau = affectations
+        .filter(a => a.niveau === niveauLibelle)
+        .map(a => ({ id: a.id, nom: a.name, code: a.code }));
+      
+      // Éliminer les doublons
+      const coursUniques = [];
+      const coursMap = new Map();
+      
+      for (const cours of coursDuNiveau) {
+        if (!coursMap.has(cours.nom)) {
+          coursMap.set(cours.nom, cours);
+          coursUniques.push(cours);
+        }
+      }
+      
+      setCoursFiltres(coursUniques);
+    } catch (error) {
+      console.error("Erreur chargement cours par niveau:", error);
+      setCoursFiltres([]);
+    }
+  };
+
+  const loadSallesDisponibles = async () => {
+    try {
+      if (!events || !salles) {
+        setSallesDisponibles(salles || []);
+        return;
+      }
+      
+      const eventsLeJour = events.filter(event => 
+        event.type === newEvent.type &&
+        event.start &&
+        isSameDay(new Date(event.start), new Date(newEvent.date))
+      );
+      
+      const sallesOccupees = eventsLeJour.flatMap(e => e.salles?.map(s => s.id) || []);
+      const disponibles = (salles || []).filter(s => !sallesOccupees.includes(s.id));
+      setSallesDisponibles(disponibles);
+    } catch (error) {
+      console.error("Erreur chargement salles disponibles:", error);
+      setSallesDisponibles(salles || []);
     }
   };
 
@@ -79,8 +169,8 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const weekDays = getWeekDays();
   const monthYear = format(currentDate, 'MMMM yyyy', { locale: fr });
 
-  const filteredEvents = events.filter(event => {
-    if (selectedClasse && event.classeId !== parseInt(selectedClasse)) return false;
+  const filteredEvents = (events || []).filter(event => {
+    if (selectedNiveau && event.niveauId !== parseInt(selectedNiveau)) return false;
     return true;
   });
 
@@ -97,6 +187,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   };
 
   const getEventTop = (startDate) => {
+    if (!startDate) return 0;
     const date = new Date(startDate);
     const hour = date.getHours();
     const minute = date.getMinutes();
@@ -105,6 +196,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   };
 
   const getEventHeight = (startDate, endDate) => {
+    if (!startDate || !endDate) return 60;
     const start = new Date(startDate);
     const end = new Date(endDate);
     const durationHours = (end - start) / (1000 * 60 * 60);
@@ -113,25 +205,42 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
 
   const eventColors = {
     Cours: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-800', timeText: 'text-emerald-600' },
-    TD: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-800', timeText: 'text-blue-600' },
-    TP: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-800', timeText: 'text-purple-600' },
     Examen: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-800', timeText: 'text-red-600' },
     Soutenance: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', timeText: 'text-amber-600' }
   };
 
   const handleAddEvent = () => {
-    if (!newEvent.titre || !newEvent.date || !newEvent.type) {
+    if (!newEvent.date || !newEvent.type) {
       showNotification("Veuillez remplir tous les champs obligatoires", 'error');
       return;
     }
 
-    const startDateTime = new Date(newEvent.date);
-    const [startHour, startMinute] = newEvent.heureDebut.split(':');
-    const [endHour, endMinute] = newEvent.heureFin.split(':');
-    startDateTime.setHours(parseInt(startHour), parseInt(startMinute));
+    if (newEvent.type === 'Cours') {
+      if (!newEvent.titre) {
+        showNotification("Veuillez sélectionner un cours", 'error');
+        return;
+      }
+    }
+
+    let startDateTime, endDateTime;
     
-    const endDateTime = new Date(newEvent.date);
-    endDateTime.setHours(parseInt(endHour), parseInt(endMinute));
+    if (newEvent.type === 'Soutenance' || newEvent.type === 'Examen') {
+      startDateTime = new Date(newEvent.dateDebut);
+      endDateTime = new Date(newEvent.dateFin);
+      const [startHour, startMinute] = newEvent.heureDebut.split(':');
+      const [endHour, endMinute] = newEvent.heureFin.split(':');
+      startDateTime.setHours(parseInt(startHour), parseInt(startMinute));
+      endDateTime.setHours(parseInt(endHour), parseInt(endMinute));
+    } else {
+      startDateTime = new Date(newEvent.date);
+      endDateTime = new Date(newEvent.date);
+      const [startHour, startMinute] = newEvent.heureDebut.split(':');
+      const [endHour, endMinute] = newEvent.heureFin.split(':');
+      startDateTime.setHours(parseInt(startHour), parseInt(startMinute));
+      endDateTime.setHours(parseInt(endHour), parseInt(endMinute));
+    }
+
+    const niveauLibelle = niveaux.find(n => n.id === parseInt(selectedNiveau))?.libelle || '';
 
     const newEventObj = {
       id: Date.now(),
@@ -140,13 +249,13 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
       start: startDateTime,
       end: endDateTime,
       type: newEvent.type,
-      classeId: parseInt(newEvent.classeId),
-      classe: classes.find(c => c.id === parseInt(newEvent.classeId))?.libelle || '',
+      niveauId: parseInt(selectedNiveau),
+      niveau: niveauLibelle,
       salles: newEvent.salles,
       location: newEvent.salles?.map(s => s.numero).join(', ') || ''
     };
 
-    setEvents([...events, newEventObj]);
+    setEvents([...(events || []), newEventObj]);
     
     if (onAddEvent) onAddEvent(newEventObj);
     
@@ -154,10 +263,11 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     setNewEvent({
       titre: '',
       date: format(new Date(), 'yyyy-MM-dd'),
+      dateDebut: format(new Date(), 'yyyy-MM-dd'),
+      dateFin: format(new Date(), 'yyyy-MM-dd'),
       heureDebut: '09:00',
       heureFin: '10:00',
       type: 'Cours',
-      classeId: selectedClasse || '',
       salles: []
     });
     showNotification(`Événement ajouté avec succès`, 'success');
@@ -165,7 +275,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
 
   const handleDeleteEvent = () => {
     if (selectedEvent) {
-      setEvents(events.filter(e => e.id !== selectedEvent.id));
+      setEvents((events || []).filter(e => e.id !== selectedEvent.id));
       setIsDetailsModalOpen(false);
       setSelectedEvent(null);
       showNotification(`Événement supprimé avec succès`, 'success');
@@ -177,16 +287,16 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     setIsDetailsModalOpen(true);
   };
 
-  const getEventsForDay = (day) => filteredEvents.filter(event => isSameDay(new Date(event.start), day));
+  const getEventsForDay = (day) => (filteredEvents || []).filter(event => event.start && isSameDay(new Date(event.start), day));
 
   const handleSaveTimetable = () => {
-    if (!selectedClasse) {
-      showNotification("Veuillez sélectionner une classe", 'error');
+    if (!selectedNiveau) {
+      showNotification("Veuillez sélectionner un niveau", 'error');
       return;
     }
     
     const timetable = {
-      classe: selectedClasse,
+      niveau: selectedNiveau,
       date: new Date().toISOString(),
       events: filteredEvents
     };
@@ -195,7 +305,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', `emploi_du_temps_${selectedClasse}_${format(new Date(), 'yyyy-MM-dd')}.json`);
+    linkElement.setAttribute('download', `emploi_du_temps_niveau_${selectedNiveau}_${format(new Date(), 'yyyy-MM-dd')}.json`);
     linkElement.click();
     
     showNotification(`Emploi du temps sauvegardé !`, 'success');
@@ -216,11 +326,11 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     return newEvent.type === 'Examen' || newEvent.type === 'Soutenance';
   };
 
-  // Modal d'ajout
+  const sallesToShow = isMultiSalleType() ? sallesDisponibles : salles;
+
   const AddEventModal = () => (
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white w-full max-w-2xl rounded-eight shadow-soft overflow-hidden border border-gray-100">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="bg-blue-500/10 p-2 rounded-full">
@@ -228,132 +338,149 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
             </div>
             <h2 className="text-xl font-semibold text-gray-800">Ajouter un événement</h2>
           </div>
-          <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 hover:text-gray-600">
             <X className="h-6 w-6" />
           </button>
         </div>
 
-        {/* Body */}
         <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto">
-          {/* Row 1: Titre and Horaire */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Type d'événement */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700">
+              Type d'événement <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={newEvent.type}
+              onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value, titre: '', salles: [] })}
+              className="w-full border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 px-3 bg-gray-50"
+            >
+              <option value="Cours">Cours</option>
+              <option value="Examen">Examen</option>
+              <option value="Soutenance">Soutenance</option>
+            </select>
+          </div>
+
+          {/* Cours - filtré par le niveau sélectionné */}
+          {newEvent.type === 'Cours' && (
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Titre <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-gray-700">
+                Cours <span className="text-red-500">*</span>
               </label>
               <select
                 value={newEvent.titre}
                 onChange={(e) => setNewEvent({ ...newEvent, titre: e.target.value })}
-                className="w-full border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 bg-gray-50"
+                className="w-full border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 px-3 bg-gray-50"
               >
-                <option value="">Sélectionner un titre</option>
-                {cours.map(c => (
+                <option value="">Sélectionner un cours</option>
+                {coursFiltres.map(c => (
                   <option key={c.id} value={c.nom}>{c.nom}</option>
                 ))}
               </select>
+              {coursFiltres.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Aucun cours trouvé pour ce niveau
+                </p>
+              )}
             </div>
+          )}
 
+          {/* Date pour les cours */}
+          {newEvent.type === 'Cours' && (
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Horaire
+              <label className="block text-sm font-semibold text-gray-700">
+                Date
               </label>
-              <div className="flex items-center gap-2">
-                <select
-                  value={newEvent.heureDebut}
-                  onChange={(e) => setNewEvent({ ...newEvent, heureDebut: e.target.value })}
-                  className="flex-1 border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 bg-gray-50"
-                >
-                  {hours.map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
-                <span className="text-gray-400">—</span>
-                <select
-                  value={newEvent.heureFin}
-                  onChange={(e) => setNewEvent({ ...newEvent, heureFin: e.target.value })}
-                  className="flex-1 border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 bg-gray-50"
-                >
-                  {hours.map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
+              <div className="relative w-full">
+                <input
+                  type="date"
+                  value={newEvent.date}
+                  onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
+                  className="w-full border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 px-3 bg-gray-50"
+                />
+                <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                  <CalendarIcon className="h-5 w-5 text-gray-400" />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Row 2: Classe and Type */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Classe
-              </label>
+          {/* Date début / fin pour examen/soutenance */}
+          {(newEvent.type === 'Examen' || newEvent.type === 'Soutenance') && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Date début <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={newEvent.dateDebut}
+                  onChange={(e) => setNewEvent({ ...newEvent, dateDebut: e.target.value })}
+                  className="w-full border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 px-3 bg-gray-50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Date fin <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={newEvent.dateFin}
+                  onChange={(e) => setNewEvent({ ...newEvent, dateFin: e.target.value })}
+                  className="w-full border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 px-3 bg-gray-50"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Horaire */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700">
+              Horaire
+            </label>
+            <div className="flex items-center gap-2">
               <select
-                value={newEvent.classeId}
-                onChange={(e) => setNewEvent({ ...newEvent, classeId: e.target.value })}
-                className="w-full border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 bg-gray-50"
+                value={newEvent.heureDebut}
+                onChange={(e) => setNewEvent({ ...newEvent, heureDebut: e.target.value })}
+                className="flex-1 border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 px-3 bg-gray-50"
               >
-                <option value="">Sélectionner une classe</option>
-                {classes.map(c => (
-                  <option key={c.id} value={c.id}>{c.libelle}</option>
-                ))}
+                {hours.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+              <span className="text-gray-400">—</span>
+              <select
+                value={newEvent.heureFin}
+                onChange={(e) => setNewEvent({ ...newEvent, heureFin: e.target.value })}
+                className="flex-1 border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 px-3 bg-gray-50"
+              >
+                {hours.map(h => <option key={h} value={h}>{h}</option>)}
               </select>
             </div>
-
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M7 7h.01M7 11h.01M7 15h.01M13 7h.01M13 11h.01M13 15h.01M17 7h.01M17 11h.01M17 15h.01M21 21H3V5a2 2 0 012-2h14a2 2 0 012 2v16z" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Type
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </span>
-                <select
-                  value={newEvent.type}
-                  onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value })}
-                  className="w-full border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 pl-10 bg-gray-50 appearance-none"
-                >
-                  <option value="Cours">Cours</option>
-                  <option value="TD">TD</option>
-                  <option value="TP">TP</option>
-                  <option value="Examen">Examen</option>
-                  <option value="Soutenance">Soutenance</option>
-                </select>
-              </div>
-            </div>
           </div>
 
-          {/* Salle Field */}
+          {/* PAS DE CHAMP NIVEAU - Car déjà dans le filtre */}
+
+          {/* Salle */}
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M3 21h18M3 7v1a3 3 0 006 0V7m0 0V5a2 2 0 012-2h2a2 2 0 012 2v2m0 0h6v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7h6" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Salle
+            <label className="block text-sm font-semibold text-gray-700">
+              Salle {isMultiSalleType() && <span className="text-xs text-gray-500">(Sélection multiple)</span>}
             </label>
             
             {isMultiSalleType() ? (
               <div className="border border-gray-200 rounded-eight p-3 max-h-40 overflow-y-auto space-y-2 bg-gray-50">
-                {salles.map(salle => (
-                  <label key={salle.id} className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={newEvent.salles.some(s => s.id === salle.id)}
-                      onChange={() => toggleSalleSelection(salle)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700">{salle.numero}</span>
-                  </label>
-                ))}
+                {sallesToShow.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">Aucune salle disponible</p>
+                ) : (
+                  sallesToShow.map(salle => (
+                    <label key={salle.id} className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={newEvent.salles.some(s => s.id === salle.id)}
+                        onChange={() => toggleSalleSelection(salle)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">{salle.numero}</span>
+                    </label>
+                  ))
+                )}
                 {newEvent.salles.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-gray-200">
                     <span className="text-xs text-gray-500">{newEvent.salles.length} salle(s) sélectionnée(s)</span>
@@ -367,7 +494,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
                   const salle = salles.find(s => s.id === parseInt(e.target.value));
                   setNewEvent({ ...newEvent, salles: salle ? [salle] : [] });
                 }}
-                className="w-full border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 bg-gray-50"
+                className="w-full border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 px-3 bg-gray-50"
               >
                 <option value="">Sélectionner une salle</option>
                 {salles.map(salle => (
@@ -376,40 +503,19 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
               </select>
             )}
           </div>
-
-          {/* Date Field */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Date
-            </label>
-            <div className="relative w-full">
-              <input
-                type="date"
-                value={newEvent.date}
-                onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
-                className="w-full border border-gray-200 rounded-eight focus:ring-blue-500 focus:border-blue-500 text-sm py-2.5 pr-10 bg-gray-50"
-              />
-              <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                <CalendarIcon className="h-5 w-5 text-gray-400" />
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
         <div className="bg-gray-50 px-8 py-5 flex items-center border-t border-gray-100 justify-end gap-3">
           <button
             onClick={() => setIsAddModalOpen(false)}
-            className="px-6 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-eight transition-all duration-200"
+            className="px-6 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-eight transition-all"
           >
             Annuler
           </button>
           <button
             onClick={handleAddEvent}
-            className="flex items-center gap-2 px-8 py-2.5 text-sm font-bold text-white bg-blue-500 hover:brightness-105 active:scale-95 shadow-lg shadow-blue-500/20 rounded-eight transition-all duration-200"
+            className="flex items-center gap-2 px-8 py-2.5 text-sm font-bold text-white bg-blue-500 hover:brightness-105 active:scale-95 shadow-lg shadow-blue-500/20 rounded-eight transition-all"
           >
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z" />
@@ -421,7 +527,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     </div>
   );
 
-  // Modal de détails
   const EventDetailsModal = () => (
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white w-full max-w-md rounded-eight shadow-soft overflow-hidden border border-gray-100">
@@ -452,7 +557,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
           </div>
           <div className="flex items-center gap-3 text-gray-600">
             <Users className="h-5 w-5" />
-            <span>{selectedEvent?.classe}</span>
+            <span>{selectedEvent?.niveau}</span>
           </div>
         </div>
         <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
@@ -467,9 +572,19 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gray-50 rounded-2xl">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-500">Chargement du calendrier...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col bg-gray-50 rounded-2xl shadow-sm border border-gray-100 overflow-hidden relative">
-      {/* Notification Toast */}
       {notification.show && (
         <div className="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 animate-slideDown">
           <div className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg border ${
@@ -484,7 +599,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
         </div>
       )}
 
-      {/* Header */}
       <header className="bg-white border-b border-gray-100 px-6 py-4">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
@@ -515,21 +629,21 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
             </div>
           </div>
 
+          {/* Filtre niveau */}
           <div className="flex items-center gap-3">
             <select
-              value={selectedClasse}
-              onChange={(e) => setSelectedClasse(e.target.value)}
-              className="px-5 py-2 pr-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer font-medium"
+              value={selectedNiveau}
+              onChange={(e) => setSelectedNiveau(e.target.value)}
+              className="px-5 py-2 pr-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer font-medium min-w-[150px]"
             >
-              {classes.map(classe => (
-                <option key={classe.id} value={classe.id}>{classe.libelle}</option>
+              {niveaux.map(niveau => (
+                <option key={niveau.id} value={niveau.id}>{niveau.libelle}</option>
               ))}
             </select>
           </div>
         </div>
       </header>
 
-      {/* Calendar Grid */}
       <main className="flex-1 flex flex-col overflow-hidden bg-white">
         <div className="grid grid-cols-[80px_repeat(5,1fr)] border-b border-gray-200 bg-gray-50/30">
           <div className="py-3"></div>
@@ -579,10 +693,10 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
                           <div className="flex-1">
                             <span className={`${style.text} text-[11px] font-semibold truncate block`}>{event.title}</span>
                             <span className={`${style.timeText} text-[9px]`}>
-                              {format(new Date(event.start), 'HH:mm')} - {format(new Date(event.end), 'HH:mm')}
+                              {event.start && format(new Date(event.start), 'HH:mm')} - {event.end && format(new Date(event.end), 'HH:mm')}
                             </span>
                             <div className="flex gap-1 mt-1">
-                              <span className="text-[8px] px-1.5 py-0.5 bg-white/50 rounded-md text-gray-500">{event.classe}</span>
+                              <span className="text-[8px] px-1.5 py-0.5 bg-white/50 rounded-md text-gray-500">{event.niveau}</span>
                             </div>
                           </div>
                         </div>
@@ -607,11 +721,10 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
           </button>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-blue-600 font-medium">Affichage: {classes.find(c => c.id === parseInt(selectedClasse))?.libelle || 'Chargement...'}</span>
+          <span className="text-blue-600 font-medium">Affichage: {niveaux.find(n => n.id === parseInt(selectedNiveau))?.libelle || 'Chargement...'}</span>
         </div>
       </footer>
 
-      {/* Boutons FAB */}
       <button onClick={() => setIsAddModalOpen(true)} className="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all z-40">
         <Plus className="w-6 h-6" />
       </button>
@@ -619,7 +732,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
         <Save className="w-5 h-5" />
       </button>
 
-      {/* Modals */}
       {isAddModalOpen && <AddEventModal />}
       {isDetailsModalOpen && <EventDetailsModal />}
 
