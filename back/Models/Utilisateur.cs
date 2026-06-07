@@ -8,5 +8,6 @@ namespace back.Models
         public string Role { get; set; } = "ENSEIGNANT";
         public bool EstValide { get; set; }
         public DateTime CreatedAt { get; set; }
+        public virtual Enseignant? Enseignant { get; set; }
     }
 }

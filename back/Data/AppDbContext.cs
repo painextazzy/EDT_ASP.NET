@@ -40,22 +40,24 @@ namespace back.Data
                 entity.Property(e => e.PhotoUrl).HasColumnName("photo_url");
                 entity.Property(e => e.IdUtilisateur).HasColumnName("id_utilisateur");
                 entity.HasIndex(e => e.Im).IsUnique();
+
+                // UNE SEULE CONFIGURATION - Supprimer l'ancienne et garder celle-ci
                 entity.HasOne(e => e.Utilisateur)
-                      .WithMany()
-                      .HasForeignKey(e => e.IdUtilisateur)
-                      .OnDelete(DeleteBehavior.SetNull);
+                      .WithOne(u => u.Enseignant)
+                      .HasForeignKey<Enseignant>(e => e.IdUtilisateur)
+                      .OnDelete(DeleteBehavior.Cascade); // Cascade: supprime l'enseignant quand l'utilisateur est supprimé
             });
 
             modelBuilder.Entity<Salle>(entity =>
-     {
-         entity.ToTable("salle");
-         entity.Property(e => e.Id).HasColumnName("id");
-         entity.Property(e => e.Numero).HasColumnName("nom_salle");
-         entity.Property(e => e.Batiment).HasColumnName("batiment");
-         entity.Property(e => e.Etage).HasColumnName("etage");
-         entity.Property(e => e.Statut).HasColumnName("statut").HasDefaultValue("LIBRE");
-         entity.Property(e => e.CourActuel).HasColumnName("cour_actuel");
-     });
+            {
+                entity.ToTable("salle");
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.Numero).HasColumnName("nom_salle");
+                entity.Property(e => e.Batiment).HasColumnName("batiment");
+                entity.Property(e => e.Etage).HasColumnName("etage");
+                entity.Property(e => e.Statut).HasColumnName("statut").HasDefaultValue("LIBRE");
+                entity.Property(e => e.CourActuel).HasColumnName("cour_actuel");
+            });
 
             // Configuration pour l'entité Cours (Matiere)
             modelBuilder.Entity<Cours>(entity =>

@@ -274,6 +274,14 @@ export const backupApi = {
   }
 };
 
+export const enseignantApi = {
+  // Récupérer uniquement les enseignants validés
+  getValides: () => 
+    apiClient('/api/Enseignant/valides', { method: 'GET' }),
+   delete: (id) => 
+    apiClient(`/api/Enseignant/${id}`, { method: 'DELETE' }),
+};
+
 // ========== EXPORT PRINCIPAL (avec les nouvelles API) ==========
 const api = {
   inscription: inscriptionApi,
@@ -281,7 +289,8 @@ const api = {
   affectation: affectationApi,
   validation: validationApi,
   salle: salleApi,
-  backup: backupApi
+  backup: backupApi,
+   enseignant: enseignantApi
 };
 
 export default api;
