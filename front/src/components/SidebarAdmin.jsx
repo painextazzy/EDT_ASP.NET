@@ -8,11 +8,10 @@ import {
   School, 
   Users, 
   DoorOpen, 
-  Save,
+  DatabaseBackup,
   Layers,
   ChevronLeft,
   ChevronRight,
-  Sparkles
 } from 'lucide-react';
 
 const SidebarAdmin = () => {
@@ -26,7 +25,7 @@ const SidebarAdmin = () => {
     { label: 'Professeurs', icon: Users, path: '/admin/professeurs' },
     { label: 'Salles', icon: DoorOpen, path: '/admin/salles' },
     { label: 'Niveau & Parcours', icon: Layers, path: '/admin/niveaux-parcours' },
-    { label: 'Sauvegarde', icon: Save, path: '/admin/sauvegarde' }
+    { label: 'Sauvegarde', icon: DatabaseBackup, path: '/admin/sauvegarde' }
   ];
 
   return (
