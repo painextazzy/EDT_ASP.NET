@@ -110,10 +110,7 @@ const ProfesseursPage = () => {
 
       {/* Header */}
       <header className="mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Gestion des Professeurs</h1>
-          <p className="text-sm text-gray-500 mt-1">Liste des professeurs dont le compte a été validé</p>
-        </div>
+       
 
         {/* Barre de recherche */}
         <div className="relative max-w-2xl mt-4">
@@ -149,7 +146,7 @@ const ProfesseursPage = () => {
                 key={professeur.id} 
                 className="bg-white flex items-center p-4 rounded-xl shadow-md hover:shadow-lg transition-shadow gap-4 relative"
               >
-                {/* Avatar - Utilisation de l'URL de la base de données */}
+                {/* Avatar - Utilisation directe du champ photo_url de la base */}
                 <div className="w-12 h-12 flex-shrink-0 rounded-full overflow-hidden bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-lg">
                   {professeur.photoUrl && !imageErrors[professeur.id] ? (
                     <img 
@@ -157,7 +154,6 @@ const ProfesseursPage = () => {
                       className="w-full h-full object-cover" 
                       src={professeur.photoUrl}
                       onError={() => handleImageError(professeur.id)}
-                      referrerPolicy="no-referrer"
                     />
                   ) : (
                     <span>{professeur.nom?.charAt(0) || 'P'}</span>
