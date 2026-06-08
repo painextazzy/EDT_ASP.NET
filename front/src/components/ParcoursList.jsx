@@ -19,7 +19,6 @@ const NiveauxParcours = () => {
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
   };
 
-  // Charger les parcours depuis l'API
   const loadParcours = async () => {
     try {
       setLoading(true);
@@ -37,7 +36,6 @@ const NiveauxParcours = () => {
     loadParcours();
   }, []);
 
-  // Fermer le menu quand on clique ailleurs
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -48,19 +46,18 @@ const NiveauxParcours = () => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  const toggleMenu = (id, e) => {
-    e.stopPropagation();
+  const toggleMenu = (id, event) => {
+    event.stopPropagation();
     setOpenMenuId(openMenuId === id ? null : id);
   };
 
-  // Récupérer l'icône et la couleur en fonction du libellé
   const getItemStyle = (libelle) => {
     const lower = libelle.toLowerCase();
     if (lower.includes('informatique')) {
       return { color: '#00CED1', icon: 'code' };
     }
     if (lower.includes('management')) {
-      return { color: '#FFD700', icon: 'folder' };
+      return { color: '#8A4CFC', icon: 'folder' };
     }
     if (lower.includes('multimedia') || lower.includes('multimédia')) {
       return { color: '#8A4CFC', icon: 'palette' };
@@ -68,21 +65,19 @@ const NiveauxParcours = () => {
     return { color: '#8A4CFC', icon: 'folder' };
   };
 
-  // Récupérer l'icône correcte
   const getIconComponent = (iconName) => {
     switch (iconName) {
       case 'code':
-        return <Code className="w-7 h-7 text-white" />;
+        return <Code className="w-5 h-5 text-white" />;
       case 'folder':
-        return <Folder className="w-7 h-7 text-white" />;
+        return <Folder className="w-5 h-5 text-white" />;
       case 'palette':
-        return <Palette className="w-7 h-7 text-white" />;
+        return <Palette className="w-5 h-5 text-white" />;
       default:
-        return <Folder className="w-7 h-7 text-white" />;
+        return <Folder className="w-5 h-5 text-white" />;
     }
   };
 
-  // Ajouter un parcours
   const handleAdd = async () => {
     if (!newParcours.libelle.trim()) {
       showNotification("Veuillez saisir un libellé", 'error');
@@ -98,13 +93,11 @@ const NiveauxParcours = () => {
         showNotification(result.message, 'success');
       }
     } catch (error) {
-      console.error("Erreur ajout:", error);
       const errorMessage = error.response?.data?.message || "Erreur lors de l'ajout";
       showNotification(errorMessage, 'error');
     }
   };
 
-  // Supprimer un parcours
   const handleDelete = async (id, libelle) => {
     if (window.confirm(`Supprimer "${libelle}" ? Cette action est irréversible.`)) {
       try {
@@ -114,7 +107,6 @@ const NiveauxParcours = () => {
           showNotification(result.message, 'success');
         }
       } catch (error) {
-        console.error("Erreur suppression:", error);
         const errorMessage = error.response?.data?.message || "Erreur lors de la suppression";
         showNotification(errorMessage, 'error');
       }
@@ -122,22 +114,20 @@ const NiveauxParcours = () => {
     }
   };
 
-  // Ouvrir le modal de modification
   const handleOpenEdit = (item) => {
-    setEditingItem(item);
+    setEditingItem({ id: item.id, libelle: item.libelle });
     setShowEditModal(true);
     setOpenMenuId(null);
   };
 
-  // Modifier un parcours
   const handleEdit = async () => {
-    if (!editingItem.libelle.trim()) {
+    if (!editingItem.libelle || !editingItem.libelle.trim()) {
       showNotification("Veuillez saisir un libellé", 'error');
       return;
     }
 
     try {
-      const result = await api.parcours.update(editingItem.id, { libelle: editingItem.libelle });
+      const result = await api.parcours.update(editingItem.id, { libelle: editingItem.libelle.trim() });
       if (result && result.message) {
         await loadParcours();
         setShowEditModal(false);
@@ -145,13 +135,11 @@ const NiveauxParcours = () => {
         showNotification(result.message, 'success');
       }
     } catch (error) {
-      console.error("Erreur modification:", error);
       const errorMessage = error.response?.data?.message || "Erreur lors de la modification";
       showNotification(errorMessage, 'error');
     }
   };
 
-  // Ordre des parcours
   const orderParcours = (items) => {
     const order = ['Informatique', 'Management', 'Multimédia'];
     return [...items].sort((a, b) => {
@@ -164,7 +152,7 @@ const NiveauxParcours = () => {
   const orderedParcours = orderParcours(parcours);
 
   return (
-    <div className="flex-1 overflow-y-auto p-12 bg-gray-50">
+    <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
       {/* Notification Toast */}
       {notification.show && (
         <div className="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 animate-slideDown">
@@ -188,68 +176,75 @@ const NiveauxParcours = () => {
         </div>
       )}
 
-      {/* Loading */}
       {loading ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mx-auto pb-24 w-full max-w-7xl">
-          {orderedParcours.map((item) => {
-            const style = getItemStyle(item.libelle);
-            return (
-              <article 
-                key={item.id} 
-                className="bg-white rounded-3xl flex flex-col overflow-hidden group card-shadow transition-all duration-500 hover:-translate-y-2 p-6 min-h-[180px] relative"
-              >
-                {/* Menu à trois points */}
-                <div className="absolute top-6 right-6">
-                  <button 
-                    onClick={(e) => toggleMenu(item.id, e)}
-                    className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-400 opacity-60 hover:opacity-100"
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-wrap gap-4 justify-start items-center">
+            {orderedParcours.map((item) => {
+              const style = getItemStyle(item.libelle);
+              return (
+                <div key={item.id} className="relative">
+                  {/* Cardbox avec le bouton à l'intérieur */}
+                  <article 
+                    className="bg-white flex items-center overflow-hidden group card-shadow transition-all duration-500 hover:-translate-y-1 px-4 py-2 border border-gray-200 rounded-xl flex-shrink-0 relative"
                   >
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
-                  
-                  {/* Dropdown menu */}
+                    {/* Bouton trois points - À l'INTÉRIEUR de la cardbox (en haut à droite) */}
+                    <div className="absolute top-1 right-1 z-10">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleMenu(item.id, e);
+                        }}
+                        className="p-1 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                        aria-label="Options"
+                      >
+                        <MoreVertical className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Contenu */}
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-8 h-8 rounded-full flex items-center justify-center transform transition-transform group-hover:rotate-6 flex-shrink-0"
+                        style={{ backgroundColor: style.color }}
+                      >
+                        {getIconComponent(style.icon)}
+                      </div>
+                      <h3 className="font-medium text-gray-800 leading-tight group-hover:text-[#00CED1] transition-colors text-sm pr-6">
+                        {item.libelle}
+                      </h3>
+                    </div>
+                  </article>
+
+                  {/* Menu déroulant - Positionné en dehors de la cardbox */}
                   {openMenuId === item.id && (
                     <div 
                       ref={menuRef}
-                      className="absolute right-0 top-10 w-36 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20"
+                      className="absolute right-0 top-0 z-50 w-32 bg-white rounded-lg shadow-lg border border-gray-100 py-1 transform translate-x-full -translate-y-1"
                     >
                       <button
                         onClick={() => handleOpenEdit(item)}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
                       >
-                        <Edit className="w-4 h-4" />
+                        <Edit className="w-3.5 h-3.5" />
                         Modifier
                       </button>
                       <button
                         onClick={() => handleDelete(item.id, item.libelle)}
                         className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                         Supprimer
                       </button>
                     </div>
                   )}
                 </div>
-
-                {/* Contenu */}
-                <div className="flex items-center gap-4 flex-1">
-                  <div 
-                    className="w-16 h-16 rounded-full flex items-center justify-center transform transition-transform group-hover:rotate-6"
-                    style={{ backgroundColor: style.color }}
-                  >
-                    {getIconComponent(style.icon)}
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-800 leading-tight transition-colors">
-                    {item.libelle}
-                  </h3>
-                </div>
-              </article>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -314,17 +309,24 @@ const NiveauxParcours = () => {
                 <input
                   type="text"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={editingItem.libelle}
+                  value={editingItem.libelle || ''}
                   onChange={(e) => setEditingItem({ ...editingItem, libelle: e.target.value })}
+                  placeholder="Nom du parcours"
                 />
               </div>
             </div>
 
             <div className="flex justify-end gap-3 p-5 border-t border-gray-100">
-              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+              <button 
+                onClick={() => setShowEditModal(false)} 
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"
+              >
                 Annuler
               </button>
-              <button onClick={handleEdit} className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600">
+              <button 
+                onClick={handleEdit} 
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600"
+              >
                 Enregistrer
               </button>
             </div>

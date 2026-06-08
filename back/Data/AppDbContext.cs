@@ -69,12 +69,7 @@ namespace back.Data
             });
 
             // Configuration pour l'entité Niveau
-            modelBuilder.Entity<Niveau>(entity =>
-            {
-                entity.ToTable("niveau");
-                entity.Property(e => e.Id).HasColumnName("id");
-                entity.Property(e => e.Libelle).HasColumnName("libelle");
-            });
+
 
             // Configuration pour l'entité Parcours
             modelBuilder.Entity<Parcours>(entity =>
@@ -83,6 +78,13 @@ namespace back.Data
                 entity.Property(e => e.Id).HasColumnName("id");
                 entity.Property(e => e.Libelle).HasColumnName("libelle");
             });
+            modelBuilder.Entity<Niveau>(entity =>
+         {
+             entity.ToTable("niveau");
+             entity.Property(e => e.Id).HasColumnName("id");
+             entity.Property(e => e.Libelle).HasColumnName("libelle");
+             entity.HasIndex(e => e.Libelle).IsUnique();
+         });
 
 
             // Configuration pour l'entité Enseignement

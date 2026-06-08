@@ -1,21 +1,20 @@
 // src/components/NiveauxPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, MoreVertical, Edit, Trash2, X, CheckCircle, AlertCircle, GraduationCap, Award, Trophy, Star } from 'lucide-react';
+import { Plus, MoreVertical, Edit, Trash2, X, CheckCircle, AlertCircle, GraduationCap, Award, Trophy, Star, Search } from 'lucide-react';
+import api from '../services/api';
 
 const NiveauxPage = () => {
-  const [niveaux, setNiveaux] = useState([
-    { id: 1, libelle: 'Licence 1', color: '#FFD700', icon: 'GraduationCap' },
-    { id: 2, libelle: 'Licence 2', color: '#FF4B4B', icon: 'GraduationCap' },
-    { id: 3, libelle: 'Licence 3', color: '#1447dd', icon: 'Award' },
-    { id: 4, libelle: 'Master 1', color: '#FFD700', icon: 'Trophy' },
-    { id: 5, libelle: 'Master 2', color: '#FF4B4B', icon: 'Star' }
-  ]);
+  const [niveaux, setNiveaux] = useState([]);
+  const [filteredNiveaux, setFilteredNiveaux] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const [newNiveau, setNewNiveau] = useState({ libelle: '' });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
   const menuRef = useRef(null);
 
   const showNotification = (message, type) => {
@@ -23,7 +22,51 @@ const NiveauxPage = () => {
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
   };
 
-  // Fermer le menu quand on clique ailleurs
+  const loadNiveaux = async () => {
+    try {
+      setLoading(true);
+      const data = await api.niveau.getAll();
+      setNiveaux(Array.isArray(data) ? data : []);
+      setFilteredNiveaux(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Erreur chargement:", error);
+      showNotification("Erreur lors du chargement des niveaux", 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadNiveaux();
+  }, []);
+
+  useEffect(() => {
+    let result = [...niveaux];
+    
+    if (searchTerm) {
+      result = result.filter(item => 
+        item.libelle.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    if (filterType === 'licence') {
+      result = result.filter(item => 
+        item.libelle.toLowerCase().includes('licence') || 
+        item.libelle.toLowerCase().includes('l1') ||
+        item.libelle.toLowerCase().includes('l2') ||
+        item.libelle.toLowerCase().includes('l3')
+      );
+    } else if (filterType === 'master') {
+      result = result.filter(item => 
+        item.libelle.toLowerCase().includes('master') || 
+        item.libelle.toLowerCase().includes('m1') ||
+        item.libelle.toLowerCase().includes('m2')
+      );
+    }
+    
+    setFilteredNiveaux(result);
+  }, [searchTerm, filterType, niveaux]);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -39,200 +82,237 @@ const NiveauxPage = () => {
     setOpenMenuId(openMenuId === id ? null : id);
   };
 
-  // Récupérer l'icône correcte
-  const getIconComponent = (iconName) => {
-    switch (iconName) {
-      case 'GraduationCap':
-        return <GraduationCap className="w-8 h-8 text-white" />;
-      case 'Award':
-        return <Award className="w-8 h-8 text-white" />;
-      case 'Trophy':
-        return <Trophy className="w-8 h-8 text-white" />;
-      case 'Star':
-        return <Star className="w-8 h-8 text-white" />;
-      default:
-        return <GraduationCap className="w-8 h-8 text-white" />;
-    }
-  };
-
-  // Déterminer la couleur et l'icône en fonction du libellé
-  const getStyleFromLibelle = (libelle) => {
+  const getItemStyle = (libelle) => {
     const lower = libelle.toLowerCase();
-    if (lower.includes('licence 1') || lower.includes('l1')) {
-      return { color: '#FFD700', icon: 'GraduationCap' };
-    }
-    if (lower.includes('licence 2') || lower.includes('l2')) {
-      return { color: '#FF4B4B', icon: 'GraduationCap' };
-    }
-    if (lower.includes('licence 3') || lower.includes('l3')) {
-      return { color: '#1447dd', icon: 'Award' };
-    }
-    if (lower.includes('master 1') || lower.includes('m1')) {
-      return { color: '#FFD700', icon: 'Trophy' };
-    }
-    if (lower.includes('master 2') || lower.includes('m2')) {
-      return { color: '#FF4B4B', icon: 'Star' };
-    }
+    if (lower.includes('licence 1') || lower.includes('l1')) return { color: '#FFD700', icon: 'GraduationCap' };
+    if (lower.includes('licence 2') || lower.includes('l2')) return { color: '#FF4B4B', icon: 'GraduationCap' };
+    if (lower.includes('licence 3') || lower.includes('l3')) return { color: '#1447dd', icon: 'Award' };
+    if (lower.includes('master 1') || lower.includes('m1')) return { color: '#FFD700', icon: 'Trophy' };
+    if (lower.includes('master 2') || lower.includes('m2')) return { color: '#FF4B4B', icon: 'Star' };
     return { color: '#8A4CFC', icon: 'GraduationCap' };
   };
 
-  // Ajouter un niveau
-  const handleAdd = () => {
+  const getIconComponent = (iconName) => {
+    switch (iconName) {
+      case 'GraduationCap': return <GraduationCap className="w-5 h-5 text-white" />;
+      case 'Award': return <Award className="w-5 h-5 text-white" />;
+      case 'Trophy': return <Trophy className="w-5 h-5 text-white" />;
+      case 'Star': return <Star className="w-5 h-5 text-white" />;
+      default: return <GraduationCap className="w-5 h-5 text-white" />;
+    }
+  };
+
+  const handleAdd = async () => {
     if (!newNiveau.libelle.trim()) {
       showNotification("Veuillez saisir un libellé", 'error');
       return;
     }
-
-    const newId = Math.max(...niveaux.map(n => n.id), 0) + 1;
-    const style = getStyleFromLibelle(newNiveau.libelle);
-
-    const newItem = {
-      id: newId,
-      libelle: newNiveau.libelle,
-      color: style.color,
-      icon: style.icon
-    };
-
-    setNiveaux([...niveaux, newItem]);
-    setShowAddModal(false);
-    setNewNiveau({ libelle: '' });
-    showNotification("Niveau ajouté avec succès", 'success');
+    try {
+      const result = await api.niveau.create({ libelle: newNiveau.libelle });
+      if (result && result.message) {
+        await loadNiveaux();
+        setShowAddModal(false);
+        setNewNiveau({ libelle: '' });
+        showNotification(result.message, 'success');
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || "Erreur lors de l'ajout";
+      showNotification(errorMessage, 'error');
+    }
   };
 
-  // Supprimer un niveau
-  const handleDelete = (id, libelle) => {
-    if (window.confirm(`Supprimer "${libelle}" ? Cette action est irréversible.`)) {
-      setNiveaux(niveaux.filter(n => n.id !== id));
-      showNotification(`Niveau "${libelle}" supprimé`, 'success');
+  const handleDelete = async (id, libelle) => {
+    if (window.confirm(`Supprimer "${libelle}" ?`)) {
+      try {
+        const result = await api.niveau.delete(id);
+        if (result && result.message) {
+          await loadNiveaux();
+          showNotification(result.message, 'success');
+        }
+      } catch (error) {
+        const errorMessage = error.response?.data?.message || "Erreur lors de la suppression";
+        showNotification(errorMessage, 'error');
+      }
       setOpenMenuId(null);
     }
   };
 
-  // Ouvrir le modal de modification
   const handleOpenEdit = (item) => {
-    setEditingItem(item);
+    setEditingItem({ id: item.id, libelle: item.libelle });
     setShowEditModal(true);
     setOpenMenuId(null);
   };
 
-  // Modifier un niveau
-  const handleEdit = () => {
-    if (!editingItem.libelle.trim()) {
+  const handleEdit = async () => {
+    if (!editingItem.libelle || !editingItem.libelle.trim()) {
       showNotification("Veuillez saisir un libellé", 'error');
       return;
     }
-
-    const style = getStyleFromLibelle(editingItem.libelle);
-
-    setNiveaux(niveaux.map(n => 
-      n.id === editingItem.id 
-        ? { ...n, libelle: editingItem.libelle, color: style.color, icon: style.icon }
-        : n
-    ));
-    
-    setShowEditModal(false);
-    setEditingItem(null);
-    showNotification("Niveau modifié avec succès", 'success');
+    try {
+      const result = await api.niveau.update(editingItem.id, { libelle: editingItem.libelle.trim() });
+      if (result && result.message) {
+        await loadNiveaux();
+        setShowEditModal(false);
+        setEditingItem(null);
+        showNotification(result.message, 'success');
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || "Erreur lors de la modification";
+      showNotification(errorMessage, 'error');
+    }
   };
 
-  // Ordre des niveaux
-  const orderNiveaux = (items) => {
-    const order = ['Licence 1', 'Licence 2', 'Licence 3', 'Master 1', 'Master 2'];
-    return [...items].sort((a, b) => {
-      const indexA = order.findIndex(o => a.libelle.toLowerCase().includes(o.toLowerCase()));
-      const indexB = order.findIndex(o => b.libelle.toLowerCase().includes(o.toLowerCase()));
-      return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-    });
+  const resetFilters = () => {
+    setSearchTerm('');
+    setFilterType('all');
   };
-
-  const orderedNiveaux = orderNiveaux(niveaux);
 
   return (
-    <div className="flex-1 overflow-y-auto p-12 bg-gray-50">
+    <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
       {/* Notification Toast */}
       {notification.show && (
         <div className="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 animate-slideDown">
           <div className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg border ${
-            notification.type === 'success' 
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-              : 'bg-rose-50 text-rose-800 border-rose-200'
+            notification.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'
           } min-w-[300px] max-w-md`}>
-            {notification.type === 'success' 
-              ? <CheckCircle className="w-5 h-5" /> 
-              : <AlertCircle className="w-5 h-5" />
-            }
+            {notification.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
             <p className="text-sm font-medium">{notification.message}</p>
-            <button 
-              onClick={() => setNotification({ show: false, message: '', type: '' })}
-              className="ml-auto"
-            >
+            <button onClick={() => setNotification({ show: false, message: '', type: '' })} className="ml-auto">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Grid des niveaux - 5 cardbox par ligne, centrées */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mx-auto w-full max-w-7xl">
-        {orderedNiveaux.map((item) => (
-          <article 
-            key={item.id} 
-            className="bg-white rounded-3xl flex flex-col justify-center overflow-hidden group card-shadow transition-all duration-500 hover:-translate-y-2 p-6 min-h-[140px] relative"
+      {/* Header avec titre et recherche */}
+      <div className="mb-6">
+     
+        
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative flex-1 min-w-[250px] max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher un niveau..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+            />
+          </div>
+          
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
           >
-            {/* Bouton menu à trois points */}
-            <button 
-              onClick={(e) => toggleMenu(item.id, e)}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600 z-20"
-              aria-label="Options"
+            <option value="all">Tous les niveaux</option>
+            <option value="licence">Licence (L1, L2, L3)</option>
+            <option value="master">Master (M1, M2)</option>
+          </select>
+          
+          {(searchTerm || filterType !== 'all') && (
+            <button
+              onClick={resetFilters}
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <MoreVertical className="w-5 h-5" />
+              Réinitialiser
             </button>
-
-            {/* Menu déroulant */}
-            {openMenuId === item.id && (
-              <div 
-                ref={menuRef}
-                className="absolute right-4 top-12 w-32 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-30"
-              >
-                <button
-                  onClick={() => handleOpenEdit(item)}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                >
-                  <Edit className="w-4 h-4" />
-                  Modifier
-                </button>
-                <button
-                  onClick={() => handleDelete(item.id, item.libelle)}
-                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Supprimer
-                </button>
-              </div>
-            )}
-
-            {/* Contenu centré verticalement et horizontalement */}
-            <div className="flex flex-col items-center justify-center gap-4">
-              <div 
-                className="w-16 h-16 rounded-full flex items-center justify-center transform transition-transform group-hover:rotate-6 shadow-lg"
-                style={{ backgroundColor: item.color }}
-              >
-                {getIconComponent(item.icon)}
-              </div>
-              <h3 className="text-lg font-bold text-gray-800 leading-tight group-hover:text-[#FFD700] transition-colors text-center">
-                {item.libelle}
-              </h3>
-            </div>
-          </article>
-        ))}
+          )}
+        </div>
+        
+        <div className="mt-2 text-sm text-gray-500">
+          {filteredNiveaux.length} niveau(x) trouvé(s)
+        </div>
       </div>
 
-      {/* Bouton FAB pour ajouter */}
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        </div>
+      ) : (
+        <div className="max-w-7xl mx-auto">
+          {filteredNiveaux.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-400 mb-2">Aucun niveau trouvé</div>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="text-blue-500 hover:text-blue-600 text-sm"
+              >
+                + Ajouter un niveau
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+              {filteredNiveaux.map((item) => {
+                const style = getItemStyle(item.libelle);
+                return (
+                  <div key={item.id} className="relative">
+                    {/* Cardbox style horizontal - comme dans l'HTML */}
+                    <article className="bg-white rounded-2xl flex items-center overflow-hidden group card-shadow transition-all duration-500 hover:-translate-y-1 relative p-4 border border-gray-200">
+                      {/* Contenu horizontal avec icône à gauche */}
+                      <div className="flex items-center gap-3 flex-1">
+                        <div 
+                          className="w-10 h-10 rounded-full flex items-center justify-center transform transition-transform group-hover:rotate-6 shadow-md shrink-0"
+                          style={{ backgroundColor: style.color }}
+                        >
+                          {getIconComponent(style.icon)}
+                        </div>
+                        <h3 className="font-bold text-gray-800 leading-tight group-hover:text-[#FFD700] transition-colors text-sm">
+                          {item.libelle}
+                        </h3>
+                      </div>
+                      
+                      {/* Bouton trois points en haut à droite */}
+                      <div className="absolute top-2 right-2 z-10">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleMenu(item.id, e);
+                          }}
+                          className="p-1 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                          aria-label="Options"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </article>
+
+                    {/* Menu déroulant */}
+                    {openMenuId === item.id && (
+                      <div 
+                        ref={menuRef}
+                        className="absolute right-0 top-0 z-50 w-32 bg-white rounded-lg shadow-lg border border-gray-100 py-1 transform translate-x-full -translate-y-1"
+                      >
+                        <button
+                          onClick={() => handleOpenEdit(item)}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                          Modifier
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id, item.libelle)}
+                          className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Supprimer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Bouton FAB */}
       <button 
         onClick={() => setShowAddModal(true)}
-        className="fixed bottom-10 right-10 w-16 h-16 rounded-full bg-blue-500 text-white shadow-2xl shadow-blue-500/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-300 z-50 group"
+        className="fixed bottom-10 right-10 w-14 h-14 rounded-full bg-blue-500 text-white shadow-2xl shadow-blue-500/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-300 z-50 group"
       >
-        <Plus className="w-8 h-8 group-hover:rotate-90 transition-transform duration-300" />
+        <Plus className="w-7 h-7 group-hover:rotate-90 transition-transform duration-300" />
       </button>
 
       {/* Modal d'ajout */}
@@ -245,27 +325,21 @@ const NiveauxPage = () => {
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
-
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Libellé *</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="Ex: Licence 1"
                   value={newNiveau.libelle}
                   onChange={(e) => setNewNiveau({ ...newNiveau, libelle: e.target.value })}
                 />
               </div>
             </div>
-
             <div className="flex justify-end gap-3 p-5 border-t border-gray-100">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
-                Annuler
-              </button>
-              <button onClick={handleAdd} className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600">
-                Ajouter
-              </button>
+              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">Annuler</button>
+              <button onClick={handleAdd} className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600">Ajouter</button>
             </div>
           </div>
         </div>
@@ -281,52 +355,31 @@ const NiveauxPage = () => {
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
-
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Libellé *</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={editingItem.libelle}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
+                  value={editingItem.libelle || ''}
                   onChange={(e) => setEditingItem({ ...editingItem, libelle: e.target.value })}
+                  placeholder="Nom du niveau"
                 />
               </div>
             </div>
-
             <div className="flex justify-end gap-3 p-5 border-t border-gray-100">
-              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
-                Annuler
-              </button>
-              <button onClick={handleEdit} className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600">
-                Enregistrer
-              </button>
+              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">Annuler</button>
+              <button onClick={handleEdit} className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600">Enregistrer</button>
             </div>
           </div>
         </div>
       )}
 
       <style>{`
-        .card-shadow {
-          box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
-        }
-        .card-shadow:hover {
-          box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.12);
-        }
-        
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translate(-50%, -100%);
-          }
-          to {
-            opacity: 1;
-            transform: translate(-50%, 0);
-          }
-        }
-        .animate-slideDown {
-          animation: slideDown 0.3s ease-out;
-        }
+        .card-shadow { box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.08); }
+        .card-shadow:hover { box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.12); }
+        @keyframes slideDown { from { opacity: 0; transform: translate(-50%, -100%); } to { opacity: 1; transform: translate(-50%, 0); } }
+        .animate-slideDown { animation: slideDown 0.3s ease-out; }
       `}</style>
     </div>
   );

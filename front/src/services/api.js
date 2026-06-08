@@ -179,6 +179,33 @@ export const salleApi = {
     apiClient(`/api/Salle/${id}`, { method: 'DELETE' }),
 };
 
+export const niveauApi = {
+  // Récupérer tous les niveaux
+  getAll: () => 
+    apiClient('/api/Niveau', { method: 'GET' }),
+  
+  // Récupérer un niveau par ID
+  getById: (id) => 
+    apiClient(`/api/Niveau/${id}`, { method: 'GET' }),
+  
+  // Créer un niveau
+  create: (data) => 
+    apiClient('/api/Niveau', { 
+      method: 'POST', 
+      body: JSON.stringify(data) 
+    }),
+  
+  // Modifier un niveau
+  update: (id, data) => 
+    apiClient(`/api/Niveau/${id}`, { 
+      method: 'PUT', 
+      body: JSON.stringify(data) 
+    }),
+  
+  // Supprimer un niveau
+  delete: (id) => 
+    apiClient(`/api/Niveau/${id}`, { method: 'DELETE' }),
+};
 
 export const backupApi = {
   export: async (config = {}) => {
@@ -318,7 +345,8 @@ const api = {
   salle: salleApi,
   backup: backupApi,
    enseignant: enseignantApi,
-   parcours: parcoursApi
+   parcours: parcoursApi,
+   niveau: niveauApi
 };
 
 export default api;
