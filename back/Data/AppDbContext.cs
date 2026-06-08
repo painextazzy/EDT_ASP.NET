@@ -84,6 +84,7 @@ namespace back.Data
                 entity.Property(e => e.Libelle).HasColumnName("libelle");
             });
 
+
             // Configuration pour l'entité Enseignement
             modelBuilder.Entity<Enseignement>(entity =>
             {

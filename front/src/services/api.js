@@ -281,6 +281,33 @@ export const enseignantApi = {
    delete: (id) => 
     apiClient(`/api/Enseignant/${id}`, { method: 'DELETE' }),
 };
+export const parcoursApi = {
+  // Récupérer toutes les mentions
+  getAll: () => 
+    apiClient('/api/Parcours', { method: 'GET' }),
+  
+  // Récupérer une mention par ID
+  getById: (id) => 
+    apiClient(`/api/Parcours/${id}`, { method: 'GET' }),
+  
+  // Créer une mention
+  create: (data) => 
+    apiClient('/api/Parcours', { 
+      method: 'POST', 
+      body: JSON.stringify(data) 
+    }),
+  
+  // Modifier une mention
+  update: (id, data) => 
+    apiClient(`/api/Parcours/${id}`, { 
+      method: 'PUT', 
+      body: JSON.stringify(data) 
+    }),
+  
+  // Supprimer une mention
+  delete: (id) => 
+    apiClient(`/api/Parcours/${id}`, { method: 'DELETE' }),
+};
 
 // ========== EXPORT PRINCIPAL (avec les nouvelles API) ==========
 const api = {
@@ -290,7 +317,8 @@ const api = {
   validation: validationApi,
   salle: salleApi,
   backup: backupApi,
-   enseignant: enseignantApi
+   enseignant: enseignantApi,
+   parcours: parcoursApi
 };
 
 export default api;
