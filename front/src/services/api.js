@@ -1,5 +1,3 @@
-
-
 const API_URL = import.meta.env.VITE_API_URL;
 
 const apiClient = async (endpoint, options = {}) => {
@@ -16,8 +14,6 @@ const apiClient = async (endpoint, options = {}) => {
     const response = await fetch(url, config);
 
     if (!response.ok) {
-      // On tente de parser le JSON pour obtenir un message clair (ex: {"message": "..."})
-      // S'il n'y a pas de JSON, on se rabat sur le texte brut
       let errorData;
       try {
         const text = await response.text();
@@ -26,7 +22,6 @@ const apiClient = async (endpoint, options = {}) => {
         errorData = { message: 'Une erreur est survenue' };
       }
       
-      // On rejette l'erreur avec les données pour que le composant puisse les utiliser
       const error = new Error();
       error.response = { data: errorData, status: response.status };
       throw error;
@@ -34,28 +29,23 @@ const apiClient = async (endpoint, options = {}) => {
 
     return await response.json();
   } catch (error) {
-    // Ne plus rien logger ici. L'erreur est remontée au composant (InscriptionProfesseur.jsx)
-    // qui se charge déjà de l'afficher via votre fonction 'getErrorMessage'
     throw error;
   }
 };
 
 // ========== VALIDATION DES ENSEIGNANTS (ADMIN) ==========
 export const validationApi = {
-  // Lister les enseignants en attente
   getEnseignantsEnAttente: () => 
     apiClient('/api/validation/enseignants-en-attente', { method: 'GET' }),
   
-  // Valider un enseignant
   validerEnseignant: (id) => 
     apiClient(`/api/validation/valider/${id}`, { method: 'PUT' }),
   
-  // Refuser un enseignant
   refuserEnseignant: (id) => 
     apiClient(`/api/validation/refuser/${id}`, { method: 'DELETE' }),
 };
 
-// ========== PARTIE EXISTANTE (ne pas toucher) ==========
+// ========== PARTIE EXISTANTE ==========
 export const inscriptionApi = {
   inscrireProfesseur: (data) => 
     apiClient('/api/inscription/professeur', { 
@@ -64,77 +54,61 @@ export const inscriptionApi = {
     }),
 };
 
-// ========== NOUVELLES FONCTIONS POUR LA GESTION DES COURS ==========
-
-// Service pour les Cours
+// ========== GESTION DES COURS ==========
 export const coursApi = {
-  // Récupérer tous les cours
   getAll: () => 
     apiClient('/api/Cours', { method: 'GET' }),
   
-  // Récupérer un cours par ID
   getById: (id) => 
     apiClient(`/api/Cours/${id}`, { method: 'GET' }),
   
-  // Créer un nouveau cours
   create: (data) => 
     apiClient('/api/Cours', { 
       method: 'POST', 
       body: JSON.stringify(data) 
     }),
   
-  // Modifier un cours
   update: (id, data) => 
     apiClient(`/api/Cours/${id}`, { 
       method: 'PUT', 
       body: JSON.stringify(data) 
     }),
   
-  // Supprimer un cours
   delete: (id) => 
     apiClient(`/api/Cours/${id}`, { method: 'DELETE' }),
 };
 
-// Service pour les Affectations
+// ========== GESTION DES AFFECTATIONS ==========
 export const affectationApi = {
-  // Récupérer toutes les affectations
   getAll: () => 
     apiClient('/api/Affectation', { method: 'GET' }),
   
-  // Récupérer les mentions disponibles
   getMentions: () => 
     apiClient('/api/Affectation/mentions', { method: 'GET' }),
   
-  // Récupérer les niveaux disponibles
   getNiveaux: () => 
     apiClient('/api/Affectation/niveaux', { method: 'GET' }),
   
-  // Récupérer les professeurs disponibles
   getProfesseurs: () => 
     apiClient('/api/Affectation/professeurs', { method: 'GET' }),
   
-  // Créer une nouvelle affectation
   create: (data) => 
     apiClient('/api/Affectation', { 
       method: 'POST', 
       body: JSON.stringify(data) 
     }),
   
-  // Modifier une affectation
   update: (id, data) => 
     apiClient(`/api/Affectation/${id}`, { 
       method: 'PUT', 
       body: JSON.stringify(data) 
     }),
   
-  // Supprimer une affectation
   delete: (id) => 
     apiClient(`/api/Affectation/${id}`, { method: 'DELETE' }),
 };
 
-
-// Service pour les Salles
-// services/api.js - Modifie la partie salle
+// ========== GESTION DES SALLES ==========
 export const salleApi = {
   getAll: (params = '') => 
     apiClient(`/api/Salle${params}`, { method: 'GET' }),
@@ -143,7 +117,6 @@ export const salleApi = {
     apiClient('/api/Salle/batiments', { method: 'GET' }),
   
   create: (data) => {
-    // Convertir les noms des propriétés pour correspondre au backend
     const backendData = {
       numero: data.numero,
       batiment: data.batiment,
@@ -151,8 +124,6 @@ export const salleApi = {
       statut: data.statut || "LIBRE",
       courActuel: data.courActuel || null
     };
-    
-    console.log("Envoi au backend:", backendData);
     
     return apiClient('/api/Salle', { 
       method: 'POST', 
@@ -179,34 +150,64 @@ export const salleApi = {
     apiClient(`/api/Salle/${id}`, { method: 'DELETE' }),
 };
 
+// ========== GESTION DES NIVEAUX ==========
 export const niveauApi = {
-  // Récupérer tous les niveaux
   getAll: () => 
     apiClient('/api/Niveau', { method: 'GET' }),
   
-  // Récupérer un niveau par ID
   getById: (id) => 
     apiClient(`/api/Niveau/${id}`, { method: 'GET' }),
   
-  // Créer un niveau
   create: (data) => 
     apiClient('/api/Niveau', { 
       method: 'POST', 
       body: JSON.stringify(data) 
     }),
   
-  // Modifier un niveau
   update: (id, data) => 
     apiClient(`/api/Niveau/${id}`, { 
       method: 'PUT', 
       body: JSON.stringify(data) 
     }),
   
-  // Supprimer un niveau
   delete: (id) => 
     apiClient(`/api/Niveau/${id}`, { method: 'DELETE' }),
 };
 
+// ========== GESTION DES PARCOURS ==========
+export const parcoursApi = {
+  getAll: () => 
+    apiClient('/api/Parcours', { method: 'GET' }),
+  
+  getById: (id) => 
+    apiClient(`/api/Parcours/${id}`, { method: 'GET' }),
+  
+  create: (data) => 
+    apiClient('/api/Parcours', { 
+      method: 'POST', 
+      body: JSON.stringify(data) 
+    }),
+  
+  update: (id, data) => 
+    apiClient(`/api/Parcours/${id}`, { 
+      method: 'PUT', 
+      body: JSON.stringify(data) 
+    }),
+  
+  delete: (id) => 
+    apiClient(`/api/Parcours/${id}`, { method: 'DELETE' }),
+};
+
+// ========== GESTION DES ENSEIGNANTS ==========
+export const enseignantApi = {
+  getValides: () => 
+    apiClient('/api/Enseignant/valides', { method: 'GET' }),
+  
+  delete: (id) => 
+    apiClient(`/api/Enseignant/${id}`, { method: 'DELETE' }),
+};
+
+// ========== GESTION DES BACKUPS ==========
 export const backupApi = {
   export: async (config = {}) => {
     try {
@@ -220,7 +221,6 @@ export const backupApi = {
 
       if (!response.ok) {
         const text = await response.text();
-        console.error('Response error:', text);
         throw new Error(`Erreur serveur: ${response.status}`);
       }
 
@@ -301,42 +301,47 @@ export const backupApi = {
   }
 };
 
-export const enseignantApi = {
-  // Récupérer uniquement les enseignants validés
-  getValides: () => 
-    apiClient('/api/Enseignant/valides', { method: 'GET' }),
-   delete: (id) => 
-    apiClient(`/api/Enseignant/${id}`, { method: 'DELETE' }),
-};
-export const parcoursApi = {
-  // Récupérer toutes les mentions
+// ========== NOUVEAU : SERVICE POUR LE PLANNING (CALENDRIER) ==========
+export const planningApi = {
+  // Récupérer tous les événements
   getAll: () => 
-    apiClient('/api/Parcours', { method: 'GET' }),
+    apiClient('/api/Planning', { method: 'GET' }),
   
-  // Récupérer une mention par ID
-  getById: (id) => 
-    apiClient(`/api/Parcours/${id}`, { method: 'GET' }),
+  // Récupérer les événements par plage de dates
+  getByDateRange: (startDate, endDate) => 
+    apiClient(`/api/Planning/range?start=${startDate}&end=${endDate}`, { method: 'GET' }),
   
-  // Créer une mention
+  // Récupérer les événements d'un enseignement
+  getByEnseignement: (id) => 
+    apiClient(`/api/Planning/enseignement/${id}`, { method: 'GET' }),
+  
+  // Créer un événement
   create: (data) => 
-    apiClient('/api/Parcours', { 
+    apiClient('/api/Planning', { 
       method: 'POST', 
       body: JSON.stringify(data) 
     }),
   
-  // Modifier une mention
+  // Modifier un événement
   update: (id, data) => 
-    apiClient(`/api/Parcours/${id}`, { 
+    apiClient(`/api/Planning/${id}`, { 
       method: 'PUT', 
       body: JSON.stringify(data) 
     }),
   
-  // Supprimer une mention
+  // Annuler un événement
+  cancel: (id, motif) => 
+    apiClient(`/api/Planning/${id}/annuler`, { 
+      method: 'PATCH', 
+      body: JSON.stringify(motif) 
+    }),
+  
+  // Supprimer un événement
   delete: (id) => 
-    apiClient(`/api/Parcours/${id}`, { method: 'DELETE' }),
+    apiClient(`/api/Planning/${id}`, { method: 'DELETE' }),
 };
 
-// ========== EXPORT PRINCIPAL (avec les nouvelles API) ==========
+// ========== EXPORT PRINCIPAL ==========
 const api = {
   inscription: inscriptionApi,
   cours: coursApi,
@@ -344,9 +349,10 @@ const api = {
   validation: validationApi,
   salle: salleApi,
   backup: backupApi,
-   enseignant: enseignantApi,
-   parcours: parcoursApi,
-   niveau: niveauApi
+  enseignant: enseignantApi,
+  parcours: parcoursApi,
+  niveau: niveauApi,
+  planning: planningApi,  // ← NOUVEAU
 };
 
 export default api;
