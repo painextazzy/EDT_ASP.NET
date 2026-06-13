@@ -1,36 +1,30 @@
 {
   "format": 1,
   "restore": {
-    "E:\\EDT_ASP.NET\\back\\back.csproj": {}
+    "C:\\Users\\PAIN\\Desktop\\ASP\\EDT_ASP.NET\\back\\back.csproj": {}
   },
   "projects": {
-    "E:\\EDT_ASP.NET\\back\\back.csproj": {
+    "C:\\Users\\PAIN\\Desktop\\ASP\\EDT_ASP.NET\\back\\back.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\EDT_ASP.NET\\back\\back.csproj",
+        "projectUniqueName": "C:\\Users\\PAIN\\Desktop\\ASP\\EDT_ASP.NET\\back\\back.csproj",
         "projectName": "back",
-        "projectPath": "E:\\EDT_ASP.NET\\back\\back.csproj",
-        "packagesPath": "C:\\Users\\lenovo\\.nuget\\packages\\",
-        "outputPath": "E:\\EDT_ASP.NET\\back\\obj\\",
+        "projectPath": "C:\\Users\\PAIN\\Desktop\\ASP\\EDT_ASP.NET\\back\\back.csproj",
+        "packagesPath": "C:\\Users\\PAIN\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\PAIN\\Desktop\\ASP\\EDT_ASP.NET\\back\\obj\\",
         "projectStyle": "PackageReference",
-        "fallbackFolders": [
-          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-        ],
         "configFilePaths": [
-          "C:\\Users\\lenovo\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "C:\\Users\\PAIN\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net10.0"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net10.0": {
+            "framework": "net10.0",
             "targetAlias": "net10.0",
             "projectReferences": {}
           }
@@ -45,10 +39,11 @@
           "auditLevel": "low",
           "auditMode": "all"
         },
-        "SdkAnalysisLevel": "10.0.200"
+        "SdkAnalysisLevel": "10.0.300"
       },
       "frameworks": {
         "net10.0": {
+          "framework": "net10.0",
           "targetAlias": "net10.0",
           "dependencies": {
             "BCrypt.Net-Next": {
@@ -113,7 +108,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.203/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.300/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.AspNetCore": "(,10.0.32767]",
             "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",
