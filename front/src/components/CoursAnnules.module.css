@@ -1,0 +1,94 @@
+/* ---- Couleurs spécifiques ---- */
+.textOutline {
+  color: #747687;
+}
+.textOnSurface {
+  color: #0b1c30;
+}
+.textOnSurfaceVariant {
+  color: #434655;
+}
+.textError {
+  color: #ba1a1a;
+}
+.textPrimary {
+  color: #1447dd;
+}
+.textTertiary {
+  color: #006459;
+}
+.textOnErrorContainer {
+  color: #93000a;
+}
+
+.bgBackground {
+  background-color: #f8f9ff;
+}
+.bgSurfaceContainerLow {
+  background-color: #eff4ff;
+}
+.bgSurfaceContainerHighest {
+  background-color: #d3e4fe;
+}
+.bgSurfaceContainerHigh {
+  background-color: #dce9ff;
+}
+.bgErrorContainer {
+  background-color: #ffdad6;
+}
+.bgTertiaryContainer10 {
+  background-color: rgba(0, 127, 113, 0.1);
+}
+.bgSurfaceVariant {
+  background-color: #d3e4fe;
+}
+.bgOutlineVariant20 {
+  background-color: rgba(196, 197, 216, 0.2);
+}
+
+/* ---- Composants spéciaux ---- */
+.card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+.card:hover {
+  box-shadow: 0px 10px 30px rgba(59, 99, 246, 0.08);
+  transform: translateY(-2px);
+}
+
+.searchContainer:focus-within {
+  box-shadow: 0 0 0 2px rgba(59, 99, 246, 0.4);
+}
+
+/* Badge annulé */
+.badgeAnnule {
+  padding: 4px 12px;
+  background-color: #ffdad6;
+  color: #93000a;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: uppercase;
+}
+
+/* Icônes Material Symbols (FILL=1 pour certaines) */
+.iconFilled {
+  font-variation-settings: "FILL" 1;
+}
+
+/* Bordure gauche colorée */
+.borderLeftError {
+  border-left: 4px solid #ba1a1a;
+}
+.borderLeftPrimary {
+  border-left: 4px solid #1447dd;
+}
+.borderLeftTertiary {
+  border-left: 4px solid #006459;
+}
