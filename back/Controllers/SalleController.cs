@@ -54,6 +54,11 @@ namespace back.Controllers
                 }
 
                 var newSalle = await _salleService.CreateSalle(salle);
+                if (newSalle == null)
+                {
+                    return BadRequest(new { message = "Une salle avec ce nom existe déjà" });
+                }
+
                 return Ok(newSalle);
             }
             catch (Exception ex)

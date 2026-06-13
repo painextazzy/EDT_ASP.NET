@@ -106,7 +106,18 @@ export const affectationApi = {
   
   delete: (id) => 
     apiClient(`/api/Affectation/${id}`, { method: 'DELETE' }),
+
+   checkExists: (params) => {
+    const queryString = new URLSearchParams({
+      coursId: params.coursId,
+      professeurId: params.professeurId,
+      mention: params.mention,
+      niveau: params.niveau
+    }).toString();
+    return apiClient(`/api/Affectation/exists?${queryString}`, { method: 'GET' });
+  },
 };
+
 
 // ========== GESTION DES SALLES ==========
 export const salleApi = {

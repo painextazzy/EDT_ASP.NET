@@ -5,6 +5,11 @@ import Login from "./pages/Login";
 import InscriptionProfesseur from "./pages/InscriptionProfesseur";
 import VerificationCode from './pages/VerificationCode';
 import CalendarInterface from "./pages/client/CalendarInterface";
+
+import Verification from "./pages/VerificationOTP";
+
+
+
 import DashboardAdmin from "./pages/DashboardAdmin/DashboardAdmin";
 import CoursAnnules from "./components/CoursAnnules";  // ← assurez-vous que le chemin est bon
 
@@ -14,7 +19,10 @@ function App() {
       <Route path="/" element={<Accueil />} />
       <Route path="/login" element={<Login />} />
       <Route path="/inscription" element={<InscriptionProfesseur />} />
-      <Route path="/verify" element={<VerificationCode />} />
+     
+      <Route path="/verify-email" element={<VerificationCode />} />
+      <Route path="/verify-code" element={<Verification/>} />
+
       <Route path="/enseignant" element={<CalendarInterface />} />
       <Route path="/cours-annules" element={<CoursAnnules />} />
       <Route path="/admin/*" element={<DashboardAdmin />} />
