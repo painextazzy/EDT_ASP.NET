@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Code, Folder, Palette, MoreVertical, Plus, Edit, Trash2, X, CheckCircle, AlertCircle } from 'lucide-react';
 import api from '../services/api';
+import { CardGridSkeleton } from './SkeletonLoader';
 
 const NiveauxParcours = () => {
   const [parcours, setParcours] = useState([]);
@@ -177,8 +178,8 @@ const NiveauxParcours = () => {
       )}
 
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="max-w-7xl mx-auto">
+          <CardGridSkeleton cards={4} cols={4} />
         </div>
       ) : (
         <div className="max-w-7xl mx-auto">

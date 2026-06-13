@@ -11,7 +11,8 @@ import {
   Layers,
   CheckCircle,
   AlertCircle,
-  X
+  X,
+  Building
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -36,7 +37,7 @@ const etageLabels = {
 
 const allEtages = ["Rez-de-chaussée", "Etage 1", "Etage 2", "Etage 3", "Etage 4"];
 
-// Composant Toast de notification
+// Composant Toast de notification sans emoji
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, 3000);
@@ -183,7 +184,8 @@ const Salle = () => {
       setSalles(data);
     } catch (error) {
       console.error("Erreur lors du chargement des salles:", error);
-      showToast("Erreur lors du chargement des salles", 'error');
+      const errorMessage = error.response?.data?.message || "Erreur lors du chargement des salles";
+      showToast(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -196,6 +198,8 @@ const Salle = () => {
       setBatiments(data);
     } catch (error) {
       console.error("Erreur lors du chargement des bâtiments:", error);
+      const errorMessage = error.response?.data?.message || "Erreur lors du chargement des bâtiments";
+      showToast(errorMessage, 'error');
     }
   };
 
@@ -222,10 +226,11 @@ const Salle = () => {
       closeAddModal();
       loadSalles();
       loadBatiments();
-      showToast(`✅ Salle "${newSalle.numero}" ajoutée avec succès`, 'success');
+      showToast(`Salle "${newSalle.numero}" ajoutée avec succès`, 'success');
     } catch (error) {
       console.error("Erreur lors de l'ajout:", error);
-      showToast("Erreur lors de l'ajout de la salle", 'error');
+      const errorMessage = error.response?.data?.message || "Erreur lors de l'ajout de la salle";
+      showToast(errorMessage, 'error');
     }
   };
 
@@ -244,10 +249,11 @@ const Salle = () => {
       closeEditModal();
       loadSalles();
       loadBatiments();
-      showToast(` Salle "${editingSalle.numero}" modifiée avec succès`, 'success');
+      showToast(`Salle "${editingSalle.numero}" modifiée avec succès`, 'success');
     } catch (error) {
       console.error("Erreur lors de la modification:", error);
-      showToast("Erreur lors de la modification", 'error');
+      const errorMessage = error.response?.data?.message || "Erreur lors de la modification";
+      showToast(errorMessage, 'error');
     }
   };
 
@@ -258,10 +264,11 @@ const Salle = () => {
         await api.salle.delete(salleId);
         loadSalles();
         loadBatiments();
-        showToast(` Salle "${salleNumero}" supprimée avec succès`, 'success');
+        showToast(`Salle "${salleNumero}" supprimée avec succès`, 'success');
       } catch (error) {
         console.error("Erreur lors de la suppression:", error);
-        showToast(" Erreur lors de la suppression", 'error');
+        const errorMessage = error.response?.data?.message || "Erreur lors de la suppression";
+        showToast(errorMessage, 'error');
       }
     }
     setShowMenuId(null);
@@ -274,7 +281,7 @@ const Salle = () => {
       if (!acc[bId]) {
         acc[bId] = {
           id: bId,
-          label: `Bâtiment ${bId}`,
+          label: `Batiment ${bId}`,
           color: buildingColors[bId]?.color || "#64748b",
           bgColor: buildingColors[bId]?.bgColor || "bg-slate-50",
           salles: []
@@ -294,7 +301,6 @@ const Salle = () => {
 
       {/* Header */}
       <div className="mb-6">
-        
         <p className="text-gray-500 text-sm mt-1">Gérez vos salles et leur disponibilité</p>
       </div>
 
@@ -405,6 +411,14 @@ const Salle = () => {
                         <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
                         {salle.statut}
                       </div>
+                    </div>
+
+                    {/* Ajout du bâtiment dans la carte */}
+                    <div className="flex items-center gap-2 mb-3 bg-indigo-50 rounded-xl p-2">
+                      <Building className="w-4 h-4 text-indigo-500" />
+                      <span className="text-xs font-medium text-indigo-700">
+                        Batiment {salle.batiment}
+                      </span>
                     </div>
 
                     {!libre && salle.courActuel && (

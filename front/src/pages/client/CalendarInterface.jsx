@@ -5,6 +5,7 @@ import Navbar from '../../components/calendar/Navbar';
 import CalendarGrid from '../../components/calendar/CalendarGrid';
 import SettingsModal from '../../components/calendar/SettingsModal';
 import CancelModal from '../../components/calendar/CancelModal';
+import { CardGridSkeleton } from '../../components/SkeletonLoader';
 
 // Couleurs par défaut pour les cours
 const defaultColors = [
@@ -168,8 +169,15 @@ const CalendarInterface = () => {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4BB8FA]"></div>
+      <div className="h-screen flex flex-col bg-slate-50">
+        <div className="p-6">
+          <div className="max-w-4xl mx-auto rounded-3xl bg-white h-20 shadow-sm border border-gray-100 animate-pulse"></div>
+        </div>
+        <div className="flex-1 p-6 overflow-y-auto">
+          <div className="max-w-7xl mx-auto">
+            <CardGridSkeleton cards={6} cols={3} />
+          </div>
+        </div>
       </div>
     );
   }

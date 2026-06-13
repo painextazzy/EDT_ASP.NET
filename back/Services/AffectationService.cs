@@ -24,7 +24,7 @@ public class AffectationService
             .ToListAsync();
 
         var result = new List<AffectationDto>();
-        
+
         foreach (var e in affectations)
         {
             result.Add(new AffectationDto
@@ -33,14 +33,14 @@ public class AffectationService
                 Code = e.Cours != null ? e.Cours.Code : "",
                 Name = e.Cours != null ? e.Cours.Nom : "",
                 Professor = e.Enseignant != null ? e.Enseignant.Nom : "",
-                ProfessorAvatar = e.Enseignant != null && !string.IsNullOrEmpty(e.Enseignant.PhotoUrl) 
-                    ? e.Enseignant.PhotoUrl 
+                ProfessorAvatar = e.Enseignant != null && !string.IsNullOrEmpty(e.Enseignant.PhotoUrl)
+                    ? e.Enseignant.PhotoUrl
                     : $"https://ui-avatars.com/api/?background=0EA5E9&color=fff&name={Uri.EscapeDataString(e.Enseignant?.Nom ?? "User")}",
                 Mention = e.Parcours != null ? e.Parcours.Libelle : "",
                 Niveau = e.Niveau != null ? e.Niveau.Libelle : ""
             });
         }
-        
+
         return result;
     }
 
@@ -63,7 +63,7 @@ public class AffectationService
         var professeurs = await _context.Enseignants
             .Select(e => new { e.Id, e.Nom, e.PhotoUrl })
             .ToListAsync();
-        
+
         return professeurs.Cast<object>().ToList();
     }
 
@@ -104,9 +104,9 @@ public class AffectationService
             .FirstOrDefaultAsync(e => e.Nom == dto.Professor);
         if (enseignant == null)
         {
-            enseignant = new Enseignant 
-            { 
-                Nom = dto.Professor, 
+            enseignant = new Enseignant
+            {
+                Nom = dto.Professor,
                 Im = "IM-" + DateTime.Now.Ticks.ToString().Substring(0, 8),
                 PhotoUrl = $"https://ui-avatars.com/api/?background=0EA5E9&color=fff&name={Uri.EscapeDataString(dto.Professor)}"
             };
@@ -114,14 +114,13 @@ public class AffectationService
             await _context.SaveChangesAsync();
         }
 
-        // Vérifier si l'enseignement existe déjà
-        var existingEnseignement = await _context.Enseignements
-            .FirstOrDefaultAsync(e => e.IdMatiere == cours.Id && 
-                                      e.IdEnseignant == enseignant.Id &&
-                                      e.IdNiveau == niveau.Id &&
-                                      e.IdParcours == parcours.Id);
+        // Vérifier si la matière est déjà affectée pour ce niveau et ce parcours
+        var existingMatiereAffectee = await _context.Enseignements
+            .AnyAsync(e => e.IdMatiere == cours.Id &&
+                           e.IdNiveau == niveau.Id &&
+                           e.IdParcours == parcours.Id);
 
-        if (existingEnseignement != null) return null;
+        if (existingMatiereAffectee) return null;
 
         // Créer l'enseignement
         var enseignement = new Enseignement
@@ -163,9 +162,9 @@ public class AffectationService
             }
             else
             {
-                var newEnseignant = new Enseignant 
-                { 
-                    Nom = dto.Professor, 
+                var newEnseignant = new Enseignant
+                {
+                    Nom = dto.Professor,
                     Im = "IM-" + DateTime.Now.Ticks.ToString().Substring(0, 8),
                     PhotoUrl = $"https://ui-avatars.com/api/?background=0EA5E9&color=fff&name={Uri.EscapeDataString(dto.Professor)}"
                 };

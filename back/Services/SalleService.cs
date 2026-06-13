@@ -14,7 +14,6 @@ namespace back.Services
             _context = context;
         }
 
-        // Changer le paramètre etage de int? à string?
         public async Task<List<Salle>> GetAllSalles(string? batiment, string? etage, string? search)
         {
             var query = _context.Salles.AsQueryable();
@@ -29,7 +28,6 @@ namespace back.Services
                 query = query.Where(s => s.Batiment == batiment);
             }
 
-            // Directement en string
             if (!string.IsNullOrEmpty(etage))
             {
                 query = query.Where(s => s.Etage == etage);
@@ -47,8 +45,27 @@ namespace back.Services
                 .ToListAsync();
         }
 
-        public async Task<Salle> CreateSalle(Salle salle)
+        // Vérification si une salle existe
+        public async Task<bool> SalleExists(string numero)
         {
+            return await _context.Salles.AnyAsync(s => s.Numero == numero);
+        }
+
+        // Vérification si une salle existe (excluant un ID)
+        public async Task<bool> SalleExistsExcludingId(string numero, int excludeId)
+        {
+            return await _context.Salles.AnyAsync(s => s.Numero == numero && s.Id != excludeId);
+        }
+
+        public async Task<Salle?> CreateSalle(Salle salle)
+        {
+            // Vérification avant insertion
+            var exists = await SalleExists(salle.Numero);
+            if (exists)
+            {
+                return null; // La salle existe déjà
+            }
+
             _context.Salles.Add(salle);
             await _context.SaveChangesAsync();
             return salle;
@@ -58,6 +75,16 @@ namespace back.Services
         {
             var existing = await _context.Salles.FindAsync(id);
             if (existing == null) return null;
+
+            // Vérification avant modification (si le numéro change)
+            if (existing.Numero != salle.Numero)
+            {
+                var exists = await SalleExistsExcludingId(salle.Numero, id);
+                if (exists)
+                {
+                    return null; // Une autre salle a déjà ce numéro
+                }
+            }
 
             existing.Numero = salle.Numero;
             existing.Batiment = salle.Batiment;
