@@ -166,6 +166,20 @@ export const salleApi = {
     apiClient(`/api/Salle/${id}`, { method: 'DELETE' }),
 };
 
+// Service pour les Délégués
+export const delegueApi = {
+  getAll: () => apiClient('/api/Delegue', { method: 'GET' }),
+  create: (data) => apiClient('/api/Delegue', { 
+    method: 'POST', 
+    body: JSON.stringify(data) 
+  }),
+  update: (id, data) => apiClient(`/api/Delegue/${id}`, { 
+    method: 'PUT', 
+    body: JSON.stringify(data) 
+  }),
+  delete: (id) => apiClient(`/api/Delegue/${id}`, { method: 'DELETE' }),
+};
+
 // ========== EXPORT PRINCIPAL (avec les nouvelles API) ==========
 const api = {
   inscription: inscriptionApi,
@@ -173,6 +187,7 @@ const api = {
   affectation: affectationApi,
   validation: validationApi,
   salle: salleApi,
+  delegue: delegueApi,
 };
 
 export default api;

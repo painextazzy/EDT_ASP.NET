@@ -10,6 +10,7 @@ import {
   DoorOpen, 
   Save,
   Layers,
+  GraduationCap,
   ChevronLeft,
   ChevronRight,
   Sparkles
@@ -26,6 +27,7 @@ const SidebarAdmin = () => {
     { label: 'Professeurs', icon: Users, path: '/admin/professeurs' },
     { label: 'Salles', icon: DoorOpen, path: '/admin/salles' },
     { label: 'Niveau & Parcours', icon: Layers, path: '/admin/niveaux-parcours' },
+    { label: 'Délégués', icon: GraduationCap, path: '/admin/delegues' },
     { label: 'Sauvegarde', icon: Save, path: '/admin/sauvegarde' }
   ];
 
