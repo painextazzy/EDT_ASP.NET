@@ -25,10 +25,22 @@ public class DelegueController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateDelegueDto dto)
     {
-        try {
+        try
+        {
             var message = await _service.CreateAsync(dto);
             return Ok(new { message });
-        } catch (Exception ex) {
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Vérifier si l'erreur concerne un email dupliqué
+            if (ex.Message.Contains("email") || ex.Message.Contains("Email"))
+            {
+                return Conflict(new { message = "Cet email est déjà utilisé par un autre délégué" });
+            }
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
             return BadRequest(new { message = ex.Message });
         }
     }
@@ -36,10 +48,22 @@ public class DelegueController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] CreateDelegueDto dto)
     {
-        try {
+        try
+        {
             var message = await _service.UpdateAsync(id, dto);
             return Ok(new { message });
-        } catch (Exception ex) {
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Vérifier si l'erreur concerne un email dupliqué
+            if (ex.Message.Contains("email") || ex.Message.Contains("Email"))
+            {
+                return Conflict(new { message = "Cet email est déjà utilisé par un autre délégué" });
+            }
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
             return BadRequest(new { message = ex.Message });
         }
     }

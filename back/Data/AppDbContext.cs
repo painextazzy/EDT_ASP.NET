@@ -18,6 +18,7 @@ namespace back.Data
 
         // ========== NOUVEAU : Planning ==========
         public DbSet<Planning> Plannings { get; set; } = null!;
+        public DbSet<Delegue> Delegues { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -76,7 +77,7 @@ namespace back.Data
                 entity.Property(e => e.Id).HasColumnName("id");
                 entity.Property(e => e.Libelle).HasColumnName("libelle");
             });
-            
+
             modelBuilder.Entity<Niveau>(entity =>
             {
                 entity.ToTable("niveau");
@@ -114,9 +115,10 @@ namespace back.Data
 
                 entity.HasOne(d => d.Niveau).WithMany().HasForeignKey(d => d.IdNiveau);
                 entity.HasOne(d => d.Parcours).WithMany().HasForeignKey(d => d.IdParcours);
-                
+
                 // Contrainte d'unicité Niveau/Parcours
                 entity.HasIndex(d => new { d.IdNiveau, d.IdParcours }).IsUnique();
+            });
 
             // ========== NOUVEAU : Configuration pour Planning ==========
             modelBuilder.Entity<Planning>(entity =>
@@ -129,16 +131,17 @@ namespace back.Data
                 entity.Property(e => e.DateDebut).HasColumnName("date_debut");
                 entity.Property(e => e.DateFin).HasColumnName("date_fin");
                 entity.Property(e => e.MotifAnnulation).HasColumnName("motif_annulation");
-                
+
                 entity.HasOne(e => e.Enseignement)
                       .WithMany()
                       .HasForeignKey(e => e.IdEnseignement)
                       .OnDelete(DeleteBehavior.Cascade);
-                
+
                 entity.HasIndex(e => e.DateDebut);
                 entity.HasIndex(e => e.DateFin);
 
             });
+
         }
     }
 }
