@@ -395,7 +395,7 @@ const DeleguePage = () => {
     
     const rect = event.currentTarget.getBoundingClientRect();
     const position = {
-      x: rect.right - 160, // Largeur du menu ~160px
+      x: rect.right - 160,
       y: rect.bottom + 5
     };
     
@@ -663,8 +663,29 @@ const DeleguePage = () => {
           </div>
         </header>
 
-        {/* Table */}
+        {/* Table avec en-tête */}
         <div className="rounded-2xl overflow-hidden bg-white shadow-lg border border-gray-100">
+          {/* En-tête du tableau */}
+          <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
+            <div className="flex items-center gap-6">
+              <div className="w-48 flex-shrink-0">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom</span>
+              </div>
+              <div className="w-28 flex-shrink-0">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Niveau</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Parcours</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</span>
+              </div>
+              <div className="w-10 flex-shrink-0">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</span>
+              </div>
+            </div>
+          </div>
+
           {loading ? (
             <div className="divide-y divide-gray-100">
               {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} type="avatar" className="p-5" />)}
@@ -707,7 +728,7 @@ const DeleguePage = () => {
                     <span className="text-sm text-gray-500 truncate">{delegue.emailDelegue}</span>
                   </div>
 
-                  {/* Actions - Avec menu contextuel utilisant Portal */}
+                  {/* Actions */}
                   <div className="relative flex-shrink-0 row-actions">
                     <button
                       onClick={(e) => toggleMenu(delegue.id, e)}
