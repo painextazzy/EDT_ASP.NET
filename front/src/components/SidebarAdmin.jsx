@@ -8,12 +8,13 @@ import {
   School, 
   Users, 
   DoorOpen, 
-  Save,
+  DatabaseBackup,
   Layers,
   GraduationCap,
   ChevronLeft,
   ChevronRight,
-  Sparkles
+  CalendarX,
+  UserCheck
 } from 'lucide-react';
 
 const SidebarAdmin = () => {
@@ -27,8 +28,11 @@ const SidebarAdmin = () => {
     { label: 'Professeurs', icon: Users, path: '/admin/professeurs' },
     { label: 'Salles', icon: DoorOpen, path: '/admin/salles' },
     { label: 'Niveau & Parcours', icon: Layers, path: '/admin/niveaux-parcours' },
-    { label: 'Délégués', icon: GraduationCap, path: '/admin/delegues' },
-    { label: 'Sauvegarde', icon: Save, path: '/admin/sauvegarde' }
+
+    { label: 'Délégués', icon: UserCheck, path: '/admin/delegues' },
+    { label: 'Cours annulés', icon: CalendarX, path: '/admin/cours-annules' },
+    { label: 'Sauvegarde', icon: DatabaseBackup, path: '/admin/sauvegarde' }
+
   ];
 
   return (
@@ -57,13 +61,11 @@ const SidebarAdmin = () => {
           ${isCollapsed ? 'flex-col gap-4' : ''}
         `}>
           <div className="flex items-center gap-3">
-           
             {!isCollapsed && (
               <div>
                 <div className="text-sky-500 text-2xl font-bold tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
                   Calendar.
                 </div>
-                
               </div>
             )}
           </div>

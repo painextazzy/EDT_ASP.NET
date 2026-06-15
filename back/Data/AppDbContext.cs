@@ -14,7 +14,10 @@ namespace back.Data
         public DbSet<Niveau> Niveaux { get; set; } = null!;
         public DbSet<Parcours> Parcours { get; set; } = null!;
         public DbSet<Enseignement> Enseignements { get; set; } = null!;
-        public DbSet<Delegue> Delegues { get; set; } = null!;
+
+
+        // ========== NOUVEAU : Planning ==========
+        public DbSet<Planning> Plannings { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -41,22 +44,24 @@ namespace back.Data
                 entity.Property(e => e.PhotoUrl).HasColumnName("photo_url");
                 entity.Property(e => e.IdUtilisateur).HasColumnName("id_utilisateur");
                 entity.HasIndex(e => e.Im).IsUnique();
+
                 entity.HasOne(e => e.Utilisateur)
-                      .WithMany()
-                      .HasForeignKey(e => e.IdUtilisateur)
-                      .OnDelete(DeleteBehavior.SetNull);
+                      .WithOne(u => u.Enseignant)
+                      .HasForeignKey<Enseignant>(e => e.IdUtilisateur)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
-             modelBuilder.Entity<Salle>(entity =>
+            modelBuilder.Entity<Salle>(entity =>
             {
                 entity.ToTable("salle");
                 entity.Property(e => e.Id).HasColumnName("id");
-                entity.Property(e => e.NomSalle).HasColumnName("nom_salle");
+                entity.Property(e => e.Numero).HasColumnName("nom_salle");
                 entity.Property(e => e.Batiment).HasColumnName("batiment");
                 entity.Property(e => e.Etage).HasColumnName("etage");
+                entity.Property(e => e.Statut).HasColumnName("statut").HasDefaultValue("LIBRE");
+                entity.Property(e => e.CourActuel).HasColumnName("cour_actuel");
             });
 
-            // Configuration pour l'entité Cours (Matiere)
             modelBuilder.Entity<Cours>(entity =>
             {
                 entity.ToTable("matiere");
@@ -65,23 +70,21 @@ namespace back.Data
                 entity.Property(e => e.Nom).HasColumnName("libelle");
             });
 
-            // Configuration pour l'entité Niveau
-            modelBuilder.Entity<Niveau>(entity =>
-            {
-                entity.ToTable("niveau");
-                entity.Property(e => e.Id).HasColumnName("id");
-                entity.Property(e => e.Libelle).HasColumnName("libelle");
-            });
-
-            // Configuration pour l'entité Parcours
             modelBuilder.Entity<Parcours>(entity =>
             {
                 entity.ToTable("parcours");
                 entity.Property(e => e.Id).HasColumnName("id");
                 entity.Property(e => e.Libelle).HasColumnName("libelle");
             });
+            
+            modelBuilder.Entity<Niveau>(entity =>
+            {
+                entity.ToTable("niveau");
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.Libelle).HasColumnName("libelle");
+                entity.HasIndex(e => e.Libelle).IsUnique();
+            });
 
-            // Configuration pour l'entité Enseignement
             modelBuilder.Entity<Enseignement>(entity =>
             {
                 entity.ToTable("enseignement");
@@ -98,6 +101,7 @@ namespace back.Data
                 entity.HasOne(e => e.Parcours).WithMany().HasForeignKey(e => e.IdParcours);
             });
 
+
             // Configuration pour l'entité Delegue
             modelBuilder.Entity<Delegue>(entity =>
             {
@@ -113,6 +117,27 @@ namespace back.Data
                 
                 // Contrainte d'unicité Niveau/Parcours
                 entity.HasIndex(d => new { d.IdNiveau, d.IdParcours }).IsUnique();
+
+            // ========== NOUVEAU : Configuration pour Planning ==========
+            modelBuilder.Entity<Planning>(entity =>
+            {
+                entity.ToTable("planning");
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.IdEnseignement).HasColumnName("id_enseignement");
+                entity.Property(e => e.TypeEvenement).HasColumnName("type_evenement");
+                entity.Property(e => e.Statut).HasColumnName("statut");
+                entity.Property(e => e.DateDebut).HasColumnName("date_debut");
+                entity.Property(e => e.DateFin).HasColumnName("date_fin");
+                entity.Property(e => e.MotifAnnulation).HasColumnName("motif_annulation");
+                
+                entity.HasOne(e => e.Enseignement)
+                      .WithMany()
+                      .HasForeignKey(e => e.IdEnseignement)
+                      .OnDelete(DeleteBehavior.Cascade);
+                
+                entity.HasIndex(e => e.DateDebut);
+                entity.HasIndex(e => e.DateFin);
+
             });
         }
     }

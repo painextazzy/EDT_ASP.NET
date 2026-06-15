@@ -1,4 +1,4 @@
-namespace back.DTos;
+namespace back.Dtos;
 
 public class SalleDto
 {

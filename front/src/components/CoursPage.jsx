@@ -1,5 +1,6 @@
 // src/components/CoursPage.jsx
 import React, { useState, useRef, useEffect } from 'react';
+import { Search, MoreVertical, Edit, Trash2, Plus, X, CheckCircle, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import SkeletonTableRow from './ui/SkeletonTableRow';
 
@@ -173,9 +174,9 @@ const CoursPage = () => {
           <div className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg border ${getNotificationStyles(notification.type)} min-w-[300px] max-w-md`}>
             <div className="flex-shrink-0">
               {notification.type === 'success' ? (
-                <span className="material-symbols-outlined text-lg">check_circle</span>
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
               ) : (
-                <span className="material-symbols-outlined text-lg">error</span>
+                <AlertCircle className="w-5 h-5 text-rose-600" />
               )}
             </div>
             <p className="text-sm font-medium">{notification.message}</p>
@@ -183,7 +184,7 @@ const CoursPage = () => {
               onClick={() => setNotification({ show: false, message: '', type: '' })}
               className="ml-auto text-gray-400 hover:text-gray-600 transition-colors"
             >
-              <span className="material-symbols-outlined text-sm">close</span>
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -192,7 +193,7 @@ const CoursPage = () => {
       {/* Barre de recherche */}
       <div className="relative max-w-md">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <span className="material-symbols-outlined text-gray-400 text-sm">search</span>
+          <Search className="w-4 h-4 text-gray-400" />
         </div>
         <input
           type="text"
@@ -232,7 +233,7 @@ const CoursPage = () => {
                           onClick={(e) => toggleMenu(course.id, e)}
                           className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                         >
-                          <span className="material-symbols-outlined text-[18px] text-gray-400">more_vert</span>
+                          <MoreVertical className="w-4 h-4 text-gray-400" />
                         </button>
                         {openMenuId === course.id && (
                           <div 
@@ -243,14 +244,14 @@ const CoursPage = () => {
                               onClick={() => handleOpenEditModal(course)}
                               className="w-full text-left px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 flex items-center gap-2 transition-colors"
                             >
-                              <span className="material-symbols-outlined text-sm">edit</span>
+                              <Edit className="w-3.5 h-3.5" />
                               Modifier
                             </button>
                             <button
                               onClick={() => handleDeleteCourse(course)}
                               className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                             >
-                              <span className="material-symbols-outlined text-sm">delete</span>
+                              <Trash2 className="w-3.5 h-3.5" />
                               Supprimer
                             </button>
                           </div>
@@ -267,7 +268,7 @@ const CoursPage = () => {
         {/* Message si aucun résultat */}
         {!loading && filteredCourses.length === 0 && (
           <div className="text-center py-12">
-            <span className="material-symbols-outlined text-5xl text-gray-300">search_off</span>
+            <Search className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="mt-2 text-gray-500">Aucun cours trouvé</p>
             <p className="text-sm text-gray-400">Essayez de modifier vos critères de recherche</p>
           </div>
@@ -279,7 +280,7 @@ const CoursPage = () => {
         onClick={() => setShowAddModal(true)}
         className="fixed bottom-8 right-8 w-14 h-14 bg-sky-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 hover:bg-blue-700 active:scale-95 transition-all z-50"
       >
-        <span className="material-symbols-outlined text-[28px]">add</span>
+        <Plus className="w-6 h-6" />
       </button>
 
       {/* Modal d'ajout */}
@@ -297,7 +298,7 @@ const CoursPage = () => {
                   onClick={() => setShowAddModal(false)} 
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  <span className="material-symbols-outlined">close</span>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-4">
@@ -356,7 +357,7 @@ const CoursPage = () => {
                   onClick={() => setShowEditModal(false)} 
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  <span className="material-symbols-outlined">close</span>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-4">
@@ -388,7 +389,7 @@ const CoursPage = () => {
                 </button>
                 <button 
                   onClick={handleEditCourse}
-                  className="px-4 py-2 bg-sky-500 text-white rounded-lg"
+                  className="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                 >
                   Enregistrer
                 </button>

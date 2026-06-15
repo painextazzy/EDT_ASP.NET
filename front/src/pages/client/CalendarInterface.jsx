@@ -1,72 +1,22 @@
 // src/pages/client/CalendarInterface.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import api from '../../services/api';
 import Navbar from '../../components/calendar/Navbar';
 import CalendarGrid from '../../components/calendar/CalendarGrid';
 import SettingsModal from '../../components/calendar/SettingsModal';
 import CancelModal from '../../components/calendar/CancelModal';
+import { CardGridSkeleton } from '../../components/SkeletonLoader';
 
-// Événements simulés avec différentes couleurs
-const initialEvents = [
-  {
-    id: 1,
-    title: "Algorithmique Avancée",
-    start: new Date(2026, 4, 25, 8, 0),
-    end: new Date(2026, 4, 25, 10, 0),
-    type: 'course',
-    status: 'active',
-    color: '#4BB8FA'
-  },
-  {
-    id: 2,
-    title: "Programmation Web",
-    start: new Date(2026, 4, 25, 10, 30),
-    end: new Date(2026, 4, 25, 12, 30),
-    type: 'course',
-    status: 'active',
-    color: '#10B981'
-  },
-  {
-    id: 3,
-    title: "Bases de Données",
-    start: new Date(2026, 4, 26, 8, 0),
-    end: new Date(2026, 4, 26, 10, 0),
-    type: 'course',
-    status: 'active',
-    color: '#8B5CF6'
-  },
-  {
-    id: 4,
-    title: "Design UI/UX",
-    start: new Date(2026, 4, 27, 14, 0),
-    end: new Date(2026, 4, 27, 16, 0),
-    type: 'course',
-    status: 'active',
-    color: '#F59E0B'
-  },
-  {
-    id: 5,
-    title: "Marketing Digital",
-    start: new Date(2026, 4, 28, 9, 0),
-    end: new Date(2026, 4, 28, 11, 0),
-    type: 'course',
-    status: 'active',
-    color: '#EF4444'
-  },
-  {
-    id: 6,
-    title: "Gestion de Projet",
-    start: new Date(2026, 4, 29, 13, 0),
-    end: new Date(2026, 4, 29, 15, 0),
-    type: 'course',
-    status: 'active',
-    color: '#EC4899'
-  },
+// Couleurs par défaut pour les cours
+const defaultColors = [
+  '#4BB8FA', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#84CC16'
 ];
 
 const CalendarInterface = () => {
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 4, 25));
-  const [events, setEvents] = useState(initialEvents);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [events, setEvents] = useState([]);
   const [view, setView] = useState('week');
+  const [loading, setLoading] = useState(true);
   
   // État utilisateur
   const [userSettings, setUserSettings] = useState({
@@ -82,6 +32,63 @@ const CalendarInterface = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [cancellationMotif, setCancellationMotif] = useState('');
 
+  // Charger les événements depuis l'API
+  const loadEvents = async () => {
+    try {
+      setLoading(true);
+      const data = await api.planning.getAll();
+      
+      // Transformer les données de l'API vers le format attendu par CalendarGrid
+      const formattedEvents = data.map((item, index) => ({
+        id: item.id,
+        title: item.titre || item.matiere?.nom || 'Cours',
+        start: new Date(item.dateDebut),
+        end: new Date(item.dateFin),
+        type: item.typeEvenement?.toLowerCase() === 'examen' ? 'exam' : 
+               item.typeEvenement?.toLowerCase() === 'soutenance' ? 'defense' : 'course',
+        status: item.statut === 'Annule' ? 'cancelled' : 'active',
+        color: defaultColors[index % defaultColors.length],
+        cancellationMotif: item.motifAnnulation,
+        niveau: item.niveau,
+        enseignant: item.enseignant?.nom
+      }));
+      
+      setEvents(formattedEvents);
+    } catch (error) {
+      console.error('Erreur chargement des cours:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Charger les données utilisateur
+  const loadUserData = async () => {
+    try {
+      // Récupérer l'utilisateur connecté depuis le localStorage ou l'API
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        setUserSettings({
+          nom: user.nom || userSettings.nom,
+          email: user.email || userSettings.email,
+          password: '********'
+        });
+        setTempUserSettings({
+          nom: user.nom || userSettings.nom,
+          email: user.email || userSettings.email,
+          password: '********'
+        });
+      }
+    } catch (error) {
+      console.error('Erreur chargement utilisateur:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadEvents();
+    loadUserData();
+  }, []);
+
   const handleCancelEvent = (event, e) => {
     e.stopPropagation();
     setSelectedEvent(event);
@@ -89,18 +96,27 @@ const CalendarInterface = () => {
     setShowCancelModal(true);
   };
 
-  const handleConfirmCancel = () => {
-    if (cancellationMotif.trim()) {
-      setEvents(prevEvents =>
-        prevEvents.map(event =>
-          event.id === selectedEvent.id
-            ? { ...event, status: 'cancelled', cancellationMotif: cancellationMotif, cancelledAt: new Date() }
-            : event
-        )
-      );
-      setShowCancelModal(false);
-      setSelectedEvent(null);
-      setCancellationMotif('');
+  const handleConfirmCancel = async () => {
+    if (cancellationMotif.trim() && selectedEvent) {
+      try {
+        // Appel API pour annuler le cours
+        await api.planning.cancel(selectedEvent.id, cancellationMotif);
+        
+        // Mettre à jour l'état local
+        setEvents(prevEvents =>
+          prevEvents.map(event =>
+            event.id === selectedEvent.id
+              ? { ...event, status: 'cancelled', cancellationMotif: cancellationMotif, cancelledAt: new Date() }
+              : event
+          )
+        );
+        
+        setShowCancelModal(false);
+        setSelectedEvent(null);
+        setCancellationMotif('');
+      } catch (error) {
+        alert('Erreur lors de l\'annulation du cours');
+      }
     }
   };
 
@@ -115,17 +131,56 @@ const CalendarInterface = () => {
     setShowSettingsModal(true);
   };
 
-  const handleSaveSettings = () => {
-    setUserSettings({ ...tempUserSettings });
-    setShowSettingsModal(false);
-    alert('Paramètres sauvegardés avec succès !');
+  const handleSaveSettings = async () => {
+    try {
+      // Mettre à jour les informations utilisateur
+      const updatedUser = {
+        nom: tempUserSettings.nom,
+        email: tempUserSettings.email
+      };
+      
+      if (tempUserSettings.password !== '********' && tempUserSettings.password) {
+        updatedUser.password = tempUserSettings.password;
+      }
+      
+      // Sauvegarder dans le localStorage
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        const newUser = { ...user, ...updatedUser };
+        localStorage.setItem('user', JSON.stringify(newUser));
+      }
+      
+      setUserSettings({ ...tempUserSettings });
+      setShowSettingsModal(false);
+      alert('Paramètres sauvegardés avec succès !');
+    } catch (error) {
+      alert('Erreur lors de la sauvegarde');
+    }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (window.confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
       window.location.href = '/login';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="h-screen flex flex-col bg-slate-50">
+        <div className="p-6">
+          <div className="max-w-4xl mx-auto rounded-3xl bg-white h-20 shadow-sm border border-gray-100 animate-pulse"></div>
+        </div>
+        <div className="flex-1 p-6 overflow-y-auto">
+          <div className="max-w-7xl mx-auto">
+            <CardGridSkeleton cards={6} cols={3} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 font-sans">
@@ -203,112 +258,6 @@ const CalendarInterface = () => {
           direction: ltr;
           font-feature-settings: 'liga';
           -webkit-font-smoothing: antialiased;
-        }
-        
-        /* Personnalisation du calendrier */
-        .rbc-calendar {
-          font-family: 'Poppins', sans-serif;
-          font-size: 11px;
-        }
-        
-        .rbc-header {
-          padding: 8px 6px;
-          font-weight: 500;
-          font-size: 11px;
-          color: #6b7280;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        
-        .rbc-header span {
-          color: #374151;
-          font-weight: 600;
-          margin-left: 3px;
-          font-size: 11px;
-        }
-        
-        .rbc-off-range-bg {
-          background-color: #f9fafb;
-        }
-        
-        .rbc-today {
-          background-color: #eff6ff;
-        }
-        
-        .rbc-event {
-          border-radius: 4px;
-          transition: all 0.2s;
-        }
-        
-        .rbc-event:hover {
-          transform: scale(1.01);
-          box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
-        }
-        
-        .rbc-toolbar {
-          padding: 8px 12px;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        
-        .rbc-toolbar button {
-          border-radius: 6px;
-          font-size: 11px;
-          padding: 4px 10px;
-          transition: all 0.2s;
-          background: transparent;
-          border: 1px solid #e5e7eb;
-          cursor: pointer;
-        }
-        
-        .rbc-toolbar button:hover {
-          background-color: #f3f4f6;
-        }
-        
-        .rbc-toolbar button.rbc-active {
-          background-color: #4BB8FA;
-          color: white;
-          border-color: #4BB8FA;
-        }
-        
-        .rbc-toolbar-label {
-          font-weight: 600;
-          font-size: 13px;
-        }
-        
-        .rbc-time-view .rbc-row {
-          min-height: 50px;
-        }
-        
-        .rbc-time-content {
-          border-top: 1px solid #e5e7eb;
-        }
-        
-        .rbc-timeslot-group {
-          border-bottom: 1px dashed #f3f4f6;
-          min-height: 50px;
-        }
-        
-        .rbc-time-slot {
-          min-height: 50px;
-        }
-        
-        .rbc-time-gutter .rbc-timeslot-group .rbc-label {
-          font-size: 10px;
-          padding-top: 4px;
-        }
-        
-        /* Scrollbar */
-        .rbc-time-content::-webkit-scrollbar {
-          width: 5px;
-          height: 5px;
-        }
-        
-        .rbc-time-content::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        
-        .rbc-time-content::-webkit-scrollbar-thumb {
-          background: #d1d5db;
-          border-radius: 8px;
         }
       `}</style>
     </div>
