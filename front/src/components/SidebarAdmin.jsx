@@ -10,6 +10,7 @@ import {
   DoorOpen, 
   DatabaseBackup,
   Layers,
+  GraduationCap,
   ChevronLeft,
   ChevronRight,
   CalendarX,
@@ -27,9 +28,11 @@ const SidebarAdmin = () => {
     { label: 'Professeurs', icon: Users, path: '/admin/professeurs' },
     { label: 'Salles', icon: DoorOpen, path: '/admin/salles' },
     { label: 'Niveau & Parcours', icon: Layers, path: '/admin/niveaux-parcours' },
+
     { label: 'Délégués', icon: UserCheck, path: '/admin/delegues' },
     { label: 'Cours annulés', icon: CalendarX, path: '/admin/cours-annules' },
     { label: 'Sauvegarde', icon: DatabaseBackup, path: '/admin/sauvegarde' }
+
   ];
 
   return (

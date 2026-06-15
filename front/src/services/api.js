@@ -352,18 +352,34 @@ export const planningApi = {
     apiClient(`/api/Planning/${id}`, { method: 'DELETE' }),
 };
 
-// ========== EXPORT PRINCIPAL ==========
+
+// Service pour les Délégués
+export const delegueApi = {
+  getAll: () => apiClient('/api/Delegue', { method: 'GET' }),
+  create: (data) => apiClient('/api/Delegue', { 
+    method: 'POST', 
+    body: JSON.stringify(data) 
+  }),
+  update: (id, data) => apiClient(`/api/Delegue/${id}`, { 
+    method: 'PUT', 
+    body: JSON.stringify(data) 
+  }),
+  delete: (id) => apiClient(`/api/Delegue/${id}`, { method: 'DELETE' }),
+};
+
+
 const api = {
   inscription: inscriptionApi,
   cours: coursApi,
   affectation: affectationApi,
   validation: validationApi,
   salle: salleApi,
+  delegue: delegueApi,
   backup: backupApi,
   enseignant: enseignantApi,
   parcours: parcoursApi,
   niveau: niveauApi,
-  planning: planningApi,  // ← NOUVEAU
+  planning: planningApi,  // ← NOUVEA
 };
 
 export default api;

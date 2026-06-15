@@ -13,6 +13,7 @@ import PlanningPage from "../../components/PlanningPage";
 import DashboardHome from "../../components/DashboardHome";
 import Sauvegarde from "../../components/SauvegardePage";
 import NiveauxParcours from "../../components/NiveauxParcours";
+import DeleguePage from "../../components/DeleguePage";
 
 const DashboardContent = () => {
   const { isSidebarOpen } = useSidebar();
@@ -68,6 +69,7 @@ const DashboardContent = () => {
             <Route path="/planning" element={<PlanningPage />} />
             <Route path="/sauvegarde" element={<Sauvegarde />} />
             <Route path="/niveaux-parcours" element={<NiveauxParcours />} />
+            <Route path="/delegues" element={<DeleguePage />} />
           </Routes>
         </main>
       </div>
