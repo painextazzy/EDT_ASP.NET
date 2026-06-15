@@ -1,19 +1,61 @@
 // src/components/modals/AddEventModal.jsx
-import React from 'react';
-import { X, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
+import api from '../../services/api';
 
 const AddEventModal = ({ 
   isOpen, 
   onClose, 
   newEvent, 
   setNewEvent, 
-  onAddEvent, 
-  onClear,
+  onAddEvent,
   titresOptions,
   classesOptions,
   heuresOptions,
   sallesOptions
 }) => {
+  const [professeurs, setProfesseurs] = useState([]);
+  const [loadingProfesseurs, setLoadingProfesseurs] = useState(false);
+
+  // Charger les professeurs validés depuis l'API
+  useEffect(() => {
+    if (isOpen) {
+      loadProfesseursValides();
+    }
+  }, [isOpen]);
+
+  const loadProfesseursValides = async () => {
+    try {
+      setLoadingProfesseurs(true);
+      
+      // Récupérer tous les professeurs via affectationApi
+      const allProfesseurs = await api.affectation.getProfesseurs();
+      console.log("Tous les professeurs:", allProfesseurs);
+      
+      // Filtrer uniquement les professeurs validés (est_valide = true)
+      // Comme dans ProfesseursPage.jsx, on filtre par utilisateur.est_valide
+      const professeursValides = Array.isArray(allProfesseurs) ? allProfesseurs.filter(p => {
+        // Vérifier si l'utilisateur associé au professeur est validé (est_valide = true)
+        if (p.utilisateur && p.utilisateur.est_valide === true) {
+          return true;
+        }
+        // Si le professeur a directement le champ est_valide
+        if (p.est_valide === true) {
+          return true;
+        }
+        return false;
+      }) : [];
+      
+      console.log("Professeurs validés (est_valide = true):", professeursValides);
+      setProfesseurs(professeursValides);
+    } catch (error) {
+      console.error("Erreur chargement des professeurs:", error);
+      setProfesseurs([]);
+    } finally {
+      setLoadingProfesseurs(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -21,10 +63,7 @@ const AddEventModal = ({
       <div className="bg-white w-full max-w-2xl rounded-eight shadow-soft overflow-hidden border border-gray-200" onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-           
-            
-          </div>
+          <h2 className="text-lg font-semibold text-gray-800">Ajouter un événement</h2>
           <button 
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
@@ -34,13 +73,13 @@ const AddEventModal = ({
         </div>
 
         {/* Modal Body */}
-        <form className="p-8 space-y-6" onSubmit={(e) => { e.preventDefault(); onAddEvent(); }}>
+        <div className="p-8 space-y-6">
           {/* Row 1: Titre and Horaire */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Titre Field */}
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-gray-700">
-                cours <span className="text-red-600">*</span>
+                Cours <span className="text-red-600">*</span>
               </label>
               <select 
                 value={newEvent.title}
@@ -77,8 +116,43 @@ const AddEventModal = ({
             </div>
           </div>
 
-          {/* Row 2: Classe and Type */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Row 2: Professeur, Classe and Type */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Professeur Field */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                Professeur <span className="text-red-600">*</span>
+              </label>
+              <select 
+                value={newEvent.professeurId || ''}
+                onChange={(e) => {
+                  const professeur = professeurs.find(p => p.id === parseInt(e.target.value));
+                  setNewEvent({ 
+                    ...newEvent, 
+                    professeurId: e.target.value,
+                    professeurNom: professeur?.nom || '',
+                    professeurIm: professeur?.im || ''
+                  });
+                }}
+                className="w-full border border-gray-300 rounded-eight focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700 text-sm py-2.5 px-3 bg-white"
+                disabled={loadingProfesseurs}
+              >
+                <option value="">
+                  {loadingProfesseurs ? "Chargement des professeurs..." : "Sélectionner un professeur"}
+                </option>
+                {professeurs.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.nom} {p.prenom ? `(${p.prenom})` : ''} {p.im ? `- ${p.im}` : ''}
+                  </option>
+                ))}
+              </select>
+              {professeurs.length === 0 && !loadingProfesseurs && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Aucun professeur validé disponible
+                </p>
+              )}
+            </div>
+
             {/* Classe Field */}
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-gray-700">
@@ -89,6 +163,7 @@ const AddEventModal = ({
                 onChange={(e) => setNewEvent({ ...newEvent, classe: e.target.value })}
                 className="w-full border border-gray-300 rounded-eight focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700 text-sm py-2.5 px-3 bg-white"
               >
+                <option value="">Sélectionner une classe</option>
                 {classesOptions.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
@@ -107,7 +182,6 @@ const AddEventModal = ({
                 <option value="Atelier">Atelier</option>
                 <option value="Soutenance">Soutenance</option>
                 <option value="Examen">Examen</option>
-                
               </select>
             </div>
           </div>
@@ -178,12 +252,11 @@ const AddEventModal = ({
               />
             </div>
           </div>
-        </form>
+        </div>
 
         {/* Modal Footer */}
         <div className="bg-gray-50 px-8 py-5 flex items-center border-t border-gray-100 justify-end">
           <div className="flex items-center gap-3">
-          
             <button 
               onClick={onClose}
               className="px-6 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-eight transition-all duration-200"
