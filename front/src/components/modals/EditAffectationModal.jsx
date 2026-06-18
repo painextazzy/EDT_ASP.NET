@@ -1,123 +1,517 @@
 // src/components/modals/EditAffectationModal.jsx
-import React, { useState, useEffect } from 'react';
-import { X, Search } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { X, AlertCircle, ChevronDown } from 'lucide-react';
+import api from '../../services/api';
 
-const EditAffectationModal = ({ isOpen, onClose, onSave, editingCourse, editingMention, niveauxList }) => {
+const EditAffectationModal = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  editingCourse, 
+  affectationsExistantes = []
+}) => {
   const [formData, setFormData] = useState({
-    name: '',
-    professor: '',
+    id: '',
+    coursId: '',
+    professeurId: '',
     mention: '',
     niveau: ''
   });
-  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
-  useEffect(() => {
-    if (editingCourse && isOpen) {
-      setFormData({
-        name: editingCourse.name || '',
-        professor: editingCourse.professor || '',
-        mention: editingMention || '',
-        niveau: editingCourse.niveau || ''
-      });
-    }
-  }, [editingCourse, editingMention, isOpen]);
+  // États pour les données de l'API
+  const [coursList, setCoursList] = useState([]);
+  const [professeursList, setProfesseursList] = useState([]);
+  const [mentionsList, setMentionsList] = useState([]);
+  const [niveauxList, setNiveauxList] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
 
-  const handleSubmit = async () => {
-    if (!formData.name || !formData.professor) {
-      alert("Veuillez remplir tous les champs");
-      return;
+  // États pour l'autocomplétion
+  const [coursSearch, setCoursSearch] = useState('');
+  const [professeurSearch, setProfesseurSearch] = useState('');
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [niveauSearch, setNiveauSearch] = useState('');
+
+  const [isCoursOpen, setIsCoursOpen] = useState(false);
+  const [isProfesseurOpen, setIsProfesseurOpen] = useState(false);
+  const [isMentionOpen, setIsMentionOpen] = useState(false);
+  const [isNiveauOpen, setIsNiveauOpen] = useState(false);
+
+  const coursRef = useRef(null);
+  const professeurRef = useRef(null);
+  const mentionRef = useRef(null);
+  const niveauRef = useRef(null);
+
+  // Charger les données depuis l'API
+  const loadData = async () => {
+    setLoadingData(true);
+    try {
+      const [cours, professeurs, mentions, niveaux] = await Promise.all([
+        api.cours.getAll(),
+        api.affectation.getProfesseurs(),
+        api.affectation.getMentions(),
+        api.affectation.getNiveaux()
+      ]);
+      
+      setCoursList(Array.isArray(cours) ? cours : []);
+      
+      const profsValides = Array.isArray(professeurs) 
+        ? professeurs.filter(p => p && p.nom && p.nom.trim() !== '')
+        : [];
+      setProfesseursList(profsValides);
+      
+      const mentionsValides = Array.isArray(mentions) 
+        ? mentions.filter(m => m && (m.libelle || m))
+        : [];
+      setMentionsList(mentionsValides);
+      
+      const niveauxValides = Array.isArray(niveaux) 
+        ? niveaux.filter(n => n && (n.libelle || n))
+        : [];
+      setNiveauxList(niveauxValides);
+      
+    } catch (error) {
+      console.error('Erreur chargement données:', error);
+    } finally {
+      setLoadingData(false);
     }
-    setLoading(true);
-    await onSave(formData);
-    setLoading(false);
   };
 
-  if (!isOpen || !editingCourse) return null;
+  // Charger les données quand le modal s'ouvre
+  useEffect(() => {
+    if (isOpen) {
+      loadData();
+    }
+  }, [isOpen]);
+
+  // Initialiser les données quand le modal s'ouvre
+  useEffect(() => {
+    if (isOpen && editingCourse && !loadingData) {
+      const coursTrouve = coursList.find(c => c.nom === editingCourse.name);
+      const professeurTrouve = professeursList.find(p => p.nom === editingCourse.professor);
+      const mentionTrouvee = mentionsList.find(m => (m.libelle || m) === editingCourse.mention);
+      const niveauTrouve = niveauxList.find(n => (n.libelle || n) === editingCourse.niveau);
+
+      setFormData({
+        id: editingCourse.id || '',
+        coursId: coursTrouve?.id || '',
+        professeurId: professeurTrouve?.id || '',
+        mention: editingCourse.mention || '',
+        niveau: editingCourse.niveau || ''
+      });
+
+      setCoursSearch(editingCourse.name || '');
+      setProfesseurSearch(editingCourse.professor || '');
+      setMentionSearch(editingCourse.mention || '');
+      setNiveauSearch(editingCourse.niveau || '');
+      
+      setErrors({});
+      setSubmitError('');
+      setIsSubmitting(false);
+    }
+  }, [isOpen, editingCourse, coursList, professeursList, mentionsList, niveauxList, loadingData]);
+
+  // Fermer les dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (coursRef.current && !coursRef.current.contains(event.target)) setIsCoursOpen(false);
+      if (professeurRef.current && !professeurRef.current.contains(event.target)) setIsProfesseurOpen(false);
+      if (mentionRef.current && !mentionRef.current.contains(event.target)) setIsMentionOpen(false);
+      if (niveauRef.current && !niveauRef.current.contains(event.target)) setIsNiveauOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filtrer les options avec useMemo
+  const filteredCours = useMemo(() => {
+    if (!Array.isArray(coursList) || coursList.length === 0) return [];
+    return coursList.filter(c => 
+      c.nom?.toLowerCase().includes(coursSearch.toLowerCase()) ||
+      c.code?.toLowerCase().includes(coursSearch.toLowerCase())
+    );
+  }, [coursList, coursSearch]);
+
+  const filteredProfesseurs = useMemo(() => {
+    if (!Array.isArray(professeursList) || professeursList.length === 0) return [];
+    return professeursList
+      .filter(p => p && p.nom && p.nom.trim() !== '')
+      .filter(p => 
+        p.nom?.toLowerCase().includes(professeurSearch.toLowerCase()) ||
+        (p.im && p.im.toLowerCase().includes(professeurSearch.toLowerCase()))
+      );
+  }, [professeursList, professeurSearch]);
+
+  const filteredMentions = useMemo(() => {
+    if (!Array.isArray(mentionsList) || mentionsList.length === 0) return [];
+    return mentionsList.filter(m => {
+      const libelle = m.libelle || m;
+      return libelle && libelle.toLowerCase().includes(mentionSearch.toLowerCase());
+    });
+  }, [mentionsList, mentionSearch]);
+
+  const filteredNiveaux = useMemo(() => {
+    if (!Array.isArray(niveauxList) || niveauxList.length === 0) return [];
+    return niveauxList.filter(n => {
+      const libelle = n.libelle || n;
+      return libelle && libelle.toLowerCase().includes(niveauSearch.toLowerCase());
+    });
+  }, [niveauxList, niveauSearch]);
+
+  const checkIfExists = (coursId, mention, niveau) => {
+    return affectationsExistantes.some(a => 
+      a.id !== formData.id &&
+      a.coursId === parseInt(coursId) &&
+      a.mention === mention &&
+      a.niveau === niveau
+    );
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.coursId) {
+      newErrors.coursId = 'Veuillez sélectionner un cours';
+    }
+    if (!formData.professeurId) {
+      newErrors.professeurId = 'Veuillez sélectionner un professeur';
+    }
+    if (!formData.mention) {
+      newErrors.mention = 'Veuillez sélectionner une mention';
+    }
+    if (!formData.niveau) {
+      newErrors.niveau = 'Veuillez sélectionner un niveau';
+    }
+
+    // Vérification doublon avec message clair
+    if (formData.coursId && formData.mention && formData.niveau) {
+      const coursNom = coursList.find(c => c.id === parseInt(formData.coursId))?.nom || '';
+      if (checkIfExists(formData.coursId, formData.mention, formData.niveau)) {
+        newErrors.coursId = `Le cours "${coursNom}" est déjà assigné à ${formData.mention} - ${formData.niveau}`;
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSelectCours = (cours) => {
+    setFormData(prev => ({ ...prev, coursId: cours.id }));
+    setCoursSearch(cours.nom);
+    setIsCoursOpen(false);
+    if (errors.coursId) setErrors(prev => ({ ...prev, coursId: '' }));
+    setSubmitError('');
+  };
+
+  const handleSelectProfesseur = (professeur) => {
+    setFormData(prev => ({ ...prev, professeurId: professeur.id }));
+    setProfesseurSearch(professeur.nom);
+    setIsProfesseurOpen(false);
+    if (errors.professeurId) setErrors(prev => ({ ...prev, professeurId: '' }));
+    setSubmitError('');
+  };
+
+  const handleSelectMention = (mention) => {
+    const libelle = mention.libelle || mention;
+    setFormData(prev => ({ ...prev, mention: libelle }));
+    setMentionSearch(libelle);
+    setIsMentionOpen(false);
+    if (errors.mention) setErrors(prev => ({ ...prev, mention: '' }));
+    setSubmitError('');
+  };
+
+  const handleSelectNiveau = (niveau) => {
+    const libelle = niveau.libelle || niveau;
+    setFormData(prev => ({ ...prev, niveau: libelle }));
+    setNiveauSearch(libelle);
+    setIsNiveauOpen(false);
+    if (errors.niveau) setErrors(prev => ({ ...prev, niveau: '' }));
+    setSubmitError('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+    
+    if (!validateForm()) return;
+
+    const selectedCours = coursList.find(c => c.id === parseInt(formData.coursId));
+    const selectedProfesseur = professeursList.find(p => p.id === parseInt(formData.professeurId));
+
+    const dataToSave = {
+      name: selectedCours?.nom || '',
+      professor: selectedProfesseur?.nom || '',
+      mention: formData.mention,
+      niveau: formData.niveau
+    };
+
+    setIsSubmitting(true);
+    try {
+      await onSave(dataToSave);
+    } catch (error) {
+      console.error('Erreur lors de la modification:', error);
+      
+      // Analyser l'erreur pour un message plus clair
+      let errorMessage = "Erreur lors de la modification";
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.errors) {
+        // Erreurs de validation du backend
+        const errorsObj = error.response.data.errors;
+        const firstError = Object.values(errorsObj)[0];
+        if (Array.isArray(firstError)) {
+          errorMessage = firstError[0];
+        } else {
+          errorMessage = firstError || "Erreur de validation";
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Message spécifique pour les doublons
+      if (errorMessage.includes('already') || errorMessage.includes('existe') || errorMessage.includes('unique')) {
+        const coursNom = selectedCours?.nom || '';
+        errorMessage = `Le cours "${coursNom}" est déjà assigné à ${formData.mention} - ${formData.niveau}`;
+      }
+      
+      setSubmitError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const hasData = !loadingData && (coursList.length > 0 || professeursList.length > 0 || mentionsList.length > 0 || niveauxList.length > 0);
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center backdrop-blur-sm">
-      <div className="bg-white rounded-xl max-w-md w-full mx-4 overflow-hidden shadow-2xl">
-        <div className="flex justify-between items-center p-5 border-b border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800">Modifier l'affectation</h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-            <X className="w-5 h-5 text-gray-400" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-800">Modifier l'affectation</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Code du cours</label>
-            <input
-              type="text"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-              value={editingCourse.code || ''}
-              disabled
-            />
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {loadingData && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+              <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+              <p className="text-sm text-blue-700">Chargement des données...</p>
+            </div>
+          )}
+
+          {!loadingData && !hasData && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-700">Aucune donnée disponible.</p>
+            </div>
+          )}
+
+          {/* Message d'erreur de soumission - VISIBLE */}
+          {submitError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700 font-medium">{submitError}</p>
+            </div>
+          )}
+
+          {/* Cours */}
+          <div className="space-y-1" ref={coursRef}>
+            <label className="block text-sm font-semibold text-gray-700">Cours <span className="text-red-500">*</span></label>
+            <div className="relative">
+              <input
+                type="text"
+                value={coursSearch}
+                onChange={(e) => {
+                  setCoursSearch(e.target.value);
+                  setIsCoursOpen(true);
+                  if (!e.target.value) setFormData(prev => ({ ...prev, coursId: '' }));
+                }}
+                onFocus={() => setIsCoursOpen(true)}
+                placeholder="Rechercher un cours..."
+                className={`w-full border ${errors.coursId ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all bg-white`}
+                disabled={loadingData || !hasData}
+              />
+              <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 transition-transform ${isCoursOpen ? 'rotate-180' : ''}`} />
+            </div>
+            {isCoursOpen && filteredCours.length > 0 && (
+              <div className="absolute z-50 w-full max-w-md mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                <div className="max-h-48 overflow-y-auto">
+                  {filteredCours.map((cours) => (
+                    <div
+                      key={cours.id}
+                      className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-sky-50 transition-colors ${
+                        formData.coursId === cours.id ? 'bg-sky-100 text-sky-700' : 'text-gray-700'
+                      }`}
+                      onClick={() => handleSelectCours(cours)}
+                    >
+                      {cours.nom} <span className="text-xs text-gray-400">({cours.code})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {errors.coursId && <p className="text-red-500 text-xs">{errors.coursId}</p>}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nom du cours *</label>
-            <input
-              type="text"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Professeur *</label>
-            <input
-              type="text"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              value={formData.professor}
-              onChange={(e) => setFormData({ ...formData, professor: e.target.value })}
-            />
+          {/* Professeur */}
+          <div className="space-y-1" ref={professeurRef}>
+            <label className="block text-sm font-semibold text-gray-700">Professeur <span className="text-red-500">*</span></label>
+            <div className="relative">
+              <input
+                type="text"
+                value={professeurSearch}
+                onChange={(e) => {
+                  setProfesseurSearch(e.target.value);
+                  setIsProfesseurOpen(true);
+                  if (!e.target.value) setFormData(prev => ({ ...prev, professeurId: '' }));
+                }}
+                onFocus={() => setIsProfesseurOpen(true)}
+                placeholder="Rechercher un professeur..."
+                className={`w-full border ${errors.professeurId ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all bg-white`}
+                disabled={loadingData || !hasData}
+              />
+              <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 transition-transform ${isProfesseurOpen ? 'rotate-180' : ''}`} />
+            </div>
+            {isProfesseurOpen && filteredProfesseurs.length > 0 && (
+              <div className="absolute z-50 w-full max-w-md mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                <div className="max-h-48 overflow-y-auto">
+                  {filteredProfesseurs.map((professeur) => (
+                    <div
+                      key={professeur.id}
+                      className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-sky-50 transition-colors ${
+                        formData.professeurId === professeur.id ? 'bg-sky-100 text-sky-700' : 'text-gray-700'
+                      }`}
+                      onClick={() => handleSelectProfesseur(professeur)}
+                    >
+                      {professeur.nom} 
+                      {professeur.im && <span className="text-xs text-gray-400 ml-2">({professeur.im})</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {errors.professeurId && <p className="text-red-500 text-xs">{errors.professeurId}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Mention</label>
-              <select
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.mention}
-                onChange={(e) => setFormData({ ...formData, mention: e.target.value })}
-              >
-                <option value="Informatique">Informatique</option>
-                <option value="Management">Management</option>
-                <option value="Multimedia">Multimedia</option>
-              </select>
+            {/* Mention */}
+            <div className="space-y-1" ref={mentionRef}>
+              <label className="block text-sm font-semibold text-gray-700">Mention <span className="text-red-500">*</span></label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={mentionSearch}
+                  onChange={(e) => {
+                    setMentionSearch(e.target.value);
+                    setIsMentionOpen(true);
+                    if (!e.target.value) setFormData(prev => ({ ...prev, mention: '' }));
+                  }}
+                  onFocus={() => setIsMentionOpen(true)}
+                  placeholder="Rechercher une mention..."
+                  className={`w-full border ${errors.mention ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all bg-white`}
+                  disabled={loadingData || !hasData}
+                />
+                <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 transition-transform ${isMentionOpen ? 'rotate-180' : ''}`} />
+              </div>
+              {isMentionOpen && filteredMentions.length > 0 && (
+                <div className="absolute z-50 w-full max-w-md mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                  <div className="max-h-48 overflow-y-auto">
+                    {filteredMentions.map((mention) => {
+                      const libelle = mention.libelle || mention;
+                      return (
+                        <div
+                          key={mention.id || libelle}
+                          className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-sky-50 transition-colors ${
+                            formData.mention === libelle ? 'bg-sky-100 text-sky-700' : 'text-gray-700'
+                          }`}
+                          onClick={() => handleSelectMention(mention)}
+                        >
+                          {libelle}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {errors.mention && <p className="text-red-500 text-xs">{errors.mention}</p>}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Niveau</label>
-              <select
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.niveau}
-                onChange={(e) => setFormData({ ...formData, niveau: e.target.value })}
-              >
-                {niveauxList.map(niveau => (
-                  <option key={niveau.id || niveau} value={niveau.libelle || niveau}>
-                    {niveau.libelle || niveau}
-                  </option>
-                ))}
-              </select>
+            {/* Niveau */}
+            <div className="space-y-1" ref={niveauRef}>
+              <label className="block text-sm font-semibold text-gray-700">Niveau <span className="text-red-500">*</span></label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={niveauSearch}
+                  onChange={(e) => {
+                    setNiveauSearch(e.target.value);
+                    setIsNiveauOpen(true);
+                    if (!e.target.value) setFormData(prev => ({ ...prev, niveau: '' }));
+                  }}
+                  onFocus={() => setIsNiveauOpen(true)}
+                  placeholder="Rechercher un niveau..."
+                  className={`w-full border ${errors.niveau ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all bg-white`}
+                  disabled={loadingData || !hasData}
+                />
+                <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 transition-transform ${isNiveauOpen ? 'rotate-180' : ''}`} />
+              </div>
+              {isNiveauOpen && filteredNiveaux.length > 0 && (
+                <div className="absolute z-50 w-full max-w-md mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                  <div className="max-h-48 overflow-y-auto">
+                    {filteredNiveaux.map((niveau) => {
+                      const libelle = niveau.libelle || niveau;
+                      return (
+                        <div
+                          key={niveau.id || libelle}
+                          className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-sky-50 transition-colors ${
+                            formData.niveau === libelle ? 'bg-sky-100 text-sky-700' : 'text-gray-700'
+                          }`}
+                          onClick={() => handleSelectNiveau(niveau)}
+                        >
+                          {libelle}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {errors.niveau && <p className="text-red-500 text-xs">{errors.niveau}</p>}
             </div>
           </div>
-        </div>
 
-        <div className="p-5 border-t border-gray-100 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
-            Annuler
-          </button>
-          <button 
-            onClick={handleSubmit}
-            disabled={loading}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
-          >
-            {loading ? 'Enregistrement...' : 'Enregistrer'}
-          </button>
-        </div>
+          {/* Footer */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || loadingData || !hasData}
+              className="px-6 py-2 text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 rounded-lg shadow-md transition-all disabled:opacity-50"
+            >
+              {isSubmitting ? 'Modification...' : 'Modifier'}
+            </button>
+          </div>
+        </form>
+
+        <style>{`
+          .modal-overlay {
+            background-color: rgba(11, 28, 48, 0.4);
+            backdrop-filter: blur(4px);
+          }
+        `}</style>
       </div>
     </div>
   );

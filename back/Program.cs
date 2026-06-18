@@ -42,6 +42,7 @@ builder.Services.AddScoped<DelegueService>();
 
 //backup
 builder.Services.AddScoped<IDatabaseBackupService, DatabaseBackupService>();
+builder.Services.AddScoped<PlanningService>();
 
 
 builder.Services.AddControllers();

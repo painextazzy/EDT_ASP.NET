@@ -99,26 +99,52 @@ const AffectationPage = () => {
     setOpenMenuId(null);
   };
 
-  const handleSaveEdit = async (formData) => {
-    try {
-      const result = await api.affectation.update(editingCourse.id, {
-        name: formData.name,
-        professor: formData.professor,
-        mention: formData.mention,
-        niveau: formData.niveau
-      });
-      
-      if (result.message) {
-        await loadAllData();
-        setShowEditModal(false);
-        setEditingCourse(null);
-        setEditingMention(null);
-        showNotification(result.message, 'success');
-      }
-    } catch (error) {
-      showNotification("Erreur lors de la modification", 'error');
+// src/components/AffectationPage.jsx - Dans handleSaveEdit
+
+const handleSaveEdit = async (formData) => {
+  try {
+    const result = await api.affectation.update(editingCourse.id, {
+      name: formData.name,
+      professor: formData.professor,
+      mention: formData.mention,
+      niveau: formData.niveau
+    });
+    
+    if (result.message) {
+      await loadAllData();
+      setShowEditModal(false);
+      setEditingCourse(null);
+      setEditingMention(null);
+      showNotification(result.message, 'success');
     }
-  };
+  } catch (error) {
+    console.error('Erreur modification:', error);
+    
+    let errorMessage = "Erreur lors de la modification";
+    
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.response?.data?.errors) {
+      const errorsObj = error.response.data.errors;
+      const firstError = Object.values(errorsObj)[0];
+      if (Array.isArray(firstError)) {
+        errorMessage = firstError[0];
+      } else {
+        errorMessage = firstError || "Erreur de validation";
+      }
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    // Message spécifique pour les doublons
+    if (errorMessage.includes('already') || errorMessage.includes('existe') || errorMessage.includes('unique')) {
+      errorMessage = `Ce cours est déjà assigné à ${formData.mention} - ${formData.niveau}`;
+    }
+    
+    // L'erreur sera affichée dans le modal via submitError
+    throw new Error(errorMessage);
+  }
+};
 
   const handleDelete = async (courseId, courseName) => {
     if (window.confirm(`Supprimer l'affectation "${courseName}" ?`)) {
@@ -135,34 +161,31 @@ const AffectationPage = () => {
     setOpenMenuId(null);
   };
 
-  const handleAddAffectation = async (formData) => {
-    const selectedCours = coursList.find(c => c.id === parseInt(formData.coursId));
-    const selectedProfesseur = professeursList.find(p => p.id === parseInt(formData.professeurId));
+// src/components/AffectationPage.jsx
+// Dans handleAddAffectation - simplifié car l'erreur est gérée dans le modal
 
-    if (!selectedCours || !selectedProfesseur) {
-      showNotification("Erreur lors de la sélection", 'error');
-      return;
+const handleAddAffectation = async (formData) => {
+  try {
+    const result = await api.affectation.create({
+      code: formData.code,
+      name: formData.name,
+      professor: formData.professor,
+      mention: formData.mention,
+      niveau: formData.niveau,
+      coursId: formData.coursId,
+      professeurId: formData.professeurId
+    });
+    
+    if (result.message) {
+      await loadAllData();
+      setShowAddModal(false);
+      showNotification(result.message, 'success');
     }
-
-    try {
-      const result = await api.affectation.create({
-        code: selectedCours.code,
-        name: selectedCours.nom,
-        professor: selectedProfesseur.nom,
-        mention: formData.mention,
-        niveau: formData.niveau
-      });
-      
-      if (result.message) {
-        await loadAllData();
-        setShowAddModal(false);
-        showNotification(result.message, 'success');
-      }
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || "Erreur lors de l'ajout";
-      showNotification(errorMessage, 'error');
-    }
-  };
+  } catch (error) {
+    // L'erreur est propagée au modal
+    throw error;
+  }
+};
 
   // Filtrer les affectations
   const getFilteredAffectations = () => {

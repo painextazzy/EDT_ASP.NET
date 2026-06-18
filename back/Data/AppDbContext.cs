@@ -20,6 +20,8 @@ namespace back.Data
         public DbSet<Planning> Plannings { get; set; } = null!;
         public DbSet<Delegue> Delegues { get; set; } = null!;
 
+        public DbSet<PlanningSalle> PlanningSalles { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -141,6 +143,23 @@ namespace back.Data
                 entity.HasIndex(e => e.DateFin);
 
             });
+            modelBuilder.Entity<PlanningSalle>(entity =>
+{
+    entity.ToTable("planning_salle");
+    entity.HasKey(e => new { e.IdPlanning, e.IdSalle });
+    entity.Property(e => e.IdPlanning).HasColumnName("id_planning");
+    entity.Property(e => e.IdSalle).HasColumnName("id_salle");
+
+    entity.HasOne(e => e.Planning)
+          .WithMany(p => p.PlanningSalles)
+          .HasForeignKey(e => e.IdPlanning)
+          .OnDelete(DeleteBehavior.Cascade);
+
+    entity.HasOne(e => e.Salle)
+          .WithMany()
+          .HasForeignKey(e => e.IdSalle)
+          .OnDelete(DeleteBehavior.Cascade);
+});
 
         }
     }

@@ -313,6 +313,23 @@ export const backupApi = {
 };
 
 // ========== NOUVEAU : SERVICE POUR LE PLANNING (CALENDRIER) ==========
+
+
+
+// Service pour les Délégués
+export const delegueApi = {
+  getAll: () => apiClient('/api/Delegue', { method: 'GET' }),
+  create: (data) => apiClient('/api/Delegue', { 
+    method: 'POST', 
+    body: JSON.stringify(data) 
+  }),
+  update: (id, data) => apiClient(`/api/Delegue/${id}`, { 
+    method: 'PUT', 
+    body: JSON.stringify(data) 
+  }),
+  delete: (id) => apiClient(`/api/Delegue/${id}`, { method: 'DELETE' }),
+};
+// ========== SERVICE POUR LE PLANNING (CALENDRIER) ==========
 export const planningApi = {
   // Récupérer tous les événements
   getAll: () => 
@@ -344,28 +361,89 @@ export const planningApi = {
   cancel: (id, motif) => 
     apiClient(`/api/Planning/${id}/annuler`, { 
       method: 'PATCH', 
-      body: JSON.stringify(motif) 
+      body: JSON.stringify({ motif: motif }) 
     }),
   
   // Supprimer un événement
   delete: (id) => 
     apiClient(`/api/Planning/${id}`, { method: 'DELETE' }),
+
+  // ========== GESTION DES SALLES D'UN PLANNING ==========
+  
+  // Récupérer toutes les salles d'un planning
+  getSallesByPlanning: (planningId) => 
+    apiClient(`/api/PlanningSalle/planning/${planningId}`, { method: 'GET' }),
+  
+  // Ajouter une salle à un planning
+  addSalleToPlanning: (planningId, salleId) => 
+    apiClient('/api/PlanningSalle', { 
+      method: 'POST', 
+      body: JSON.stringify({ idPlanning: planningId, idSalle: salleId }) 
+    }),
+  
+  // Retirer une salle d'un planning
+  removeSalleFromPlanning: (planningId, salleId) => 
+    apiClient(`/api/PlanningSalle?planningId=${planningId}&salleId=${salleId}`, { 
+      method: 'DELETE' 
+    }),
+  
+  // Récupérer tous les plannings d'une salle
+  getPlanningsBySalle: (salleId) => 
+    apiClient(`/api/PlanningSalle/salle/${salleId}`, { method: 'GET' }),
+
+  // ========== VÉRIFICATIONS DE DISPONIBILITÉ ==========
+  
+  // Vérifier la disponibilité d'un professeur
+  checkProfesseurDisponibilite: (professeurId, start, end, excludeId = null) => {
+    let url = `/api/Planning/check-professeur?professeurId=${professeurId}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+    if (excludeId) {
+      url += `&excludeId=${excludeId}`;
+    }
+    return apiClient(url, { method: 'GET' });
+  },
+
+  // Vérifier la disponibilité d'une salle par nom
+  checkSalleDisponibilite: (salleNom, start, end, excludeId = null) => {
+    let url = `/api/Planning/check-salle?salleNom=${encodeURIComponent(salleNom)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+    if (excludeId) {
+      url += `&excludeId=${excludeId}`;
+    }
+    return apiClient(url, { method: 'GET' });
+  },
+
+  // Vérifier la disponibilité d'une salle par ID
+  checkSalleDisponibiliteById: (salleId, start, end, excludeId = null) => {
+    let url = `/api/Planning/check-salle-by-id?salleId=${salleId}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+    if (excludeId) {
+      url += `&excludeId=${excludeId}`;
+    }
+    return apiClient(url, { method: 'GET' });
+  },
+};
+// ========== SERVICE POUR PLANNING_SALLE ==========
+export const planningSalleApi = {
+  // Récupérer toutes les salles d'un planning
+  getSallesByPlanning: (planningId) => 
+    apiClient(`/api/PlanningSalle/planning/${planningId}`, { method: 'GET' }),
+  
+  // Ajouter une salle à un planning
+  addSalleToPlanning: (planningId, salleId) => 
+    apiClient('/api/PlanningSalle', { 
+      method: 'POST', 
+      body: JSON.stringify({ idPlanning: planningId, idSalle: salleId }) 
+    }),
+  
+  // Retirer une salle d'un planning
+  removeSalleFromPlanning: (planningId, salleId) => 
+    apiClient(`/api/PlanningSalle?planningId=${planningId}&salleId=${salleId}`, { 
+      method: 'DELETE' 
+    }),
+  
+  // Récupérer tous les plannings d'une salle
+  getPlanningsBySalle: (salleId) => 
+    apiClient(`/api/PlanningSalle/salle/${salleId}`, { method: 'GET' }),
 };
 
-
-// Service pour les Délégués
-export const delegueApi = {
-  getAll: () => apiClient('/api/Delegue', { method: 'GET' }),
-  create: (data) => apiClient('/api/Delegue', { 
-    method: 'POST', 
-    body: JSON.stringify(data) 
-  }),
-  update: (id, data) => apiClient(`/api/Delegue/${id}`, { 
-    method: 'PUT', 
-    body: JSON.stringify(data) 
-  }),
-  delete: (id) => apiClient(`/api/Delegue/${id}`, { method: 'DELETE' }),
-};
 
 
 const api = {
@@ -380,6 +458,7 @@ const api = {
   parcours: parcoursApi,
   niveau: niveauApi,
   planning: planningApi,  // ← NOUVEA
+  planningSalle: planningSalleApi,  // ← NOUVEA
 };
 
 export default api;
