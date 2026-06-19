@@ -289,7 +289,7 @@ const AddAffectationModal = ({
           {loadingData && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
               <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-              <p className="text-sm text-blue-700">Chargement des données...</p>
+              <p className="text-sm text-sky-400">Chargement des données...</p>
             </div>
           )}
 
@@ -376,7 +376,7 @@ const AddAffectationModal = ({
                     <div
                       key={professeur.id}
                       className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-sky-50 transition-colors ${
-                        formData.professeurId === professeur.id ? 'bg-sky-100 text-sky-700' : 'text-gray-700'
+                        formData.professeurId === professeur.id ? 'bg-sky-100 text-sky-400' : 'text-gray-700'
                       }`}
                       onClick={() => handleSelectProfesseur(professeur)}
                     >

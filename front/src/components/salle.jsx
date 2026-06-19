@@ -14,11 +14,10 @@ import {
   X,
   Building
 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import Skeleton from './ui/Skeleton';
 
 const buildingColors = {
   A: { color: "#6b7280", bgColor: "bg-gray-100", textColor: "#4b5563", borderColor: "border-gray-200" },
@@ -29,7 +28,7 @@ const buildingColors = {
 
 const allEtages = ["Rez-de-chaussée", "Etage 1", "Etage 2", "Etage 3", "Etage 4"];
 
-// Composant Toast de notification
+// Composant Toast de notification (pour les succès uniquement)
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, 3000);
@@ -37,7 +36,7 @@ const Toast = ({ message, type, onClose }) => {
   }, [onClose]);
 
   return (
-    <div className="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 animate-slide-down">
+    <div className="fixed top-5 left-1/2 transform -translate-x-1/2 z-[9999] animate-slide-down">
       <div className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg ${
         type === 'success' ? 'bg-green-500' : 'bg-red-500'
       } text-white min-w-[300px]`}>
@@ -92,6 +91,10 @@ const Salle = () => {
   const [editFormData, setEditFormData] = useState({ numero: "", batiment: "", etage: "" });
   const [addErrors, setAddErrors] = useState({});
   const [editErrors, setEditErrors] = useState({});
+  
+  // États pour les erreurs globales des modaux (affichées dans le modal)
+  const [addError, setAddError] = useState('');
+  const [editError, setEditError] = useState('');
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -109,7 +112,7 @@ const Salle = () => {
   const checkSalleExists = (numero, batiment, etage, excludeId = null) => {
     return salles.some(salle => 
       salle.id !== excludeId &&
-      salle.numero?.toLowerCase() === numero.toLowerCase() && 
+      salle.numero?.toLowerCase() === numero.trim().toLowerCase() && 
       salle.batiment === batiment && 
       salle.etage === etage
     );
@@ -160,12 +163,14 @@ const Salle = () => {
   const resetAddModal = () => {
     setAddFormData({ numero: "", batiment: "", etage: "" });
     setAddErrors({});
+    setAddError('');
   };
 
   // Réinitialiser le modal de modification
   const resetEditModal = () => {
     setEditFormData({ numero: "", batiment: "", etage: "" });
     setEditErrors({});
+    setEditError('');
     setEditingSalle(null);
   };
 
@@ -219,10 +224,12 @@ const Salle = () => {
 
   // Ajouter une salle
   const handleAddRoom = async () => {
+    setAddError('');
+    
     if (!validateAddForm()) return;
     
     if (checkSalleExists(addFormData.numero, addFormData.batiment, addFormData.etage)) {
-      showToast(`Une salle "${addFormData.numero}" existe déjà dans le bâtiment ${addFormData.batiment} au ${addFormData.etage}`, 'error');
+      setAddError(`Cette salle "${addFormData.numero}" existe déjà dans le bâtiment ${addFormData.batiment} au ${addFormData.etage}`);
       return;
     }
     
@@ -242,8 +249,16 @@ const Salle = () => {
       showToast(`Salle "${addFormData.numero}" ajoutée avec succès`, 'success');
     } catch (error) {
       console.error("Erreur lors de l'ajout:", error);
-      const errorMessage = error.response?.data?.message || "Erreur lors de l'ajout de la salle";
-      showToast(errorMessage, 'error');
+      
+      let errorMessage = "Erreur lors de l'ajout de la salle";
+      
+      if (error.response?.status === 409) {
+        errorMessage = `Cette salle "${addFormData.numero}" existe déjà dans le bâtiment ${addFormData.batiment} au ${addFormData.etage}`;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      setAddError(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -251,10 +266,20 @@ const Salle = () => {
 
   // Modifier une salle
   const handleEditRoom = async () => {
+    setEditError('');
+    
     if (!validateEditForm()) return;
     
-    if (checkSalleExists(editFormData.numero, editFormData.batiment, editFormData.etage, editingSalle?.id)) {
-      showToast(`Une salle "${editFormData.numero}" existe déjà dans le bâtiment ${editFormData.batiment} au ${editFormData.etage}`, 'error');
+    // Vérifier si une autre salle avec les mêmes infos existe déjà
+    const salleExistante = salles.some(salle => 
+      salle.id !== editingSalle?.id &&
+      salle.numero?.toLowerCase() === editFormData.numero.trim().toLowerCase() && 
+      salle.batiment === editFormData.batiment && 
+      salle.etage === editFormData.etage
+    );
+    
+    if (salleExistante) {
+      setEditError(`Cette salle "${editFormData.numero}" existe déjà dans le bâtiment ${editFormData.batiment} au ${editFormData.etage}`);
       return;
     }
     
@@ -274,8 +299,18 @@ const Salle = () => {
       showToast(`Salle "${editFormData.numero}" modifiée avec succès`, 'success');
     } catch (error) {
       console.error("Erreur lors de la modification:", error);
-      const errorMessage = error.response?.data?.message || "Erreur lors de la modification";
-      showToast(errorMessage, 'error');
+      
+      let errorMessage = "Erreur lors de la modification";
+      
+      if (error.response?.status === 409) {
+        errorMessage = `Cette salle "${editFormData.numero}" existe déjà dans le bâtiment ${editFormData.batiment} au ${editFormData.etage}`;
+      } else if (error.response?.status === 404) {
+        errorMessage = "Salle introuvable. Veuillez rafraîchir la page.";
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      setEditError(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -307,6 +342,7 @@ const Salle = () => {
       etage: salle.etage || ""
     });
     setEditErrors({});
+    setEditError('');
     setShowEditModal(true);
     setShowMenuId(null);
   };
@@ -333,10 +369,8 @@ const Salle = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white font-sans p-6 md:p-8">
-      {/* Toast Notification */}
+      {/* Toast Notification - UNIQUEMENT POUR LES SUCCÈS ET ERREURS GLOBALES */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
-
-
 
       {/* Filters bar */}
       <div className="flex flex-wrap items-center gap-3 mb-8">
@@ -518,7 +552,9 @@ const Salle = () => {
         </div>
       ))}
 
-      {/* Modal Ajout - Sans en-tête coloré */}
+      {/* ============================================ */}
+      {/* MODAL AJOUT - AVEC UNE SEULE CROIX */}
+      {/* ============================================ */}
       <Dialog open={showAddModal} onOpenChange={(open) => {
         if (!open) {
           setShowAddModal(false);
@@ -526,21 +562,26 @@ const Salle = () => {
         }
       }}>
         <DialogContent className="sm:max-w-md rounded-lg p-6 shadow-2xl bg-white">
-          {/* Header avec titre et icône X */}
-          <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100">
-            
-            <button
-              onClick={() => {
-                setShowAddModal(false);
-                resetAddModal();
-              }}
-              className="p-1 rounded-full hover:bg-gray-100 transition-all text-gray-400 hover:text-gray-600"
-            >
-           
-            </button>
-          </div>
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-gray-800">Ajouter une salle</DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              Remplissez les informations ci-dessous pour ajouter une nouvelle salle.
+            </DialogDescription>
+          </DialogHeader>
           
-          <div className="space-y-5">
+          {/* ✅ UNE SEULE CROIX - fournie par DialogHeader */}
+          {/* La croix est déjà incluse par DialogHeader via Radix UI, 
+              on ne met pas de deuxième bouton X */}
+          
+          {/* ✅ AFFICHAGE DE L'ERREUR DANS LE MODAL */}
+          {addError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700">{addError}</p>
+            </div>
+          )}
+          
+          <div className="space-y-5 py-2">
             <div className="space-y-2">
               <Label className="text-gray-700 font-medium text-sm">Numéro de la salle <span className="text-red-500">*</span></Label>
               <Input
@@ -551,6 +592,7 @@ const Salle = () => {
                   if (value === "" || /^[a-zA-Z0-9\s-]*$/.test(value)) {
                     setAddFormData({ ...addFormData, numero: value });
                     if (addErrors.numero) setAddErrors({ ...addErrors, numero: '' });
+                    setAddError('');
                   }
                 }}
                 className={`h-11 rounded-md border-2 px-3 text-base focus:ring-2 focus:ring-sky-500 transition-all ${
@@ -570,6 +612,7 @@ const Salle = () => {
                 onChange={(e) => {
                   setAddFormData({ ...addFormData, batiment: e.target.value });
                   if (addErrors.batiment) setAddErrors({ ...addErrors, batiment: '' });
+                  setAddError('');
                 }}
               >
                 <option value="">Sélectionner un bâtiment</option>
@@ -591,6 +634,7 @@ const Salle = () => {
                 onChange={(e) => {
                   setAddFormData({ ...addFormData, etage: e.target.value });
                   if (addErrors.etage) setAddErrors({ ...addErrors, etage: '' });
+                  setAddError('');
                 }}
               >
                 <option value="">Sélectionner un étage</option>
@@ -614,7 +658,9 @@ const Salle = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Modification - Sans en-tête coloré */}
+      {/* ============================================ */}
+      {/* MODAL MODIFICATION - AVEC UNE SEULE CROIX ET GESTION D'ERREUR */}
+      {/* ============================================ */}
       <Dialog open={showEditModal} onOpenChange={(open) => {
         if (!open) {
           setShowEditModal(false);
@@ -622,21 +668,26 @@ const Salle = () => {
         }
       }}>
         <DialogContent className="sm:max-w-md rounded-lg p-6 shadow-2xl bg-white">
-          {/* Header avec titre et icône X */}
-          <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100">
-           
-            <button
-              onClick={() => {
-                setShowEditModal(false);
-                resetEditModal();
-              }}
-              className="p-1 rounded-full hover:bg-gray-100 transition-all text-gray-400 hover:text-gray-600"
-            >
-              
-            </button>
-          </div>
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-gray-800">Modifier la salle</DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              Modifiez les informations de la salle.
+            </DialogDescription>
+          </DialogHeader>
           
-          <div className="space-y-5">
+          {/* ✅ UNE SEULE CROIX - fournie par DialogHeader */}
+          {/* La croix est déjà incluse par DialogHeader via Radix UI,
+              on ne met pas de deuxième bouton X */}
+          
+          {/* ✅ AFFICHAGE DE L'ERREUR DANS LE MODAL */}
+          {editError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700">{editError}</p>
+            </div>
+          )}
+          
+          <div className="space-y-5 py-2">
             <div className="space-y-2">
               <Label className="text-gray-700 font-medium text-sm">Numéro de la salle <span className="text-red-500">*</span></Label>
               <Input
@@ -647,6 +698,7 @@ const Salle = () => {
                   if (value === "" || /^[a-zA-Z0-9\s-]*$/.test(value)) {
                     setEditFormData({ ...editFormData, numero: value });
                     if (editErrors.numero) setEditErrors({ ...editErrors, numero: '' });
+                    setEditError('');
                   }
                 }}
                 className={`h-11 rounded-md border-2 px-3 text-base focus:ring-2 focus:ring-sky-500 transition-all ${
@@ -666,6 +718,7 @@ const Salle = () => {
                 onChange={(e) => {
                   setEditFormData({ ...editFormData, batiment: e.target.value });
                   if (editErrors.batiment) setEditErrors({ ...editErrors, batiment: '' });
+                  setEditError('');
                 }}
               >
                 <option value="">Sélectionner un bâtiment</option>
@@ -687,6 +740,7 @@ const Salle = () => {
                 onChange={(e) => {
                   setEditFormData({ ...editFormData, etage: e.target.value });
                   if (editErrors.etage) setEditErrors({ ...editErrors, etage: '' });
+                  setEditError('');
                 }}
               >
                 <option value="">Sélectionner un étage</option>
@@ -722,7 +776,6 @@ const Salle = () => {
         .animate-fadeIn { animation: fadeIn 0.15s ease-out; }
         .animate-slide-down { animation: slide-down 0.3s ease-out; }
         
-        /* Custom scrollbar */
         ::-webkit-scrollbar {
           width: 8px;
           height: 8px;

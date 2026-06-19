@@ -1,8 +1,8 @@
 // src/components/calendar/BigCalendar.jsx
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, RefreshCw, Plus, X, Save } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Plus, X, Share2Icon } from 'lucide-react';
 import api from '../../services/api';
 import AddEventModal from './modals/AddEventModal';
 import EventDetailsModal from './modals/EventDetailsModal';
@@ -20,7 +20,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const [loading, setLoading] = useState(true);
   const [professeurs, setProfesseurs] = useState([]);
   
-  const [events, setEvents] = useState(externalEvents || []);
+  const [events, setEvents] = useState([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -37,11 +37,57 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     heureDebut: '09:00',
     heureFin: '10:00',
     type: 'Cours',
-    salles: []
+    salles: [],
+    enseignementId: null,
+    professeurId: null
   });
+
+  // Charger les événements depuis l'API
+  const loadEvents = async () => {
+    try {
+      const data = await api.planning.getAll();
+      console.log("📅 Événements chargés:", data);
+      
+      // Transformer les données pour le calendrier
+      const formattedEvents = Array.isArray(data) ? data.map(item => {
+        const dateDebut = new Date(item.dateDebut);
+        const dateFin = new Date(item.dateFin);
+        
+        return {
+          id: item.id,
+          title: item.enseignement?.cours?.nom || item.typeEvenement || 'Cours',
+          description: '',
+          start: dateDebut,
+          end: dateFin,
+          type: item.typeEvenement,
+          statut: item.statut,
+          niveauId: item.enseignement?.niveau?.id || null,
+          niveau: item.enseignement?.niveau?.libelle || '',
+          salles: item.salles || [],
+          location: item.salles?.map(s => s.nom).join(', ') || '',
+          professeur: item.enseignement?.enseignant?.nom || '',
+          professeurId: item.enseignement?.enseignant?.id || null,
+          enseignementId: item.idEnseignement,
+          motifAnnulation: item.motifAnnulation
+        };
+      }) : [];
+      
+      setEvents(formattedEvents);
+    } catch (error) {
+      console.error("❌ Erreur chargement événements:", error);
+      showNotification("Erreur lors du chargement des événements", 'error');
+      setEvents([]);
+    }
+  };
 
   useEffect(() => {
     loadData();
+    loadEvents();
+  }, []);
+
+  // Rafraîchir les événements quand on change de filtre
+  useEffect(() => {
+    loadEvents();
   }, []);
 
   useEffect(() => {
@@ -116,7 +162,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
       
       const coursDuNiveau = affectations
         .filter(a => a.niveau === niveauLibelle)
-        .map(a => ({ id: a.id, nom: a.name, code: a.code, professeur: a.professor }));
+        .map(a => ({ id: a.id, nom: a.name, code: a.code, professeur: a.professor, enseignementId: a.id }));
       
       const coursUniques = [];
       const coursMap = new Map();
@@ -180,6 +226,8 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
 
   const filteredEvents = (events || []).filter(event => {
     if (selectedNiveau && event.niveauId !== parseInt(selectedNiveau)) return false;
+    // Filtrer les événements annulés
+    if (event.statut === 'Annule') return false;
     return true;
   });
 
@@ -218,80 +266,29 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     Soutenance: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', timeText: 'text-amber-600' }
   };
 
-  const handleAddEvent = () => {
-    if (!newEvent.date || !newEvent.type) {
-      showNotification("Veuillez remplir tous les champs obligatoires", 'error');
-      return;
+  const handleAddEvent = async (newEventData) => {
+    try {
+      // Les données sont déjà envoyées par le modal
+      await loadEvents();
+      showNotification(`Événement ajouté avec succès`, 'success');
+    } catch (error) {
+      console.error("❌ Erreur lors de l'ajout:", error);
+      showNotification("Erreur lors de l'ajout de l'événement", 'error');
     }
-
-    if (newEvent.type === 'Cours') {
-      if (!newEvent.titre) {
-        showNotification("Veuillez sélectionner un cours", 'error');
-        return;
-      }
-    }
-
-    let startDateTime, endDateTime;
-    
-    if (newEvent.type === 'Soutenance' || newEvent.type === 'Examen') {
-      startDateTime = new Date(newEvent.dateDebut);
-      endDateTime = new Date(newEvent.dateFin);
-      const [startHour, startMinute] = newEvent.heureDebut.split(':');
-      const [endHour, endMinute] = newEvent.heureFin.split(':');
-      startDateTime.setHours(parseInt(startHour), parseInt(startMinute));
-      endDateTime.setHours(parseInt(endHour), parseInt(endMinute));
-    } else {
-      startDateTime = new Date(newEvent.date);
-      endDateTime = new Date(newEvent.date);
-      const [startHour, startMinute] = newEvent.heureDebut.split(':');
-      const [endHour, endMinute] = newEvent.heureFin.split(':');
-      startDateTime.setHours(parseInt(startHour), parseInt(startMinute));
-      endDateTime.setHours(parseInt(endHour), parseInt(endMinute));
-    }
-
-    const niveauLibelle = niveaux.find(n => n.id === parseInt(selectedNiveau))?.libelle || '';
-    
-    const coursSelectionne = coursFiltres.find(c => c.nom === newEvent.titre);
-    const professeurNom = coursSelectionne?.professeur || '';
-
-    const newEventObj = {
-      id: Date.now(),
-      title: newEvent.titre,
-      description: '',
-      start: startDateTime,
-      end: endDateTime,
-      type: newEvent.type,
-      niveauId: parseInt(selectedNiveau),
-      niveau: niveauLibelle,
-      salles: newEvent.salles,
-      location: newEvent.salles?.map(s => s.numero).join(', ') || '',
-      professeur: professeurNom
-    };
-
-    setEvents([...(events || []), newEventObj]);
-    
-    if (onAddEvent) onAddEvent(newEventObj);
-    
-    setIsAddModalOpen(false);
-    setNewEvent({
-      titre: '',
-      date: format(new Date(), 'yyyy-MM-dd'),
-      dateDebut: format(new Date(), 'yyyy-MM-dd'),
-      dateFin: format(new Date(), 'yyyy-MM-dd'),
-      heureDebut: '09:00',
-      heureFin: '10:00',
-      type: 'Cours',
-      salles: []
-    });
-    showNotification(`Événement ajouté avec succès`, 'success');
   };
 
-  const handleDeleteEvent = () => {
+  const handleDeleteEvent = async () => {
     if (selectedEvent) {
-      setEvents((events || []).filter(e => e.id !== selectedEvent.id));
-      setIsDetailsModalOpen(false);
-      setSelectedEvent(null);
-      showNotification(`Événement supprimé avec succès`, 'success');
+      try {
+        await api.planning.delete(selectedEvent.id);
+        await loadEvents();
+        setIsDetailsModalOpen(false);
+        setSelectedEvent(null);
+        showNotification(`Événement supprimé avec succès`, 'success');
+      } catch (error) {
+        console.error("❌ Erreur suppression:", error);
+        showNotification("Erreur lors de la suppression", 'error');
+      }
     }
   };
 
@@ -304,7 +301,8 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
       heureDebut: format(new Date(event.start), 'HH:mm'),
       heureFin: format(new Date(event.end), 'HH:mm'),
       type: event.type,
-      salles: event.salles || []
+      salles: event.salles || [],
+      enseignementId: event.enseignementId
     });
     setIsDetailsModalOpen(false);
     setIsEditModalOpen(true);
@@ -313,35 +311,43 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const handleEditEvent = async () => {
     if (!editingEvent) return;
 
-    let startDateTime, endDateTime;
-    
-    if (editingEvent.type === 'Soutenance' || editingEvent.type === 'Examen') {
-      startDateTime = new Date(editingEvent.dateDebut);
-      endDateTime = new Date(editingEvent.dateFin);
-      const [startHour, startMinute] = editingEvent.heureDebut.split(':');
-      const [endHour, endMinute] = editingEvent.heureFin.split(':');
-      startDateTime.setHours(parseInt(startHour), parseInt(startMinute));
-      endDateTime.setHours(parseInt(endHour), parseInt(endMinute));
-    } else {
-      startDateTime = new Date(editingEvent.date);
-      endDateTime = new Date(editingEvent.date);
-      const [startHour, startMinute] = editingEvent.heureDebut.split(':');
-      const [endHour, endMinute] = editingEvent.heureFin.split(':');
-      startDateTime.setHours(parseInt(startHour), parseInt(startMinute));
-      endDateTime.setHours(parseInt(endHour), parseInt(endMinute));
+    try {
+      let startDateTime, endDateTime;
+      
+      if (editingEvent.type === 'Soutenance' || editingEvent.type === 'Examen') {
+        startDateTime = new Date(editingEvent.dateDebut);
+        endDateTime = new Date(editingEvent.dateFin);
+        const [startHour, startMinute] = editingEvent.heureDebut.split(':');
+        const [endHour, endMinute] = editingEvent.heureFin.split(':');
+        startDateTime.setHours(parseInt(startHour), parseInt(startMinute));
+        endDateTime.setHours(parseInt(endHour), parseInt(endMinute));
+      } else {
+        startDateTime = new Date(editingEvent.date);
+        endDateTime = new Date(editingEvent.date);
+        const [startHour, startMinute] = editingEvent.heureDebut.split(':');
+        const [endHour, endMinute] = editingEvent.heureFin.split(':');
+        startDateTime.setHours(parseInt(startHour), parseInt(startMinute));
+        endDateTime.setHours(parseInt(endHour), parseInt(endMinute));
+      }
+
+      const data = {
+        idEnseignement: editingEvent.enseignementId,
+        typeEvenement: editingEvent.type,
+        dateDebut: startDateTime.toISOString(),
+        dateFin: endDateTime.toISOString(),
+        idSalles: editingEvent.salles.map(s => s.id),
+        motifAnnulation: null
+      };
+
+      await api.planning.update(editingEvent.id, data);
+      await loadEvents();
+      setIsEditModalOpen(false);
+      setEditingEvent(null);
+      showNotification(`Événement modifié avec succès`, 'success');
+    } catch (error) {
+      console.error("❌ Erreur modification:", error);
+      showNotification("Erreur lors de la modification", 'error');
     }
-
-    const updatedEvent = {
-      ...editingEvent,
-      start: startDateTime,
-      end: endDateTime,
-      location: editingEvent.salles?.map(s => s.numero).join(', ') || ''
-    };
-
-    setEvents(events.map(e => e.id === editingEvent.id ? updatedEvent : e));
-    setIsEditModalOpen(false);
-    setEditingEvent(null);
-    showNotification(`Événement modifié avec succès`, 'success');
   };
 
   const handleEventClick = (event) => {
@@ -536,9 +542,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
                 );
               })}
             </div>
-            <div className="absolute top-[300px] left-[80px] right-0 h-px bg-red-400 z-30 pointer-events-none flex items-center">
-              <div className="w-2.5 h-2.5 bg-red-500 rounded-full -ml-1.5 shadow-sm"></div>
-            </div>
           </div>
         </div>
       </main>
@@ -546,7 +549,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
       <footer className="bg-gray-50 px-6 py-2 border-t border-gray-100 flex justify-between items-center text-[10px] text-gray-400">
         <div className="flex items-center gap-3">
           <span>Dernière mise à jour: {format(new Date(), 'dd/MM/yyyy HH:mm')}</span>
-          <button className="flex items-center gap-1 hover:text-gray-600 transition-colors">
+          <button onClick={loadEvents} className="flex items-center gap-1 hover:text-gray-600 transition-colors">
             <RefreshCw className="w-3 h-3" /> Actualiser
           </button>
         </div>
@@ -560,10 +563,10 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
         <Plus className="w-6 h-6" />
       </button>
       <button onClick={handleSaveTimetable} className="fixed bottom-8 right-28 w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all z-40">
-        <Save className="w-5 h-5" />
+        <Share2Icon className="w-5 h-5" />
       </button>
 
-      {/* Modals importés */}
+      {/* Modals */}
       <AddEventModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}

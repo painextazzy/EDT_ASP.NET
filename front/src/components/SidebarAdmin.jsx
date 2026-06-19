@@ -8,12 +8,12 @@ import {
   School, 
   Users, 
   DoorOpen, 
-  DatabaseBackup,
+  CloudUpload,
   Layers,
   GraduationCap,
   ChevronLeft,
   ChevronRight,
-  CalendarX,
+  History,
   UserCheck
 } from 'lucide-react';
 
@@ -30,8 +30,8 @@ const SidebarAdmin = () => {
     { label: 'Niveau & Parcours', icon: Layers, path: '/admin/niveaux-parcours' },
 
     { label: 'Délégués', icon: UserCheck, path: '/admin/delegues' },
-    { label: 'Cours annulés', icon: CalendarX, path: '/admin/cours-annules' },
-    { label: 'Sauvegarde', icon: DatabaseBackup, path: '/admin/sauvegarde' }
+    { label: 'Historiques cours annulés', icon: History, path: '/admin/cours-annules' },
+    { label: 'Sauvegarde', icon: CloudUpload, path: '/admin/sauvegarde' }
 
   ];
 
