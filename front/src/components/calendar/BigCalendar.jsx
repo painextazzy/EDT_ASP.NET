@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, RefreshCw, Plus, X, Share2Icon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Plus, X, Share2Icon, SlidersHorizontal, Building, User, Clock, Search } from 'lucide-react';
 import api from '../../services/api';
 import AddEventModal from './modals/AddEventModal';
 import EventDetailsModal from './modals/EventDetailsModal';
@@ -19,6 +19,9 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const [sallesDisponibles, setSallesDisponibles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [professeurs, setProfesseurs] = useState([]);
+  const [showNiveauFilter, setShowNiveauFilter] = useState(false);
+  const [searchNiveau, setSearchNiveau] = useState('');
+  const filterRef = useRef(null);
   
   const [events, setEvents] = useState([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -42,13 +45,53 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     professeurId: null
   });
 
+  // Couleurs pour les 3 types d'événements
+  const eventColors = {
+    Cours: { 
+      bg: 'bg-amber-50', 
+      border: 'border-amber-300', 
+      text: 'text-amber-800', 
+      timeText: 'text-amber-600',
+      dot: 'bg-amber-500',
+      lightBg: 'bg-amber-100',
+      hoverBg: 'hover:bg-amber-100'
+    },
+    Examen: { 
+      bg: 'bg-purple-50', 
+      border: 'border-purple-300', 
+      text: 'text-purple-800', 
+      timeText: 'text-purple-600',
+      dot: 'bg-purple-500',
+      lightBg: 'bg-purple-100',
+      hoverBg: 'hover:bg-purple-100'
+    },
+    Soutenance: { 
+      bg: 'bg-orange-50', 
+      border: 'border-orange-300', 
+      text: 'text-orange-800', 
+      timeText: 'text-orange-600',
+      dot: 'bg-orange-500',
+      lightBg: 'bg-orange-100',
+      hoverBg: 'hover:bg-orange-100'
+    }
+  };
+
+  // Fonction pour obtenir les couleurs avec fallback
+  const getEventColors = (type) => {
+    return eventColors[type] || eventColors.Cours;
+  };
+
+  const getEventTypeLabel = (type) => {
+    if (type === 'Soutenance') return 'Presentation';
+    return type || 'Cours';
+  };
+
   // Charger les événements depuis l'API
   const loadEvents = async () => {
     try {
       const data = await api.planning.getAll();
       console.log("📅 Événements chargés:", data);
       
-      // Transformer les données pour le calendrier
       const formattedEvents = Array.isArray(data) ? data.map(item => {
         const dateDebut = new Date(item.dateDebut);
         const dateFin = new Date(item.dateFin);
@@ -85,7 +128,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     loadEvents();
   }, []);
 
-  // Rafraîchir les événements quand on change de filtre
   useEffect(() => {
     loadEvents();
   }, []);
@@ -101,6 +143,18 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
       loadSallesDisponibles();
     }
   }, [newEvent.date, newEvent.type]);
+
+  // Gestion du clic en dehors du dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filterRef.current && !filterRef.current.contains(event.target)) {
+        setShowNiveauFilter(false);
+        setSearchNiveau('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -224,9 +278,9 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const weekDays = getWeekDays();
   const monthYear = format(currentDate, 'MMMM yyyy', { locale: fr });
 
+  // Filtrer les événements par niveau
   const filteredEvents = (events || []).filter(event => {
     if (selectedNiveau && event.niveauId !== parseInt(selectedNiveau)) return false;
-    // Filtrer les événements annulés
     if (event.statut === 'Annule') return false;
     return true;
   });
@@ -260,15 +314,8 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     return Math.max(durationHours * 60, 30);
   };
 
-  const eventColors = {
-    Cours: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-800', timeText: 'text-emerald-600' },
-    Examen: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-800', timeText: 'text-red-600' },
-    Soutenance: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', timeText: 'text-amber-600' }
-  };
-
   const handleAddEvent = async (newEventData) => {
     try {
-      // Les données sont déjà envoyées par le modal
       await loadEvents();
       showNotification(`Événement ajouté avec succès`, 'success');
     } catch (error) {
@@ -394,6 +441,28 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     return newEvent.type === 'Examen' || newEvent.type === 'Soutenance';
   };
 
+  // Réinitialiser le filtre niveau
+  const resetNiveauFilter = () => {
+    if (niveaux.length > 0) {
+      setSelectedNiveau(niveaux[0]?.id?.toString() || '');
+    } else {
+      setSelectedNiveau('');
+    }
+    setShowNiveauFilter(false);
+    setSearchNiveau('');
+  };
+
+  // Récupérer le libellé du niveau sélectionné
+  const getSelectedNiveauLabel = () => {
+    const niveau = niveaux.find(n => n.id?.toString() === selectedNiveau);
+    return niveau?.libelle || selectedNiveau;
+  };
+
+  // Filtrer les niveaux par recherche
+  const filteredNiveaux = niveaux.filter(niveau =>
+    niveau.libelle?.toLowerCase().includes(searchNiveau.toLowerCase())
+  );
+
   if (loading) {
     return (
       <div className="h-full bg-gray-50 rounded-2xl p-6">
@@ -456,17 +525,87 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
             </div>
           </div>
 
-          {/* Filtre niveau */}
-          <div className="flex items-center gap-3">
-            <select
-              value={selectedNiveau}
-              onChange={(e) => setSelectedNiveau(e.target.value)}
-              className="px-5 py-2 pr-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer font-medium min-w-[150px]"
+          {/* Filtre Niveau - Style Select2 avec recherche */}
+          <div className="relative" ref={filterRef}>
+            <button
+              onClick={() => setShowNiveauFilter(!showNiveauFilter)}
+              className={`px-4 py-2.5 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-all flex items-center gap-2 min-w-[200px] justify-between ${
+                selectedNiveau ? 'ring-2 ring-blue-500 border-blue-500' : ''
+              }`}
+              title="Filtrer par niveau"
             >
-              {niveaux.map(niveau => (
-                <option key={niveau.id} value={niveau.id}>{niveau.libelle}</option>
-              ))}
-            </select>
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="w-5 h-5 text-gray-500" />
+                <span className="text-sm font-medium text-gray-700 truncate">
+                  {getSelectedNiveauLabel() || 'Sélectionner un niveau'}
+                </span>
+              </div>
+              <svg className={`w-4 h-4 text-gray-400 transition-transform ${showNiveauFilter ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Dropdown avec recherche */}
+            {showNiveauFilter && (
+              <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50 max-h-80 overflow-hidden">
+                {/* Barre de recherche */}
+                <div className="px-3 pb-2 border-b border-gray-100">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchNiveau}
+                      onChange={(e) => setSearchNiveau(e.target.value)}
+                      placeholder="Rechercher un niveau..."
+                      className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      autoFocus
+                    />
+                    {searchNiveau && (
+                      <button
+                        onClick={() => setSearchNiveau('')}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Liste des niveaux */}
+                <div className="overflow-y-auto max-h-48 py-1">
+                  {filteredNiveaux.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                      {searchNiveau ? 'Aucun niveau trouvé' : 'Aucun niveau disponible'}
+                    </div>
+                  ) : (
+                    filteredNiveaux.map((niveau) => (
+                      <button
+                        key={niveau.id}
+                        onClick={() => {
+                          setSelectedNiveau(niveau.id?.toString());
+                          setShowNiveauFilter(false);
+                          setSearchNiveau('');
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-sm transition-all flex items-center justify-between ${
+                          selectedNiveau === niveau.id?.toString()
+                            ? 'bg-blue-50 text-blue-700 font-medium'
+                            : 'hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <span>{niveau.libelle}</span>
+                        {selectedNiveau === niveau.id?.toString() && (
+                          <span className="text-blue-600">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -508,30 +647,63 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
                 return (
                   <div key={dayIdx} className="relative min-h-[720px]">
                     {dayEvents.map((event) => {
-                      const style = eventColors[event.type] || eventColors.Cours;
+                      const colors = getEventColors(event.type);
                       const top = getEventTop(event.start);
                       const height = getEventHeight(event.start, event.end);
                       return (
                         <div
                           key={event.id}
-                          className={`absolute left-1 right-1 rounded-xl p-2 flex flex-col shadow-sm hover:shadow-md transition-all z-20 group cursor-pointer ${style.bg} border ${style.border}`}
-                          style={{ top: `${top}px`, height: `${height}px`, minHeight: '40px' }}
+                          className={`absolute left-1 right-1 rounded-xl p-2.5 flex flex-col shadow-sm hover:shadow-md transition-all z-20 group cursor-pointer ${colors.bg} border ${colors.border}`}
+                          style={{ top: `${top}px`, height: `${height}px`, minHeight: '55px' }}
                           onClick={() => handleEventClick(event)}
                         >
-                          <div className="flex-1">
-                            <span className={`${style.text} text-[11px] font-semibold truncate block`}>{event.title}</span>
-                            <span className={`${style.timeText} text-[9px]`}>
-                              {event.start && format(new Date(event.start), 'HH:mm')} - {event.end && format(new Date(event.end), 'HH:mm')}
-                            </span>
-                            <div className="flex gap-1 mt-1">
-                              <span className="text-[8px] px-1.5 py-0.5 bg-white/50 rounded-md text-gray-500">{event.niveau}</span>
+                          {/* ❌ SUPPRESSION DU PETIT POINT - La ligne suivante a été supprimée */}
+                          {/* <div className={`absolute left-1.5 top-1.5 w-2.5 h-2.5 rounded-full ${colors.dot}`} /> */}
+
+                          <div className="flex-1 flex flex-col pl-4">
+                            {/* Titre et horaire */}
+                            <div className="flex justify-between items-start gap-1">
+                              <span className={`${colors.text} text-[11px] font-semibold truncate flex-1`}>
+                                {event.title}
+                              </span>
+                              <span className={`${colors.timeText} text-[9px] flex-shrink-0`}>
+                                {event.start && format(new Date(event.start), 'HH:mm')}
+                                <span className="mx-0.5">-</span>
+                                {event.end && format(new Date(event.end), 'HH:mm')}
+                              </span>
                             </div>
+
+                            {/* Type d'événement - badge coloré */}
+                            <span className={`text-[8px] px-1.5 py-0.5 rounded-md self-start mt-0.5 ${colors.lightBg} ${colors.text} font-medium`}>
+                              {getEventTypeLabel(event.type)}
+                            </span>
+
+                            {/* Niveau */}
+                            {event.niveau && (
+                              <span className="text-[9px] text-gray-600 mt-0.5">
+                                {event.niveau}
+                              </span>
+                            )}
+
+                            {/* Professeur - affiché en grand */}
                             {event.professeur && (
-                              <div className="flex items-center gap-1 mt-1 pt-1 border-t border-white/30">
-                                <div className="w-4 h-4 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-[8px]">
-                                  {event.professeur.charAt(0)}
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-[9px] flex-shrink-0 ${colors.dot}`}>
+                                  {event.professeur.charAt(0).toUpperCase()}
                                 </div>
-                                <span className="text-[8px] text-gray-500 truncate">{event.professeur}</span>
+                                <span className="text-[10px] font-medium text-gray-700 truncate">
+                                  {event.professeur}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Salle - affichée en grand avec icône */}
+                            {event.salles && event.salles.length > 0 && (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <Building className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                                <span className="text-[10px] font-medium text-blue-600 truncate">
+                                  {event.salles.map(s => s.nom || s).join(', ')}
+                                </span>
                               </div>
                             )}
                           </div>
@@ -554,7 +726,12 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
           </button>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-blue-600 font-medium">Affichage: {niveaux.find(n => n.id === parseInt(selectedNiveau))?.libelle || 'Chargement...'}</span>
+          {selectedNiveau && (
+            <span className="text-blue-600 font-medium flex items-center gap-1">
+              <SlidersHorizontal className="w-3 h-3" />
+              {getSelectedNiveauLabel()}
+            </span>
+          )}
         </div>
       </footer>
 

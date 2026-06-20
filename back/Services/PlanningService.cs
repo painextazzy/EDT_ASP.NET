@@ -15,6 +15,20 @@ namespace back.Services
             _context = context;
         }
 
+        // ========== MÉTHODES POUR RÉCUPÉRER LES SALLES ==========
+
+        public async Task<Salle> GetSalleByNumeroAsync(string numero)
+        {
+            return await _context.Salles
+                .FirstOrDefaultAsync(s => s.Numero == numero);
+        }
+
+        public async Task<Salle> GetSalleByIdAsync(int id)
+        {
+            return await _context.Salles
+                .FirstOrDefaultAsync(s => s.Id == id);
+        }
+
         // ========== VÉRIFICATIONS DE DISPONIBILITÉ ==========
 
         public async Task<bool> IsProfesseurAvailableAsync(int professeurId, DateTime start, DateTime end, int? excludeId = null)
@@ -51,6 +65,7 @@ namespace back.Services
             return !await query.AnyAsync();
         }
 
+        // ✅ VÉRIFICATION DES CONFLITS (avec gestion des types)
         public async Task<(bool IsValid, string Message)> CheckConflictsAsync(PlanningDto dto, int? excludeId = null)
         {
             var enseignement = await _context.Enseignements
@@ -73,16 +88,21 @@ namespace back.Services
                 if (!await IsSalleAvailableAsync(salleId, dto.DateDebut, dto.DateFin, excludeId))
                 {
                     var salle = await _context.Salles.FindAsync(salleId);
-                    return (false, $"La salle {salle?.Numero} est déjà occupée sur cette tranche horaire");
+                    return (false, $"La salle {salle?.Numero ?? "inconnue"} est déjà occupée sur cette tranche horaire");
                 }
             }
 
             return (true, "Toutes les vérifications sont passées");
         }
 
+        // ✅ VÉRIFICATION SI LE TYPE EST MULTI-SALLE
+        public bool IsMultiSalleType(string typeEvenement)
+        {
+            return typeEvenement == "Examen" || typeEvenement == "Présentation";
+        }
+
         // ========== CRUD ==========
 
-        // Récupérer tous les événements
         public async Task<List<object>> GetAllAsync()
         {
             var plannings = await _context.Plannings
@@ -145,7 +165,6 @@ namespace back.Services
             }).Cast<object>().ToList();
         }
 
-        // Créer un événement
         public async Task<Planning> CreateAsync(PlanningDto dto)
         {
             var enseignement = await _context.Enseignements
@@ -154,7 +173,6 @@ namespace back.Services
             if (enseignement == null)
                 throw new Exception("Enseignement non trouvé");
 
-            // Vérification des conflits avant insertion
             var (isValid, message) = await CheckConflictsAsync(dto);
             if (!isValid)
                 throw new Exception(message);
@@ -186,10 +204,8 @@ namespace back.Services
             return planning;
         }
 
-        // Mettre à jour un événement
         public async Task<Planning> UpdateAsync(int id, PlanningDto dto)
         {
-            // Récupérer le planning existant avec ses salles
             var planning = await _context.Plannings
                 .Include(p => p.PlanningSalles)
                 .FirstOrDefaultAsync(p => p.Id == id);
@@ -197,30 +213,25 @@ namespace back.Services
             if (planning == null)
                 throw new Exception("Événement non trouvé");
 
-            // Vérifier que l'enseignement existe
             var enseignement = await _context.Enseignements
                 .FirstOrDefaultAsync(e => e.Id == dto.IdEnseignement);
 
             if (enseignement == null)
                 throw new Exception("Enseignement non trouvé");
 
-            // Vérification des conflits avant mise à jour (excluant l'événement actuel)
             var (isValid, message) = await CheckConflictsAsync(dto, id);
             if (!isValid)
                 throw new Exception(message);
 
-            // Mettre à jour les propriétés
             planning.IdEnseignement = dto.IdEnseignement;
             planning.TypeEvenement = dto.TypeEvenement;
             planning.DateDebut = dto.DateDebut;
             planning.DateFin = dto.DateFin;
             planning.MotifAnnulation = dto.MotifAnnulation;
 
-            // Supprimer les anciennes salles
             var existingSalles = _context.PlanningSalles.Where(ps => ps.IdPlanning == id);
             _context.PlanningSalles.RemoveRange(existingSalles);
 
-            // Ajouter les nouvelles salles
             foreach (var salleId in dto.IdSalles)
             {
                 _context.PlanningSalles.Add(new PlanningSalle
@@ -235,10 +246,8 @@ namespace back.Services
             return planning;
         }
 
-        // Supprimer un événement
         public async Task DeleteAsync(int id)
         {
-            // Récupérer le planning avec ses salles
             var planning = await _context.Plannings
                 .Include(p => p.PlanningSalles)
                 .FirstOrDefaultAsync(p => p.Id == id);
@@ -246,17 +255,14 @@ namespace back.Services
             if (planning == null)
                 throw new Exception("Événement non trouvé");
 
-            // Supprimer les salles associées
             var salles = _context.PlanningSalles.Where(ps => ps.IdPlanning == id);
             _context.PlanningSalles.RemoveRange(salles);
 
-            // Supprimer le planning
             _context.Plannings.Remove(planning);
 
             await _context.SaveChangesAsync();
         }
 
-        // Annuler un événement (changer le statut)
         public async Task<Planning> AnnulerAsync(int id, string motif)
         {
             var planning = await _context.Plannings.FindAsync(id);

@@ -50,7 +50,8 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
   if (!isOpen) return null;
 
   const safeSalles = newEvent.salles || [];
-  const sallesToShow = typeof isMultiSalleType === 'function' && isMultiSalleType() ? (sallesDisponibles || []) : (salles || []);
+  const allowMultiSalle = typeof isMultiSalleType === 'function' && isMultiSalleType() && newEvent.type !== 'Soutenance';
+  const sallesToShow = allowMultiSalle ? (sallesDisponibles || []) : (salles || []);
 
   // Filtrer les cours selon la recherche
   const filteredCours = coursFiltres.filter(c => 
@@ -67,30 +68,16 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
         setConflictError("Veuillez sélectionner un type d'événement");
         return false;
       }
-      if ((newEvent.type === 'Cours' || newEvent.type === 'Examen') && !newEvent.titre) {
+      if ((newEvent.type === 'Cours' || newEvent.type === 'Examen' || newEvent.type === 'Soutenance') && !newEvent.titre) {
         setConflictError('Veuillez sélectionner un cours');
-        return false;
-      }
-      if (newEvent.type === 'Soutenance' && !newEvent.titre) {
-        setConflictError('Veuillez saisir un titre pour la soutenance');
         return false;
       }
     }
 
     if (currentStep === 2) {
-      if ((newEvent.type === 'Cours' || newEvent.type === 'Examen') && !newEvent.date) {
+      if ((newEvent.type === 'Cours' || newEvent.type === 'Examen' || newEvent.type === 'Soutenance') && !newEvent.date) {
         setConflictError('Veuillez sélectionner une date');
         return false;
-      }
-      if (newEvent.type === 'Soutenance') {
-        if (!newEvent.dateDebut || !newEvent.dateFin) {
-          setConflictError('Veuillez renseigner les dates de début et de fin');
-          return false;
-        }
-        if (new Date(newEvent.dateFin) < new Date(newEvent.dateDebut)) {
-          setConflictError('La date de fin doit être postérieure à la date de début');
-          return false;
-        }
       }
       if (!newEvent.heureDebut || !newEvent.heureFin) {
         setConflictError('Veuillez sélectionner les horaires');
@@ -146,14 +133,8 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
     setIsSubmitting(true);
     
     try {
-      let dateStart, dateEnd;
-      if (newEvent.type === 'Soutenance') {
-        dateStart = new Date(`${newEvent.dateDebut}T${newEvent.heureDebut}`);
-        dateEnd = new Date(`${newEvent.dateFin}T${newEvent.heureFin}`);
-      } else {
-        dateStart = new Date(`${newEvent.date}T${newEvent.heureDebut}`);
-        dateEnd = new Date(`${newEvent.date}T${newEvent.heureFin}`);
-      }
+      const dateStart = new Date(`${newEvent.date}T${newEvent.heureDebut}`);
+      const dateEnd = new Date(`${newEvent.date}T${newEvent.heureFin}`);
 
       const currentCourse = coursFiltres.find(c => c.nom === newEvent.titre);
       const enseignementId = newEvent.enseignementId || currentCourse?.id || 1;
@@ -268,13 +249,13 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
                   >
                     <option value="Cours">Cours</option>
                     <option value="Examen">Examen</option>
-                    <option value="Soutenance">Soutenance</option>
+                    <option value="Soutenance">Presentation</option>
                   </select>
                 </div>
 
-                {(newEvent.type === 'Cours' || newEvent.type === 'Examen') && (
+                {(newEvent.type === 'Cours' || newEvent.type === 'Examen' || newEvent.type === 'Soutenance') && (
                   <div className="space-y-1.5" ref={coursRef}>
-                    <label className="block text-sm font-semibold text-gray-600">Cours <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-semibold text-gray-600">{newEvent.type === 'Soutenance' ? 'Cours à présenter' : 'Cours'} <span className="text-red-500">*</span></label>
                     <div className="relative">
                       <input
                         type="text"
@@ -314,19 +295,6 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
                     )}
                   </div>
                 )}
-
-                {newEvent.type === 'Soutenance' && (
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-semibold text-gray-600">Titre de la soutenance <span className="text-red-500">*</span></label>
-                    <input
-                      type="text"
-                      value={newEvent.titre || ''}
-                      onChange={(e) => setNewEvent({ ...newEvent, titre: e.target.value })}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 transition-all"
-                      placeholder="Ex: Soutenance Master 2"
-                    />
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -338,7 +306,7 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
                 <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Date et heure</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pl-4">
-                {(newEvent.type === 'Cours' || newEvent.type === 'Examen') && (
+                {(newEvent.type === 'Cours' || newEvent.type === 'Examen' || newEvent.type === 'Soutenance') && (
                   <div className="space-y-1.5">
                     <label className="block text-sm font-semibold text-gray-600">Date</label>
                     <input
@@ -348,29 +316,6 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 transition-all"
                     />
                   </div>
-                )}
-
-                {newEvent.type === 'Soutenance' && (
-                  <>
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-semibold text-gray-600">Date début <span className="text-red-500">*</span></label>
-                      <input
-                        type="date"
-                        value={newEvent.dateDebut || ''}
-                        onChange={(e) => setNewEvent({ ...newEvent, dateDebut: e.target.value })}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 transition-all"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-semibold text-gray-600">Date fin <span className="text-red-500">*</span></label>
-                      <input
-                        type="date"
-                        value={newEvent.dateFin || ''}
-                        onChange={(e) => setNewEvent({ ...newEvent, dateFin: e.target.value })}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 transition-all"
-                      />
-                    </div>
-                  </>
                 )}
 
                 <div className="space-y-1.5">
@@ -412,7 +357,7 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
                     Salle {typeof isMultiSalleType === 'function' && isMultiSalleType() && <span className="text-xs text-gray-500">(Sélection multiple)</span>}
                   </label>
                   
-                  {typeof isMultiSalleType === 'function' && isMultiSalleType() ? (
+                  {allowMultiSalle ? (
                     <div className="border border-gray-200 rounded-lg p-3 max-h-40 overflow-y-auto space-y-2 bg-gray-50">
                       {sallesToShow.length === 0 ? (
                         <p className="text-sm text-gray-500 text-center py-4">Aucune salle disponible</p>

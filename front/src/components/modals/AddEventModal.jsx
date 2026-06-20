@@ -18,16 +18,24 @@ const AddEventModal = ({
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [conflictError, setConflictError] = useState('');
+  const [conflictWarning, setConflictWarning] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [conflictEvents, setConflictEvents] = useState([]);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [coursDetails, setCoursDetails] = useState(null); // Pour stocker les détails du cours sélectionné
   const totalSteps = 3;
 
   // Réinitialiser les erreurs quand le modal s'ouvre
   useEffect(() => {
     if (isOpen) {
       setConflictError('');
+      setConflictWarning('');
+      setConflictEvents([]);
+      setShowConflictModal(false);
       setCurrentStep(1);
       setIsSubmitting(false);
+      setCoursDetails(null);
     }
   }, [isOpen]);
 
@@ -35,9 +43,84 @@ const AddEventModal = ({
 
   const sallesToShow = isMultiSalleType() ? sallesDisponibles : salles;
 
+  // Fonction pour récupérer les détails d'un cours
+  const fetchCoursDetails = async (coursId) => {
+    try {
+      // Récupérer les détails du cours depuis l'API
+      // Adaptez cette fonction selon votre API
+      const response = await api.enseignement.getById(coursId);
+      return response;
+    } catch (error) {
+      console.error("Erreur lors de la récupération du cours:", error);
+      return null;
+    }
+  };
+
+  // Fonction pour pré-remplir les champs avec les données du cours
+  const handleCoursSelection = async (coursId) => {
+    if (!coursId) {
+      setCoursDetails(null);
+      setNewEvent({
+        ...newEvent,
+        coursLie: null,
+        enseignementId: null,
+        dateDebut: '',
+        dateFin: '',
+        heureDebut: '',
+        heureFin: '',
+        salles: []
+      });
+      return;
+    }
+
+    const cours = coursFiltres.find(c => c.id === parseInt(coursId));
+    if (!cours) return;
+
+    // Récupérer les détails complets du cours (avec ses horaires et salles)
+    const details = await fetchCoursDetails(coursId);
+    
+    if (details) {
+      setCoursDetails(details);
+      
+      // Extraire les informations du cours
+      const dateDebut = details.dateDebut ? details.dateDebut.split('T')[0] : '';
+      const dateFin = details.dateFin ? details.dateFin.split('T')[0] : '';
+      const heureDebut = details.dateDebut ? details.dateDebut.split('T')[1].substring(0, 5) : '';
+      const heureFin = details.dateFin ? details.dateFin.split('T')[1].substring(0, 5) : '';
+      
+      // Récupérer les salles du cours
+      const sallesCours = details.salles || [];
+      
+      setNewEvent({
+        ...newEvent,
+        coursLie: cours,
+        enseignementId: cours.id,
+        titre: `Présentation - ${cours.nom}`,
+        dateDebut: dateDebut,
+        dateFin: dateFin,
+        heureDebut: heureDebut,
+        heureFin: heureFin,
+        salles: sallesCours
+      });
+    } else {
+      // Fallback si les détails ne sont pas disponibles
+      setNewEvent({
+        ...newEvent,
+        coursLie: cours,
+        enseignementId: cours.id,
+        titre: `Présentation - ${cours.nom}`
+      });
+    }
+    
+    setConflictError('');
+    setConflictWarning('');
+  };
+
   // Vérifier les conflits
   const checkConflicts = async () => {
     setConflictError('');
+    setConflictWarning('');
+    setConflictEvents([]);
     
     // Valider les champs requis
     if (!newEvent.type) {
@@ -56,9 +139,13 @@ const AddEventModal = ({
       }
     }
 
-    if (newEvent.type === 'Soutenance') {
+    if (newEvent.type === 'Présentation') {
       if (!newEvent.titre) {
-        setConflictError('Veuillez saisir un titre pour la soutenance');
+        setConflictError('Veuillez saisir un titre pour la présentation');
+        return false;
+      }
+      if (!newEvent.coursLie) {
+        setConflictError('Veuillez sélectionner le cours associé à la présentation');
         return false;
       }
       if (!newEvent.dateDebut) {
@@ -70,7 +157,6 @@ const AddEventModal = ({
         return false;
       }
       
-      // VÉRIFICATION : Date de fin doit être après date de début
       if (newEvent.dateDebut && newEvent.dateFin) {
         const dateDebut = new Date(newEvent.dateDebut);
         const dateFin = new Date(newEvent.dateFin);
@@ -94,7 +180,7 @@ const AddEventModal = ({
     // Construire les datetime
     let dateStart, dateEnd;
     
-    if (newEvent.type === 'Soutenance') {
+    if (newEvent.type === 'Présentation') {
       dateStart = new Date(`${newEvent.dateDebut}T${newEvent.heureDebut}`);
       dateEnd = new Date(`${newEvent.dateFin}T${newEvent.heureFin}`);
     } else {
@@ -108,6 +194,7 @@ const AddEventModal = ({
     }
 
     setIsChecking(true);
+    const conflicts = [];
 
     try {
       // 1. Vérifier la disponibilité du professeur
@@ -120,9 +207,11 @@ const AddEventModal = ({
           );
           
           if (profResponse && profResponse.disponible === false) {
-            setConflictError(`Le professeur a déjà un cours sur cette tranche horaire`);
-            setIsChecking(false);
-            return false;
+            conflicts.push({
+              type: 'professeur',
+              message: `Le professeur a déjà un cours sur cette tranche horaire`,
+              details: profResponse.event
+            });
           }
         } catch (profError) {
           console.warn("Vérification professeur ignorée:", profError.message);
@@ -132,16 +221,19 @@ const AddEventModal = ({
       // 2. Vérifier la disponibilité des salles
       for (const salle of newEvent.salles) {
         try {
-          const salleResponse = await api.planning.checkSalleDisponibilite(
-            salle.numero,
+          const salleResponse = await api.planning.checkSalleDisponibiliteById(
+            salle.id,
             dateStart.toISOString(),
             dateEnd.toISOString()
           );
           
           if (salleResponse && salleResponse.disponible === false) {
-            setConflictError(`La salle "${salle.numero}" est déjà occupée sur cette tranche horaire`);
-            setIsChecking(false);
-            return false;
+            conflicts.push({
+              type: 'salle',
+              salle: salle.numero || salle.nom || `Salle ${salle.id}`,
+              message: `La salle "${salle.numero || salle.nom || salle.id}" est déjà occupée sur cette tranche horaire`,
+              details: salleResponse.event
+            });
           }
         } catch (salleError) {
           console.warn("Vérification salle ignorée:", salleError.message);
@@ -149,6 +241,27 @@ const AddEventModal = ({
       }
 
       setIsChecking(false);
+
+      // Si des conflits sont trouvés
+      if (conflicts.length > 0) {
+        setConflictEvents(conflicts);
+        
+        // Pour les cours : blocage strict
+        if (newEvent.type === 'Cours') {
+          const errorMessages = conflicts.map(c => c.message).join('\n');
+          setConflictError(`❌ Impossible d'ajouter ce cours :\n${errorMessages}`);
+          return false;
+        }
+        
+        // Pour Examen et Présentation : afficher un avertissement avec option d'écrasement
+        if (newEvent.type === 'Examen' || newEvent.type === 'Présentation') {
+          const warningMessages = conflicts.map(c => c.message).join('\n');
+          setConflictWarning(`⚠️ Conflit détecté :\n${warningMessages}\n\nVoulez-vous quand même ajouter cet événement ? (Il écrasera le créneau existant)`);
+          setShowConflictModal(true);
+          return 'warning';
+        }
+      }
+
       return true;
     } catch (error) {
       console.error("Erreur lors de la vérification:", error);
@@ -159,8 +272,11 @@ const AddEventModal = ({
 
   const handleNext = async () => {
     if (currentStep === totalSteps) {
-      const isValid = await checkConflicts();
-      if (!isValid) return;
+      const result = await checkConflicts();
+      if (result === 'warning') {
+        return;
+      }
+      if (!result) return;
     }
     
     if (currentStep < totalSteps) {
@@ -172,21 +288,37 @@ const AddEventModal = ({
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
       setConflictError('');
+      setConflictWarning('');
+      setConflictEvents([]);
     }
   };
 
+  // Confirmer l'écrasement pour Examen/Présentation
+  const confirmOverwrite = async () => {
+    setShowConflictModal(false);
+    setConflictWarning('');
+    await handleSubmit();
+  };
+
+  // Annuler l'écrasement
+  const cancelOverwrite = () => {
+    setShowConflictModal(false);
+    setConflictWarning('');
+    setConflictEvents([]);
+  };
+
   const handleSubmit = async () => {
-    // Vérifier les conflits avant de soumettre
-    const isValid = await checkConflicts();
-    if (!isValid) return;
+    if (!showConflictModal) {
+      const isValid = await checkConflicts();
+      if (!isValid || isValid === 'warning') return;
+    }
     
     setIsSubmitting(true);
     
     try {
-      // Construire les datetime
       let dateStart, dateEnd;
       
-      if (newEvent.type === 'Soutenance') {
+      if (newEvent.type === 'Présentation') {
         dateStart = new Date(`${newEvent.dateDebut}T${newEvent.heureDebut}`);
         dateEnd = new Date(`${newEvent.dateFin}T${newEvent.heureFin}`);
       } else {
@@ -194,9 +326,8 @@ const AddEventModal = ({
         dateEnd = new Date(`${newEvent.date}T${newEvent.heureFin}`);
       }
 
-      // Préparer les données pour l'API
       const data = {
-        idEnseignement: newEvent.enseignementId || 1, // À remplacer par la vraie valeur
+        idEnseignement: newEvent.enseignementId || 1,
         typeEvenement: newEvent.type,
         dateDebut: dateStart.toISOString(),
         dateFin: dateEnd.toISOString(),
@@ -204,26 +335,36 @@ const AddEventModal = ({
         motifAnnulation: null
       };
 
-      console.log("Données envoyées au backend:", data);
+      console.log("📤 Données envoyées:", data);
 
-      // Appel API pour créer l'événement
       const response = await api.planning.create(data);
-      console.log("Réponse du backend:", response);
+      console.log("✅ Réponse:", response);
 
-      // Appeler onSave pour mettre à jour le calendrier
       if (onSave) {
         onSave(response);
       }
       
-      // Fermer le modal
       setCurrentStep(1);
       setConflictError('');
+      setConflictWarning('');
+      setConflictEvents([]);
+      setShowConflictModal(false);
       setIsSubmitting(false);
       onClose();
       
     } catch (error) {
-      console.error("Erreur lors de la création:", error);
-      setConflictError(error.response?.data?.message || "Erreur lors de la création de l'événement");
+      console.error("❌ Erreur lors de la création:", error);
+      
+      if (error.response?.status === 409) {
+        if (newEvent.type === 'Cours') {
+          setConflictError(error.response?.data?.message || "❌ Conflit : cette salle ou ce professeur est déjà occupé.");
+        } else {
+          setConflictWarning(`⚠️ ${error.response?.data?.message || "Conflit détecté"}\n\nVoulez-vous quand même ajouter cet événement ?`);
+          setShowConflictModal(true);
+        }
+      } else {
+        setConflictError(error.response?.data?.message || "Erreur lors de la création de l'événement");
+      }
       setIsSubmitting(false);
     }
   };
@@ -232,7 +373,11 @@ const AddEventModal = ({
     onClose();
     setCurrentStep(1);
     setConflictError('');
+    setConflictWarning('');
+    setConflictEvents([]);
+    setShowConflictModal(false);
     setIsSubmitting(false);
+    setCoursDetails(null);
   };
 
   const showCourseField = () => {
@@ -242,6 +387,7 @@ const AddEventModal = ({
   const goToStep = (step) => {
     setCurrentStep(step);
     setConflictError('');
+    setConflictWarning('');
   };
 
   return (
@@ -344,7 +490,59 @@ const AddEventModal = ({
         {conflictError && (
           <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 flex-shrink-0">
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{conflictError}</p>
+            <p className="text-sm text-red-700 whitespace-pre-line">{conflictError}</p>
+          </div>
+        )}
+
+        {/* Message d'avertissement */}
+        {conflictWarning && !showConflictModal && (
+          <div className="mx-6 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 flex-shrink-0">
+            <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-700 whitespace-pre-line">{conflictWarning}</p>
+          </div>
+        )}
+
+        {/* Modal de confirmation d'écrasement */}
+        {showConflictModal && (
+          <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">⚠️ Conflit détecté</h3>
+                  <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">
+                    {conflictWarning}
+                  </p>
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-xs text-gray-500">
+                      <span className="font-semibold">Type:</span> {newEvent.type}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      <span className="font-semibold">Salle(s):</span> {newEvent.salles.map(s => s.numero || s.nom || s.id).join(', ')}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      <span className="font-semibold">Horaire:</span> {newEvent.heureDebut} - {newEvent.heureFin}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={cancelOverwrite}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-all"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={confirmOverwrite}
+                  className="px-4 py-2 text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-lg shadow-amber-500/20 transition-all"
+                >
+                  Écraser et ajouter
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -368,14 +566,26 @@ const AddEventModal = ({
                     <select
                       value={newEvent.type}
                       onChange={(e) => {
-                        setNewEvent({ ...newEvent, type: e.target.value, titre: '', salles: [] });
+                        setNewEvent({ 
+                          ...newEvent, 
+                          type: e.target.value, 
+                          titre: '', 
+                          coursLie: null,
+                          dateDebut: '',
+                          dateFin: '',
+                          heureDebut: '',
+                          heureFin: '',
+                          salles: []
+                        });
+                        setCoursDetails(null);
                         setConflictError('');
+                        setConflictWarning('');
                       }}
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     >
                       <option value="Cours">Cours</option>
                       <option value="Examen">Examen</option>
-                      <option value="Soutenance">Soutenance</option>
+                      <option value="Présentation">Présentation</option>
                     </select>
                   </div>
 
@@ -389,6 +599,7 @@ const AddEventModal = ({
                         onChange={(e) => {
                           setNewEvent({ ...newEvent, titre: e.target.value });
                           setConflictError('');
+                          setConflictWarning('');
                         }}
                         className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                       >
@@ -400,22 +611,56 @@ const AddEventModal = ({
                     </div>
                   )}
 
-                  {newEvent.type === 'Soutenance' && (
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-semibold text-gray-600">
-                        Titre de la soutenance <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={newEvent.titre}
-                        onChange={(e) => {
-                          setNewEvent({ ...newEvent, titre: e.target.value });
-                          setConflictError('');
-                        }}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                        placeholder="Ex: Soutenance Master 2"
-                      />
-                    </div>
+                  {newEvent.type === 'Présentation' && (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="block text-sm font-semibold text-gray-600">
+                          Titre de la présentation <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={newEvent.titre}
+                          onChange={(e) => {
+                            setNewEvent({ ...newEvent, titre: e.target.value });
+                            setConflictError('');
+                            setConflictWarning('');
+                          }}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                          placeholder="Ex: Présentation Projet"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="block text-sm font-semibold text-gray-600">
+                          Cours associé <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={newEvent.coursLie?.id || ''}
+                          onChange={(e) => {
+                            handleCoursSelection(e.target.value);
+                          }}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        >
+                          <option value="">Sélectionner un cours</option>
+                          {coursFiltres.map(c => (
+                            <option key={c.id} value={c.id}>{c.nom}</option>
+                          ))}
+                        </select>
+                        {newEvent.coursLie && (
+                          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm text-blue-800 font-medium">
+                              📚 Cours : {newEvent.coursLie.nom}
+                            </p>
+                            {coursDetails && (
+                              <div className="mt-1 text-xs text-blue-600">
+                                <p>📅 {newEvent.dateDebut} - {newEvent.dateFin}</p>
+                                <p>⏰ {newEvent.heureDebut} - {newEvent.heureFin}</p>
+                                <p>🏫 Salle(s): {newEvent.salles.map(s => s.numero || s.nom).join(', ')}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -431,6 +676,11 @@ const AddEventModal = ({
                   <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
                     Date et heure
                   </h3>
+                  {newEvent.type === 'Présentation' && newEvent.coursLie && (
+                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                      Pré-rempli depuis le cours
+                    </span>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pl-4">
                   {(newEvent.type === 'Cours' || newEvent.type === 'Examen') && (
@@ -442,13 +692,14 @@ const AddEventModal = ({
                         onChange={(e) => {
                           setNewEvent({ ...newEvent, date: e.target.value });
                           setConflictError('');
+                          setConflictWarning('');
                         }}
                         className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                       />
                     </div>
                   )}
 
-                  {newEvent.type === 'Soutenance' && (
+                  {newEvent.type === 'Présentation' && (
                     <>
                       <div className="space-y-1.5">
                         <label className="block text-sm font-semibold text-gray-600">Date début <span className="text-red-500">*</span></label>
@@ -458,6 +709,7 @@ const AddEventModal = ({
                           onChange={(e) => {
                             setNewEvent({ ...newEvent, dateDebut: e.target.value });
                             setConflictError('');
+                            setConflictWarning('');
                           }}
                           className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                         />
@@ -470,6 +722,7 @@ const AddEventModal = ({
                           onChange={(e) => {
                             setNewEvent({ ...newEvent, dateFin: e.target.value });
                             setConflictError('');
+                            setConflictWarning('');
                           }}
                           className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                         />
@@ -484,6 +737,7 @@ const AddEventModal = ({
                       onChange={(e) => {
                         setNewEvent({ ...newEvent, heureDebut: e.target.value });
                         setConflictError('');
+                        setConflictWarning('');
                       }}
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     >
@@ -498,6 +752,7 @@ const AddEventModal = ({
                       onChange={(e) => {
                         setNewEvent({ ...newEvent, heureFin: e.target.value });
                         setConflictError('');
+                        setConflictWarning('');
                       }}
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     >
@@ -505,6 +760,20 @@ const AddEventModal = ({
                     </select>
                   </div>
                 </div>
+
+                {/* Afficher un résumé pour la présentation */}
+                {newEvent.type === 'Présentation' && newEvent.coursLie && (
+                  <div className="mt-4 pl-4">
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-800">
+                        ✅ Présentation pour le cours <strong>{newEvent.coursLie.nom}</strong>
+                      </p>
+                      <p className="text-xs text-green-600 mt-1">
+                        📅 Du {newEvent.dateDebut} au {newEvent.dateFin} • ⏰ {newEvent.heureDebut} - {newEvent.heureFin}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -518,6 +787,11 @@ const AddEventModal = ({
                   <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
                     Salle
                   </h3>
+                  {newEvent.type === 'Présentation' && newEvent.coursLie && (
+                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                      Pré-remplie depuis le cours
+                    </span>
+                  )}
                 </div>
                 <div className="pl-4">
                   <div className="space-y-1.5 max-w-md">
@@ -538,10 +812,11 @@ const AddEventModal = ({
                                 onChange={() => {
                                   toggleSalleSelection(salle);
                                   setConflictError('');
+                                  setConflictWarning('');
                                 }}
                                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                               />
-                              <span className="text-sm text-gray-700">{salle.numero}</span>
+                              <span className="text-sm text-gray-700">{salle.numero || salle.nom}</span>
                             </label>
                           ))
                         )}
@@ -558,14 +833,23 @@ const AddEventModal = ({
                           const salle = salles.find(s => s.id === parseInt(e.target.value));
                           setNewEvent({ ...newEvent, salles: salle ? [salle] : [] });
                           setConflictError('');
+                          setConflictWarning('');
                         }}
                         className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 px-4 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                       >
                         <option value="">Sélectionner une salle</option>
                         {salles.map(salle => (
-                          <option key={salle.id} value={salle.id}>{salle.numero}</option>
+                          <option key={salle.id} value={salle.id}>{salle.numero || salle.nom}</option>
                         ))}
                       </select>
+                    )}
+                    
+                    {newEvent.type === 'Présentation' && newEvent.coursLie && newEvent.salles.length > 0 && (
+                      <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-xs text-blue-700">
+                          ℹ️ Salle(s) pré-remplie(s) depuis le cours : {newEvent.salles.map(s => s.numero || s.nom).join(', ')}
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -614,8 +898,8 @@ const AddEventModal = ({
               </button>
             ) : (
               <button
-                onClick={handleSubmit}
-                disabled={isChecking || isSubmitting}
+                onClick={handleNext}
+                disabled={isChecking || isSubmitting || showConflictModal}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2.5 text-sm font-semibold rounded-lg shadow-lg shadow-blue-500/20 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (

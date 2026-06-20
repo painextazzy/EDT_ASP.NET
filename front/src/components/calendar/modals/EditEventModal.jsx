@@ -155,7 +155,7 @@ const EditEventModal = ({ isOpen, onClose, onSave, editingEvent, setEditingEvent
                     >
                       <option value="Cours">Cours</option>
                       <option value="Examen">Examen</option>
-                      <option value="Soutenance">Soutenance</option>
+                      <option value="Soutenance">Presentation</option>
                     </select>
                   </div>
 

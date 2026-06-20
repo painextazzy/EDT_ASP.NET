@@ -44,7 +44,10 @@ namespace back.Controllers
             }
             catch (Exception ex)
             {
-                return Conflict(new { message = ex.Message });
+                if (ex.Message.Contains("occupée") || ex.Message.Contains("professeur"))
+                    return Conflict(new { message = ex.Message });
+
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -62,7 +65,13 @@ namespace back.Controllers
             }
             catch (Exception ex)
             {
-                return Conflict(new { message = ex.Message });
+                if (ex.Message.Contains("occupée") || ex.Message.Contains("professeur"))
+                    return Conflict(new { message = ex.Message });
+
+                if (ex.Message.Contains("non trouvé"))
+                    return NotFound(new { message = ex.Message });
+
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -76,10 +85,14 @@ namespace back.Controllers
             }
             catch (Exception ex)
             {
-                return NotFound(new { message = ex.Message });
+                if (ex.Message.Contains("non trouvé"))
+                    return NotFound(new { message = ex.Message });
+
+                return BadRequest(new { message = ex.Message });
             }
         }
-        // [HttpGet("check-professeur")]
+
+        // ✅ VÉRIFICATION PROFESSEUR
         [HttpGet("check-professeur")]
         public async Task<IActionResult> CheckProfesseur(
             [FromQuery] int professeurId,
@@ -89,12 +102,16 @@ namespace back.Controllers
         {
             try
             {
-                // TODO: Implémente la logique dans ton PlanningService
-                // Exemple fictif :
-                // bool disponible = await _service.CheckProfesseurDisponibiliteAsync(professeurId, start, end, excludeId);
+                if (professeurId <= 0)
+                    return BadRequest(new { message = "L'ID du professeur est requis" });
 
-                bool disponible = true; // À remplacer par ton appel de service
-                return Ok(new { disponible = disponible });
+                var disponible = await _service.IsProfesseurAvailableAsync(professeurId, start, end, excludeId);
+
+                return Ok(new
+                {
+                    disponible = disponible,
+                    message = disponible ? "Professeur disponible" : "Le professeur a déjà un cours sur cette tranche horaire"
+                });
             }
             catch (Exception ex)
             {
@@ -102,7 +119,7 @@ namespace back.Controllers
             }
         }
 
-        // [HttpGet("check-salle")]
+        // ✅ VÉRIFICATION SALLE - par nom
         [HttpGet("check-salle")]
         public async Task<IActionResult> CheckSalle(
             [FromQuery] string salleNom,
@@ -112,12 +129,25 @@ namespace back.Controllers
         {
             try
             {
-                // TODO: Implémente la logique dans ton PlanningService
-                // Exemple fictif :
-                // bool disponible = await _service.CheckSalleDisponibiliteAsync(salleNom, start, end, excludeId);
+                if (string.IsNullOrEmpty(salleNom))
+                    return BadRequest(new { message = "Le nom de la salle est requis" });
 
-                bool disponible = true; // À remplacer par ton appel de service
-                return Ok(new { disponible = disponible });
+                var salle = await _service.GetSalleByNumeroAsync(salleNom);
+                if (salle == null)
+                    return Ok(new
+                    {
+                        disponible = true,
+                        message = "Salle non trouvée, considérée comme disponible"
+                    });
+
+                var disponible = await _service.IsSalleAvailableAsync(salle.Id, start, end, excludeId);
+
+                return Ok(new
+                {
+                    disponible = disponible,
+                    message = disponible ? $"La salle {salleNom} est disponible" : $"La salle {salleNom} est déjà occupée sur cette tranche horaire",
+                    salle = new { id = salle.Id, nom = salle.Numero }
+                });
             }
             catch (Exception ex)
             {
@@ -125,7 +155,7 @@ namespace back.Controllers
             }
         }
 
-        // [HttpGet("check-salle-by-id")]
+        // ✅ VÉRIFICATION SALLE - par ID
         [HttpGet("check-salle-by-id")]
         public async Task<IActionResult> CheckSalleById(
             [FromQuery] int salleId,
@@ -135,9 +165,19 @@ namespace back.Controllers
         {
             try
             {
-                // TODO: Implémente la logique dans ton PlanningService
-                bool disponible = true;
-                return Ok(new { disponible = disponible });
+                if (salleId <= 0)
+                    return BadRequest(new { message = "L'ID de la salle est invalide" });
+
+                var disponible = await _service.IsSalleAvailableAsync(salleId, start, end, excludeId);
+
+                var salle = await _service.GetSalleByIdAsync(salleId);
+                var salleNom = salle?.Numero ?? $"Salle {salleId}";
+
+                return Ok(new
+                {
+                    disponible = disponible,
+                    message = disponible ? $"La salle {salleNom} est disponible" : $"La salle {salleNom} est déjà occupée sur cette tranche horaire"
+                });
             }
             catch (Exception ex)
             {
@@ -145,5 +185,4 @@ namespace back.Controllers
             }
         }
     }
-
 }
