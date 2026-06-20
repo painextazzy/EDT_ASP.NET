@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, LayoutGrid, AlertCircle, Loader2, Search, ChevronDown } from 'lucide-react';
 import api from '../../../services/api';
 
-const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFiltres = [], salles = [], sallesDisponibles = [], hours = [], isMultiSalleType, toggleSalleSelection, events = [] }) => {
+const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFiltres = [], salles = [], sallesDisponibles = [], hours = [], isMultiSalleType, toggleSalleSelection, events = [], selectedNiveau = null }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [conflictError, setConflictError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -72,15 +72,17 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
     return dateA.toDateString() === dateB.toDateString();
   };
 
-  const getConflictMessage = ({ checkRoom = true, checkProf = true } = {}) => {
+  const getConflictMessage = ({ checkRoom = true, checkProf = true, checkLevel = true } = {}) => {
     const currentStart = parseDateTime(newEvent.date, newEvent.heureDebut);
     const currentEnd = parseDateTime(newEvent.date, newEvent.heureFin);
     if (!currentStart || !currentEnd) return '';
 
     const selectedRoomIds = safeSalles.map(s => s?.id).filter(Boolean);
     const selectedProfId = newEvent.professeurId;
+    const selectedLevelId = newEvent.niveauId ? Number(newEvent.niveauId) : (selectedNiveau ? parseInt(selectedNiveau, 10) : null);
     let roomConflict = null;
     let profConflict = null;
+    let levelConflict = null;
 
     const desiredDay = new Date(newEvent.date);
 
@@ -105,13 +107,29 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
         profConflict = `Le professeur ${profName} a déjà un cours sur cette tranche horaire de ${formatHour(eventStart)} à ${formatHour(eventEnd)}.`;
       }
 
+      if (checkLevel && selectedLevelId && event.type === 'Cours' && event.niveauId && Number(event.niveauId) === selectedLevelId && isOverlapping(currentStart, currentEnd, eventStart, eventEnd)) {
+        levelConflict = `Il y a déjà un cours dans ce niveau de ${formatHour(eventStart)} à ${formatHour(eventEnd)}.`;
+      }
+
+      if (roomConflict && profConflict && levelConflict) break;
       if (roomConflict && profConflict) break;
+      if (roomConflict && levelConflict) break;
+      if (profConflict && levelConflict) break;
     }
 
+    if (roomConflict && profConflict && levelConflict) {
+      return `${roomConflict} ${profConflict} ${levelConflict}`;
+    }
     if (roomConflict && profConflict) {
       return `${roomConflict} ${profConflict}`;
     }
-    return roomConflict || profConflict || '';
+    if (roomConflict && levelConflict) {
+      return `${roomConflict} ${levelConflict}`;
+    }
+    if (profConflict && levelConflict) {
+      return `${profConflict} ${levelConflict}`;
+    }
+    return roomConflict || profConflict || levelConflict || '';
   };
 
   // Filtrer les cours selon la recherche
@@ -150,7 +168,7 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
         return false;
       }
 
-      const conflictMessage = getConflictMessage({ checkRoom: false, checkProf: Boolean(newEvent.professeurId) });
+      const conflictMessage = getConflictMessage({ checkRoom: false, checkProf: Boolean(newEvent.professeurId), checkLevel: newEvent.type === 'Cours' });
       if (conflictMessage) {
         setConflictError(conflictMessage);
         return false;
@@ -163,7 +181,7 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
         return false;
       }
 
-      const conflictMessage = getConflictMessage({ checkRoom: true, checkProf: Boolean(newEvent.professeurId) });
+      const conflictMessage = getConflictMessage({ checkRoom: true, checkProf: Boolean(newEvent.professeurId), checkLevel: newEvent.type === 'Cours' });
       if (conflictMessage) {
         setConflictError(conflictMessage);
         return false;

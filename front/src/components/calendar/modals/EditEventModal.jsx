@@ -28,15 +28,17 @@ const EditEventModal = ({ isOpen, onClose, onSave, editingEvent, setEditingEvent
     return dateA.toDateString() === dateB.toDateString();
   };
 
-  const getConflictMessage = ({ checkRoom = true, checkProf = true } = {}) => {
+  const getConflictMessage = ({ checkRoom = true, checkProf = true, checkLevel = true } = {}) => {
     const currentStart = parseDateTime(editingEvent.date, editingEvent.heureDebut);
     const currentEnd = parseDateTime(editingEvent.date, editingEvent.heureFin);
     if (!currentStart || !currentEnd) return '';
 
     const selectedRoomIds = (editingEvent.salles || []).map(s => s?.id).filter(Boolean);
     const selectedProfId = editingEvent.professeurId;
+    const selectedLevelId = editingEvent.niveauId ? Number(editingEvent.niveauId) : null;
     let roomConflict = null;
     let profConflict = null;
+    let levelConflict = null;
 
     const desiredDay = new Date(editingEvent.date);
 
@@ -62,13 +64,29 @@ const EditEventModal = ({ isOpen, onClose, onSave, editingEvent, setEditingEvent
         profConflict = `Le professeur ${profName} a déjà un cours sur cette tranche horaire de ${formatHour(eventStart)} à ${formatHour(eventEnd)}.`;
       }
 
+      if (checkLevel && selectedLevelId && event.type === 'Cours' && event.niveauId && Number(event.niveauId) === selectedLevelId && isOverlapping(currentStart, currentEnd, eventStart, eventEnd)) {
+        levelConflict = `Il y a déjà un cours dans ce niveau de ${formatHour(eventStart)} à ${formatHour(eventEnd)}.`;
+      }
+
+      if (roomConflict && profConflict && levelConflict) break;
       if (roomConflict && profConflict) break;
+      if (roomConflict && levelConflict) break;
+      if (profConflict && levelConflict) break;
     }
 
+    if (roomConflict && profConflict && levelConflict) {
+      return `${roomConflict} ${profConflict} ${levelConflict}`;
+    }
     if (roomConflict && profConflict) {
       return `${roomConflict} ${profConflict}`;
     }
-    return roomConflict || profConflict || '';
+    if (roomConflict && levelConflict) {
+      return `${roomConflict} ${levelConflict}`;
+    }
+    if (profConflict && levelConflict) {
+      return `${profConflict} ${levelConflict}`;
+    }
+    return roomConflict || profConflict || levelConflict || '';
   };
 
   const validateCurrentStep = () => {
@@ -94,7 +112,7 @@ const EditEventModal = ({ isOpen, onClose, onSave, editingEvent, setEditingEvent
         setConflictError("L'heure de début doit être antérieure à l'heure de fin");
         return false;
       }
-      const conflictMessage = getConflictMessage({ checkRoom: false, checkProf: Boolean(editingEvent.professeurId) });
+      const conflictMessage = getConflictMessage({ checkRoom: false, checkProf: Boolean(editingEvent.professeurId), checkLevel: editingEvent.type === 'Cours' });
       if (conflictMessage) {
         setConflictError(conflictMessage);
         return false;
@@ -106,7 +124,7 @@ const EditEventModal = ({ isOpen, onClose, onSave, editingEvent, setEditingEvent
         setConflictError('Veuillez sélectionner une salle');
         return false;
       }
-      const conflictMessage = getConflictMessage({ checkRoom: true, checkProf: Boolean(editingEvent.professeurId) });
+      const conflictMessage = getConflictMessage({ checkRoom: true, checkProf: Boolean(editingEvent.professeurId), checkLevel: editingEvent.type === 'Cours' });
       if (conflictMessage) {
         setConflictError(conflictMessage);
         return false;

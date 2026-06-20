@@ -756,6 +756,8 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
         hours={hours}
         isMultiSalleType={isMultiSalleType}
         toggleSalleSelection={toggleSalleSelection}
+        events={events}
+        selectedNiveau={selectedNiveau}
       />
 
       <EventDetailsModal
@@ -774,6 +776,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
         setEditingEvent={setEditingEvent}
         salles={salles}
         hours={hours}
+        events={events}
       />
 
       <style>{`
