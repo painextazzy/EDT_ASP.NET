@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, LayoutGrid, AlertCircle, Loader2, Search, ChevronDown } from 'lucide-react';
 import api from '../../../services/api';
 
-const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFiltres = [], salles = [], sallesDisponibles = [], hours = [], isMultiSalleType, toggleSalleSelection }) => {
+const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFiltres = [], salles = [], sallesDisponibles = [], hours = [], isMultiSalleType, toggleSalleSelection, events = [] }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [conflictError, setConflictError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,6 +53,67 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
   const allowMultiSalle = typeof isMultiSalleType === 'function' && isMultiSalleType() && newEvent.type !== 'Soutenance';
   const sallesToShow = allowMultiSalle ? (sallesDisponibles || []) : (salles || []);
 
+  const parseDateTime = (date, time) => {
+    if (!date || !time) return null;
+    const parsed = new Date(`${date}T${time}`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const formatHour = (date) => {
+    if (!date) return '';
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const isOverlapping = (startA, endA, startB, endB) => {
+    return startA < endB && startB < endA;
+  };
+
+  const sameDay = (dateA, dateB) => {
+    return dateA.toDateString() === dateB.toDateString();
+  };
+
+  const getConflictMessage = ({ checkRoom = true, checkProf = true } = {}) => {
+    const currentStart = parseDateTime(newEvent.date, newEvent.heureDebut);
+    const currentEnd = parseDateTime(newEvent.date, newEvent.heureFin);
+    if (!currentStart || !currentEnd) return '';
+
+    const selectedRoomIds = safeSalles.map(s => s?.id).filter(Boolean);
+    const selectedProfId = newEvent.professeurId;
+    let roomConflict = null;
+    let profConflict = null;
+
+    const desiredDay = new Date(newEvent.date);
+
+    for (const event of events) {
+      const eventStart = event.start ? new Date(event.start) : null;
+      const eventEnd = event.end ? new Date(event.end) : null;
+      if (!eventStart || !eventEnd) continue;
+      if (!sameDay(eventStart, desiredDay)) continue;
+
+      if (checkRoom && selectedRoomIds.length > 0 && event.salles) {
+        const eventRoomIds = event.salles.map(s => s?.id).filter(Boolean);
+        const intersection = selectedRoomIds.some(id => eventRoomIds.includes(id));
+        if (intersection && isOverlapping(currentStart, currentEnd, eventStart, eventEnd)) {
+          const roomId = selectedRoomIds.find(id => eventRoomIds.includes(id));
+          const roomLabel = (salles || []).find(s => s.id === roomId)?.numero || 'cette salle';
+          roomConflict = `La salle ${roomLabel} est occupée de ${formatHour(eventStart)} à ${formatHour(eventEnd)}.`;
+        }
+      }
+
+      if (checkProf && selectedProfId && event.professeurId && Number(event.professeurId) === Number(selectedProfId) && isOverlapping(currentStart, currentEnd, eventStart, eventEnd)) {
+        const profName = event.professeur || 'Ce professeur';
+        profConflict = `Le professeur ${profName} a déjà un cours sur cette tranche horaire de ${formatHour(eventStart)} à ${formatHour(eventEnd)}.`;
+      }
+
+      if (roomConflict && profConflict) break;
+    }
+
+    if (roomConflict && profConflict) {
+      return `${roomConflict} ${profConflict}`;
+    }
+    return roomConflict || profConflict || '';
+  };
+
   // Filtrer les cours selon la recherche
   const filteredCours = coursFiltres.filter(c => 
     c.nom?.toLowerCase().includes(coursSearch.toLowerCase()) ||
@@ -88,11 +149,23 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
         setConflictError("L'heure de début doit être antérieure à l'heure de fin");
         return false;
       }
+
+      const conflictMessage = getConflictMessage({ checkRoom: false, checkProf: Boolean(newEvent.professeurId) });
+      if (conflictMessage) {
+        setConflictError(conflictMessage);
+        return false;
+      }
     }
 
     if (currentStep === 3) {
       if (safeSalles.length === 0) {
         setConflictError('Veuillez sélectionner au moins une salle');
+        return false;
+      }
+
+      const conflictMessage = getConflictMessage({ checkRoom: true, checkProf: Boolean(newEvent.professeurId) });
+      if (conflictMessage) {
+        setConflictError(conflictMessage);
         return false;
       }
     }
