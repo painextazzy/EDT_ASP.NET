@@ -45,7 +45,7 @@ const NavbarAdmin = ({
 
   return (
     <>
-      <nav className="h-12 bg-gray-100 border-b border-gray-200 shadow-md flex items-center justify-end px-4 shrink-0">
+      <nav className="h-12 bg-gray-100 border-b border-gray-200 flex items-center justify-end px-4 shrink-0">
         {/* Menu hamburger pour mobile */}
         <div className="absolute left-4 lg:hidden">
           <button
