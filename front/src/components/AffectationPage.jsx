@@ -111,6 +111,7 @@ const AffectationPage = () => {
   const handleSaveEdit = async (formData) => {
     try {
       const result = await api.affectation.update(editingCourse.id, {
+        coursId: Number(formData.coursId),
         name: formData.name,
         professor: formData.professor,
         mention: formData.mention,
@@ -141,10 +142,6 @@ const AffectationPage = () => {
         }
       } else if (error.message) {
         errorMessage = error.message;
-      }
-      
-      if (errorMessage.includes('already') || errorMessage.includes('existe') || errorMessage.includes('unique')) {
-        errorMessage = `Ce cours est déjà assigné à ${formData.mention} - ${formData.niveau}`;
       }
       
       throw new Error(errorMessage);
@@ -261,30 +258,23 @@ const AffectationPage = () => {
         </div>
       )}
 
-      {/* Header avec compteur - SANS le bouton Ajouter */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Gestion des Affectations</h1>
-          <p className="text-sm text-gray-500 mt-1">{totalAffectations} affectations au total</p>
-        </div>
-        {/* ❌ Bouton "Nouvelle affectation" SUPPRIMÉ */}
-      </div>
+      {/* ❌ HEADER SUPPRIMÉ - Barre de recherche et filtres directement visibles */}
 
-      {/* Search and Filters */}
+      {/* Search and Filters - Directement en haut */}
       <div className="flex flex-col md:flex-row gap-4 mb-10">
-        <div className="w-full md:w-[40%] relative">
+        <div className="w-full md:w-[50%] relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input 
-            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" 
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-sm" 
             placeholder="Rechercher un cours, professeur ou code..." 
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           <select 
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
+            className="px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer min-w-[180px]"
             value={selectedMention}
             onChange={(e) => setSelectedMention(e.target.value)}
           >
@@ -296,7 +286,7 @@ const AffectationPage = () => {
             ))}
           </select>
           <select 
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
+            className="px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer min-w-[160px]"
             value={selectedNiveau}
             onChange={(e) => setSelectedNiveau(e.target.value)}
           >
@@ -307,6 +297,9 @@ const AffectationPage = () => {
               </option>
             ))}
           </select>
+          <span className="flex items-center text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-lg">
+            {totalAffectations} affectation{totalAffectations > 1 ? 's' : ''}
+          </span>
         </div>
       </div>
 
@@ -335,14 +328,17 @@ const AffectationPage = () => {
                       key={course.id} 
                       className="bg-white p-5 border border-gray-100 relative group transition-all rounded-2xl shadow-sm hover:shadow-md"
                     >
-                      {/* Code et Nom du cours */}
+                      {/* Code et Nom du cours avec couleur #FFDE7D */}
                       <div className="mb-4">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-mono text-xs font-bold tracking-wider text-blue-500 bg-blue-50 px-2 py-0.5 rounded">
                             {course.code || 'N/A'}
                           </span>
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-800 mt-1 line-clamp-2">{course.name}</h3>
+                        {/* 🔴 Couleur #FFDE7D pour le titre du cours */}
+                        <h3 className="text-lg font-semibold mt-1 line-clamp-2" style={{ color: '#06202B' }}>
+                          {course.name}
+                        </h3>
                       </div>
                       
                       {/* Professeur */}
@@ -407,7 +403,7 @@ const AffectationPage = () => {
       {/* ✅ Bouton "+" flottant en bas à droite - Ouvre AddAffectationModal */}
       <button 
         onClick={() => setShowAddModal(true)}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 hover:bg-blue-700 transition-all z-40"
+        className="fixed bottom-8 right-8 w-14 h-14 bg-sky-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 hover:bg-sky-700 transition-all z-40"
       >
         <Plus className="w-6 h-6" />
       </button>

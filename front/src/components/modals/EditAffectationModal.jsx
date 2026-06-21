@@ -1,6 +1,6 @@
 // src/components/modals/EditAffectationModal.jsx
-import React, { useState, useEffect } from 'react';
-import { X, AlertCircle, Edit } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { X, AlertCircle, Edit, Search } from 'lucide-react';
 import api from '../../services/api';
 
 const EditAffectationModal = ({ 
@@ -25,6 +25,11 @@ const EditAffectationModal = ({
   const [mentionsList, setMentionsList] = useState([]);
   const [niveauxList, setNiveauxList] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
+
+  // États pour la recherche de cours
+  const [coursSearch, setCoursSearch] = useState('');
+  const [isCoursDropdownOpen, setIsCoursDropdownOpen] = useState(false);
+  const coursRef = useRef(null);
 
   const loadData = async () => {
     setLoadingData(true);
@@ -67,35 +72,56 @@ const EditAffectationModal = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen && editingCourse && coursList.length > 0 && professeursList.length > 0) {
+    if (isOpen && editingCourse && coursList.length > 0) {
+      const cours = coursList.find(c => c.id === parseInt(editingCourse.coursId));
       setFormData({
         coursId: editingCourse.coursId?.toString() || '',
         professeurId: editingCourse.professeurId?.toString() || '',
         mention: editingCourse.mention || '',
         niveau: editingCourse.niveau || ''
       });
+      setCoursSearch(cours ? `${cours.code} - ${cours.nom}` : '');
       setErrors({});
       setSubmitError('');
       setIsSubmitting(false);
     }
-  }, [isOpen, editingCourse, coursList, professeursList]);
+  }, [isOpen, editingCourse, coursList]);
 
   useEffect(() => {
     if (!isOpen) {
       setErrors({});
       setSubmitError('');
       setIsSubmitting(false);
+      setCoursSearch('');
+      setIsCoursDropdownOpen(false);
     }
   }, [isOpen]);
+
+  // Fermer le dropdown quand on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (coursRef.current && !coursRef.current.contains(event.target)) {
+        setIsCoursDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filtrer les cours selon la recherche
+  const filteredCours = useMemo(() => {
+    if (!Array.isArray(coursList) || coursList.length === 0) return [];
+    if (!coursSearch.trim()) return coursList;
+    const search = coursSearch.toLowerCase();
+    return coursList.filter(c => 
+      c.nom?.toLowerCase().includes(search) ||
+      c.code?.toLowerCase().includes(search)
+    );
+  }, [coursList, coursSearch]);
 
   const validateForm = () => {
     const newErrors = {};
     let hasConflict = false;
-    
-    console.log('🔍 Validation du formulaire');
-    console.log('📝 Données du formulaire:', formData);
-    console.log('📚 Affectations existantes:', affectationsExistantes);
-    console.log('✏️ Cours en cours d\'edition:', editingCourse);
     
     if (!formData.coursId) {
       newErrors.coursId = 'Veuillez selectionner un cours';
@@ -121,33 +147,30 @@ const EditAffectationModal = ({
       const niveau = formData.niveau;
       const currentId = editingCourse?.id;
       
-      console.log(`🔍 Recherche d'une affectation avec coursId=${coursId}, mention="${mention}", niveau="${niveau}", id!=${currentId}`);
-      
       const existingAffectation = affectationsExistantes.find(a => {
         const aCoursId = parseInt(a.coursId);
-        const match = aCoursId === coursId && 
-                     a.mention === mention && 
-                     a.niveau === niveau && 
-                     a.id !== currentId;
-        
-        console.log(`  - Affectation ${a.id}: coursId=${aCoursId}, mention="${a.mention}", niveau="${a.niveau}", match=${match}`);
-        return match;
+        return aCoursId === coursId && 
+               a.mention === mention && 
+               a.niveau === niveau && 
+               a.id !== currentId;
       });
 
       if (existingAffectation) {
-        console.log('❌ Conflit trouve:', existingAffectation);
         newErrors.coursId = `Ce cours est deja affecte dans ${mention} - ${niveau}`;
         hasConflict = true;
-      } else {
-        console.log('✅ Aucun conflit trouve');
       }
     }
 
     setErrors(newErrors);
-    console.log('📝 Erreurs:', newErrors);
-    console.log('✅ Formulaire valide:', !hasConflict && Object.keys(newErrors).length === 0);
-    
     return !hasConflict && Object.keys(newErrors).length === 0;
+  };
+
+  const handleCoursSelect = (cours) => {
+    setFormData(prev => ({ ...prev, coursId: cours.id.toString() }));
+    setCoursSearch(`${cours.code} - ${cours.nom}`);
+    setIsCoursDropdownOpen(false);
+    if (errors.coursId) setErrors(prev => ({ ...prev, coursId: '' }));
+    setSubmitError('');
   };
 
   const handleChange = (e) => {
@@ -169,12 +192,15 @@ const EditAffectationModal = ({
     const selectedCours = coursList.find(c => c.id === parseInt(formData.coursId));
     const selectedProfesseur = professeursList.find(p => p.id === parseInt(formData.professeurId));
 
+    // 🔴 Envoyer les IDs pour changer le cours et le professeur
     const dataToSave = {
-      name: selectedCours?.nom || '',
-      professor: selectedProfesseur?.nom || '',
-      mention: formData.mention,
-      niveau: formData.niveau
+      coursId: parseInt(formData.coursId),
+      professeurId: parseInt(formData.professeurId),
+      mention: formData.mention || '',
+      niveau: formData.niveau || ''
     };
+
+    console.log('📤 Données envoyées au backend:', dataToSave);
 
     setIsSubmitting(true);
     try {
@@ -251,33 +277,55 @@ const EditAffectationModal = ({
             </div>
           )}
 
-          {/* Code du cours - Lecture seule */}
-          <div className="space-y-1">
-            <label className="block text-sm font-semibold text-gray-700">Code du cours</label>
-            <div className="bg-gray-100 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700">
-              {editingCourse?.code || 'N/A'}
-            </div>
-          </div>
-
-          {/* Cours - Select */}
-          <div className="space-y-1">
+          {/* Cours - avec recherche */}
+          <div className="space-y-1" ref={coursRef}>
             <label className="block text-sm font-semibold text-gray-700">
               Cours <span className="text-red-500">*</span>
             </label>
-            <select
-              name="coursId"
-              value={formData.coursId}
-              onChange={handleChange}
-              className={`w-full border ${errors.coursId ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white`}
-              disabled={loadingData || !hasData}
-            >
-              <option value="">Selectionner un cours</option>
-              {coursList.map((cours) => (
-                <option key={cours.id} value={cours.id.toString()}>
-                  {cours.code} - {cours.nom}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={coursSearch}
+                  onChange={(e) => {
+                    setCoursSearch(e.target.value);
+                    setIsCoursDropdownOpen(true);
+                    if (!e.target.value) {
+                      setFormData(prev => ({ ...prev, coursId: '' }));
+                    }
+                  }}
+                  onFocus={() => setIsCoursDropdownOpen(true)}
+                  placeholder="Rechercher un cours par code ou nom..."
+                  className={`w-full pl-10 pr-4 py-2.5 border ${errors.coursId ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white`}
+                  disabled={loadingData || !hasData}
+                />
+              </div>
+              {isCoursDropdownOpen && filteredCours.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                  {filteredCours.map((cours) => (
+                    <div
+                      key={cours.id}
+                      className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
+                        formData.coursId === cours.id.toString() ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
+                      }`}
+                      onClick={() => handleCoursSelect(cours)}
+                    >
+                      <span className="font-medium">{cours.code}</span>
+                      <span className="text-gray-500 ml-2">-</span>
+                      <span className="ml-2">{cours.nom}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {isCoursDropdownOpen && filteredCours.length === 0 && coursSearch && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                  <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                    Aucun cours trouve
+                  </div>
+                </div>
+              )}
+            </div>
             {errors.coursId && <p className="text-red-500 text-xs">{errors.coursId}</p>}
           </div>
 

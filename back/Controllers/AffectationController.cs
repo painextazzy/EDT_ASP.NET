@@ -206,7 +206,12 @@ public class AffectationController : ControllerBase
     {
         try
         {
-            _logger.LogInformation($"Mise a jour de l'affectation {id}");
+            if (dto == null)
+            {
+                return BadRequest(new { message = "Les donnees sont requises" });
+            }
+
+            _logger.LogInformation($"Mise a jour affectation {id}");
 
             var enseignement = await _context.Enseignements
                 .Include(e => e.Cours)
@@ -220,52 +225,52 @@ public class AffectationController : ControllerBase
                 return NotFound(new { message = "Affectation non trouvee" });
             }
 
-            // Conserver l'ID du cours actuel pour ne pas en créer un nouveau
             var currentCoursId = enseignement.IdMatiere;
-            var currentCours = await _context.Matieres
-                .FirstOrDefaultAsync(m => m.Id == currentCoursId);
+            var currentProfesseurId = enseignement.IdEnseignant;
 
-            // 1. Mettre a jour le nom du cours existant (NE PAS CREER DE NOUVEAU COURS)
-            if (currentCours != null && !string.IsNullOrEmpty(dto.Name))
+            // 1. Changer le cours
+            if (dto.CoursId > 0 && dto.CoursId != currentCoursId)
             {
-                // Verifier si un autre cours existe deja avec ce nom
-                var existingCours = await _context.Matieres
-                    .FirstOrDefaultAsync(m => m.Nom == dto.Name && m.Id != currentCours.Id);
-
-                if (existingCours != null)
+                var cours = await _context.Matieres.FindAsync(dto.CoursId);
+                if (cours == null)
                 {
-                    return BadRequest(new
+                    return BadRequest(new { message = $"Le cours avec l'ID {dto.CoursId} n'existe pas" });
+                }
+
+                var existingEnseignement = await _context.Enseignements
+                    .FirstOrDefaultAsync(e =>
+                        e.IdMatiere == dto.CoursId &&
+                        e.IdNiveau == enseignement.IdNiveau &&
+                        e.IdParcours == enseignement.IdParcours &&
+                        e.Id != enseignement.Id
+                    );
+
+                if (existingEnseignement != null)
+                {
+                    var currentMention = enseignement.Parcours?.Libelle ?? "";
+                    var currentNiveau = enseignement.Niveau?.Libelle ?? "";
+
+                    return Conflict(new
                     {
-                        message = $"Un cours avec le nom '{dto.Name}' existe deja avec le code '{existingCours.Code}'"
+                        message = $"Ce cours est deja affecte dans {currentMention} - {currentNiveau}"
                     });
                 }
 
-                currentCours.Nom = dto.Name;
-                _context.Matieres.Update(currentCours);
+                enseignement.IdMatiere = dto.CoursId;
             }
 
-            // 2. Gerer le professeur
-            if (!string.IsNullOrEmpty(dto.Professor))
+            // 2. Changer le professeur
+            if (dto.ProfesseurId > 0 && dto.ProfesseurId != currentProfesseurId)
             {
-                var targetEnseignant = await _context.Enseignants
-                    .FirstOrDefaultAsync(e => e.Nom == dto.Professor);
-
-                if (targetEnseignant == null)
+                var professeur = await _context.Enseignants.FindAsync(dto.ProfesseurId);
+                if (professeur == null)
                 {
-                    var randomIm = "IM-" + DateTime.Now.Ticks.ToString().Substring(0, 8);
-                    targetEnseignant = new Enseignant
-                    {
-                        Nom = dto.Professor,
-                        Im = randomIm
-                    };
-                    _context.Enseignants.Add(targetEnseignant);
-                    await _context.SaveChangesAsync();
+                    return BadRequest(new { message = $"Le professeur avec l'ID {dto.ProfesseurId} n'existe pas" });
                 }
-
-                enseignement.IdEnseignant = targetEnseignant.Id;
+                enseignement.IdEnseignant = dto.ProfesseurId;
             }
 
-            // 3. Gerer la mention
+            // 3. Changer la mention
             if (!string.IsNullOrEmpty(dto.Mention))
             {
                 var targetParcours = await _context.Parcours
@@ -281,7 +286,7 @@ public class AffectationController : ControllerBase
                 enseignement.IdParcours = targetParcours.Id;
             }
 
-            // 4. Gerer le niveau
+            // 4. Changer le niveau
             if (!string.IsNullOrEmpty(dto.Niveau))
             {
                 var targetNiveau = await _context.Niveaux
@@ -295,28 +300,6 @@ public class AffectationController : ControllerBase
                 }
 
                 enseignement.IdNiveau = targetNiveau.Id;
-            }
-
-            // 5. Verifier les conflits - Un cours ne peut pas etre affecte deux fois dans le meme niveau
-            var existingEnseignement = await _context.Enseignements
-                .FirstOrDefaultAsync(e =>
-                    e.IdMatiere == currentCoursId &&
-                    e.IdNiveau == enseignement.IdNiveau &&
-                    e.IdParcours == enseignement.IdParcours &&
-                    e.Id != enseignement.Id
-                );
-
-            if (existingEnseignement != null)
-            {
-                var existingProf = await _context.Enseignants
-                    .FirstOrDefaultAsync(e => e.Id == existingEnseignement.IdEnseignant);
-
-                var professeurActuel = existingProf?.Nom ?? "un autre professeur";
-
-                return Conflict(new
-                {
-                    message = $"Ce cours est deja affecte a {professeurActuel} dans {dto.Mention} - {dto.Niveau}"
-                });
             }
 
             await _context.SaveChangesAsync();

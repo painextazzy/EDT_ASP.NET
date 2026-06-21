@@ -37,7 +37,9 @@ public class AffectationService
                     ? e.Enseignant.PhotoUrl
                     : $"https://ui-avatars.com/api/?background=0EA5E9&color=fff&name={Uri.EscapeDataString(e.Enseignant?.Nom ?? "User")}",
                 Mention = e.Parcours != null ? e.Parcours.Libelle : "",
-                Niveau = e.Niveau != null ? e.Niveau.Libelle : ""
+                Niveau = e.Niveau != null ? e.Niveau.Libelle : "",
+                CoursId = e.IdMatiere,
+                ProfesseurId = e.IdEnseignant
             });
         }
 
@@ -137,44 +139,39 @@ public class AffectationService
         return enseignement;
     }
 
+    // 🔴 Méthode Update corrigée
     public async Task<Enseignement?> UpdateAffectation(int id, UpdateAffectationDto dto)
     {
         var enseignement = await _context.Enseignements
             .Include(e => e.Cours)
+            .Include(e => e.Enseignant)
+            .Include(e => e.Niveau)
+            .Include(e => e.Parcours)
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (enseignement == null) return null;
 
-        // Mettre à jour le nom du cours
-        if (enseignement.Cours != null && !string.IsNullOrEmpty(dto.Name))
+        // 1. Changer le cours par son ID
+        if (dto.CoursId > 0)
         {
-            enseignement.Cours.Nom = dto.Name;
+            var cours = await _context.Matieres.FindAsync(dto.CoursId);
+            if (cours != null)
+            {
+                enseignement.IdMatiere = dto.CoursId;
+            }
         }
 
-        // Mettre à jour l'enseignant
-        if (!string.IsNullOrEmpty(dto.Professor))
+        // 2. Changer le professeur par son ID
+        if (dto.ProfesseurId > 0)
         {
-            var enseignant = await _context.Enseignants
-                .FirstOrDefaultAsync(e => e.Nom == dto.Professor);
+            var enseignant = await _context.Enseignants.FindAsync(dto.ProfesseurId);
             if (enseignant != null)
             {
-                enseignement.IdEnseignant = enseignant.Id;
-            }
-            else
-            {
-                var newEnseignant = new Enseignant
-                {
-                    Nom = dto.Professor,
-                    Im = "IM-" + DateTime.Now.Ticks.ToString().Substring(0, 8),
-                    PhotoUrl = $"https://ui-avatars.com/api/?background=0EA5E9&color=fff&name={Uri.EscapeDataString(dto.Professor)}"
-                };
-                _context.Enseignants.Add(newEnseignant);
-                await _context.SaveChangesAsync();
-                enseignement.IdEnseignant = newEnseignant.Id;
+                enseignement.IdEnseignant = dto.ProfesseurId;
             }
         }
 
-        // Mettre à jour le parcours
+        // 3. Mettre à jour le parcours (mention)
         if (!string.IsNullOrEmpty(dto.Mention))
         {
             var parcours = await _context.Parcours
@@ -192,7 +189,7 @@ public class AffectationService
             }
         }
 
-        // Mettre à jour le niveau
+        // 4. Mettre à jour le niveau
         if (!string.IsNullOrEmpty(dto.Niveau))
         {
             var niveau = await _context.Niveaux
@@ -208,6 +205,20 @@ public class AffectationService
                 await _context.SaveChangesAsync();
                 enseignement.IdNiveau = newNiveau.Id;
             }
+        }
+
+        // 5. Vérifier les conflits
+        var conflict = await _context.Enseignements
+            .FirstOrDefaultAsync(e =>
+                e.IdMatiere == enseignement.IdMatiere &&
+                e.IdNiveau == enseignement.IdNiveau &&
+                e.IdParcours == enseignement.IdParcours &&
+                e.Id != enseignement.Id
+            );
+
+        if (conflict != null)
+        {
+            return null; // Conflit détecté
         }
 
         await _context.SaveChangesAsync();

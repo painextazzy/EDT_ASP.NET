@@ -25,8 +25,8 @@ public class CreateAffectationDto
 }
 public class UpdateAffectationDto
 {
-    public string Name { get; set; } = string.Empty;
-    public string Professor { get; set; } = string.Empty;
-    public string Mention { get; set; } = string.Empty;
-    public string Niveau { get; set; } = string.Empty;
+    public int CoursId { get; set; }      // ← Ajouter l'ID du cours
+    public int ProfesseurId { get; set; } // ← Ajouter l'ID du professeur
+    public string? Mention { get; set; }
+    public string? Niveau { get; set; }
 }
