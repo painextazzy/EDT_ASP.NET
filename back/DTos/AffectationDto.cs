@@ -10,10 +10,9 @@ public class AffectationDto
     public string ProfessorAvatar { get; set; } = string.Empty;
     public string Mention { get; set; } = string.Empty;
     public string Niveau { get; set; } = string.Empty;
-    public int CoursId { get; set; }          // ← Ajouter
-    public int ProfesseurId { get; set; }     // ← Ajouter
+    public int CoursId { get; set; }
+    public int ProfesseurId { get; set; }
 }
-
 public class CreateAffectationDto
 {
     public string Code { get; set; } = string.Empty;
@@ -24,7 +23,6 @@ public class CreateAffectationDto
     public int CoursId { get; set; }
     public int ProfesseurId { get; set; }
 }
-
 public class UpdateAffectationDto
 {
     public string Name { get; set; } = string.Empty;

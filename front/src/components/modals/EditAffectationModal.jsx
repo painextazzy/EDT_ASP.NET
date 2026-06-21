@@ -1,6 +1,6 @@
 // src/components/modals/EditAffectationModal.jsx
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, AlertCircle, ChevronDown, Edit } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, AlertCircle, Edit } from 'lucide-react';
 import api from '../../services/api';
 
 const EditAffectationModal = ({ 
@@ -20,30 +20,12 @@ const EditAffectationModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  // États pour les données de l'API
   const [coursList, setCoursList] = useState([]);
   const [professeursList, setProfesseursList] = useState([]);
   const [mentionsList, setMentionsList] = useState([]);
   const [niveauxList, setNiveauxList] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
 
-  // États pour l'autocomplétion
-  const [coursSearch, setCoursSearch] = useState('');
-  const [professeurSearch, setProfesseurSearch] = useState('');
-  const [mentionSearch, setMentionSearch] = useState('');
-  const [niveauSearch, setNiveauSearch] = useState('');
-
-  const [isCoursOpen, setIsCoursOpen] = useState(false);
-  const [isProfesseurOpen, setIsProfesseurOpen] = useState(false);
-  const [isMentionOpen, setIsMentionOpen] = useState(false);
-  const [isNiveauOpen, setIsNiveauOpen] = useState(false);
-
-  const coursRef = useRef(null);
-  const professeurRef = useRef(null);
-  const mentionRef = useRef(null);
-  const niveauRef = useRef(null);
-
-  // Charger les données depuis l'API
   const loadData = async () => {
     setLoadingData(true);
     try {
@@ -72,43 +54,32 @@ const EditAffectationModal = ({
       setNiveauxList(niveauxValides);
       
     } catch (error) {
-      console.error('Erreur chargement données:', error);
+      console.error('Erreur chargement donnees:', error);
     } finally {
       setLoadingData(false);
     }
   };
 
-  // Charger les données quand le modal s'ouvre
   useEffect(() => {
     if (isOpen) {
       loadData();
     }
   }, [isOpen]);
 
-  // Initialiser le formulaire avec les données de editingCourse
   useEffect(() => {
     if (isOpen && editingCourse && coursList.length > 0 && professeursList.length > 0) {
-      const cours = coursList.find(c => c.nom === editingCourse.name);
-      const professeur = professeursList.find(p => p.nom === editingCourse.professor);
-      
       setFormData({
-        coursId: cours?.id?.toString() || '',
-        professeurId: professeur?.id?.toString() || '',
+        coursId: editingCourse.coursId?.toString() || '',
+        professeurId: editingCourse.professeurId?.toString() || '',
         mention: editingCourse.mention || '',
         niveau: editingCourse.niveau || ''
       });
-      
-      setCoursSearch(editingCourse.name || '');
-      setProfesseurSearch(editingCourse.professor || '');
-      setMentionSearch(editingCourse.mention || '');
-      setNiveauSearch(editingCourse.niveau || '');
       setErrors({});
       setSubmitError('');
       setIsSubmitting(false);
     }
   }, [isOpen, editingCourse, coursList, professeursList]);
 
-  // Réinitialiser quand le modal se ferme
   useEffect(() => {
     if (!isOpen) {
       setErrors({});
@@ -117,164 +88,72 @@ const EditAffectationModal = ({
     }
   }, [isOpen]);
 
-  // Fermer les dropdowns
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (coursRef.current && !coursRef.current.contains(event.target)) setIsCoursOpen(false);
-      if (professeurRef.current && !professeurRef.current.contains(event.target)) setIsProfesseurOpen(false);
-      if (mentionRef.current && !mentionRef.current.contains(event.target)) setIsMentionOpen(false);
-      if (niveauRef.current && !niveauRef.current.contains(event.target)) setIsNiveauOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Filtrer les options avec useMemo
-  const filteredCours = useMemo(() => {
-    if (!Array.isArray(coursList) || coursList.length === 0) return [];
-    return coursList.filter(c => 
-      c.nom?.toLowerCase().includes(coursSearch.toLowerCase()) ||
-      c.code?.toLowerCase().includes(coursSearch.toLowerCase())
-    );
-  }, [coursList, coursSearch]);
-
-  const filteredProfesseurs = useMemo(() => {
-    if (!Array.isArray(professeursList) || professeursList.length === 0) return [];
-    return professeursList
-      .filter(p => p && p.nom && p.nom.trim() !== '')
-      .filter(p => 
-        p.nom?.toLowerCase().includes(professeurSearch.toLowerCase()) ||
-        (p.im && p.im.toLowerCase().includes(professeurSearch.toLowerCase()))
-      );
-  }, [professeursList, professeurSearch]);
-
-  const filteredMentions = useMemo(() => {
-    if (!Array.isArray(mentionsList) || mentionsList.length === 0) return [];
-    return mentionsList.filter(m => {
-      const libelle = m.libelle || m;
-      return libelle && libelle.toLowerCase().includes(mentionSearch.toLowerCase());
-    });
-  }, [mentionsList, mentionSearch]);
-
-  const filteredNiveaux = useMemo(() => {
-    if (!Array.isArray(niveauxList) || niveauxList.length === 0) return [];
-    return niveauxList.filter(n => {
-      const libelle = n.libelle || n;
-      return libelle && libelle.toLowerCase().includes(niveauSearch.toLowerCase());
-    });
-  }, [niveauxList, niveauSearch]);
-
-  // Vérifier si le cours est déjà affecté dans le même niveau avec un professeur différent
-  const checkProfessorConflict = (coursId, mention, niveau, professeurId, currentId) => {
-    const existingAffectation = affectationsExistantes.find(a => 
-      parseInt(a.coursId) === parseInt(coursId) &&
-      a.mention === mention &&
-      a.niveau === niveau &&
-      parseInt(a.professeurId) !== parseInt(professeurId) &&
-      a.id !== currentId
-    );
-    
-    return existingAffectation || null;
-  };
-
-  // Vérifier si le cours est déjà affecté dans la même mention/niveau (doublon)
-  const checkIfExists = (coursId, mention, niveau, currentId) => {
-    return affectationsExistantes.some(a => 
-      parseInt(a.coursId) === parseInt(coursId) &&
-      a.mention === mention &&
-      a.niveau === niveau &&
-      a.id !== currentId
-    );
-  };
-
   const validateForm = () => {
     const newErrors = {};
     let hasConflict = false;
     
+    console.log('🔍 Validation du formulaire');
+    console.log('📝 Données du formulaire:', formData);
+    console.log('📚 Affectations existantes:', affectationsExistantes);
+    console.log('✏️ Cours en cours d\'edition:', editingCourse);
+    
     if (!formData.coursId) {
-      newErrors.coursId = 'Veuillez sélectionner un cours';
+      newErrors.coursId = 'Veuillez selectionner un cours';
       hasConflict = true;
     }
     if (!formData.professeurId) {
-      newErrors.professeurId = 'Veuillez sélectionner un professeur';
+      newErrors.professeurId = 'Veuillez selectionner un professeur';
       hasConflict = true;
     }
     if (!formData.mention) {
-      newErrors.mention = 'Veuillez sélectionner une mention';
+      newErrors.mention = 'Veuillez selectionner une mention';
       hasConflict = true;
     }
     if (!formData.niveau) {
-      newErrors.niveau = 'Veuillez sélectionner un niveau';
+      newErrors.niveau = 'Veuillez selectionner un niveau';
       hasConflict = true;
     }
 
-    // Vérification 1 : Cours déjà affecté dans la même mention/niveau (doublon)
+    // Verifier si le cours selectionne est deja affecte dans la meme mention ET niveau
     if (formData.coursId && formData.mention && formData.niveau) {
-      if (checkIfExists(formData.coursId, formData.mention, formData.niveau, editingCourse?.id)) {
-        const coursNom = coursList.find(c => c.id === parseInt(formData.coursId))?.nom || '';
-        newErrors.coursId = `❌ Le cours "${coursNom}" est déjà assigné à ${formData.mention} - ${formData.niveau}`;
-        hasConflict = true;
-      }
-    }
-
-    // Vérification 2 : Cours déjà affecté à un autre professeur dans le même niveau
-    if (formData.coursId && formData.mention && formData.niveau && formData.professeurId) {
-      const conflict = checkProfessorConflict(
-        formData.coursId, 
-        formData.mention, 
-        formData.niveau, 
-        formData.professeurId, 
-        editingCourse?.id
-      );
+      const coursId = parseInt(formData.coursId);
+      const mention = formData.mention;
+      const niveau = formData.niveau;
+      const currentId = editingCourse?.id;
       
-      if (conflict) {
-        const coursNom = coursList.find(c => c.id === parseInt(formData.coursId))?.nom || '';
-        const autreProf = professeursList.find(p => p.id === parseInt(conflict.professeurId))?.nom || 'un autre professeur';
-        newErrors.professeurId = `⚠️ Le cours "${coursNom}" est déjà affecté à ${autreProf} dans ${formData.mention} - ${formData.niveau}`;
+      console.log(`🔍 Recherche d'une affectation avec coursId=${coursId}, mention="${mention}", niveau="${niveau}", id!=${currentId}`);
+      
+      const existingAffectation = affectationsExistantes.find(a => {
+        const aCoursId = parseInt(a.coursId);
+        const match = aCoursId === coursId && 
+                     a.mention === mention && 
+                     a.niveau === niveau && 
+                     a.id !== currentId;
+        
+        console.log(`  - Affectation ${a.id}: coursId=${aCoursId}, mention="${a.mention}", niveau="${a.niveau}", match=${match}`);
+        return match;
+      });
+
+      if (existingAffectation) {
+        console.log('❌ Conflit trouve:', existingAffectation);
+        newErrors.coursId = `Ce cours est deja affecte dans ${mention} - ${niveau}`;
         hasConflict = true;
+      } else {
+        console.log('✅ Aucun conflit trouve');
       }
     }
 
     setErrors(newErrors);
+    console.log('📝 Erreurs:', newErrors);
+    console.log('✅ Formulaire valide:', !hasConflict && Object.keys(newErrors).length === 0);
+    
     return !hasConflict && Object.keys(newErrors).length === 0;
   };
 
-  const handleSelectCours = (cours) => {
-    setFormData(prev => ({ ...prev, coursId: cours.id.toString() }));
-    setCoursSearch(cours.nom);
-    setIsCoursOpen(false);
-    if (errors.coursId) setErrors(prev => ({ ...prev, coursId: '' }));
-    if (errors.professeurId) setErrors(prev => ({ ...prev, professeurId: '' }));
-    setSubmitError('');
-  };
-
-  const handleSelectProfesseur = (professeur) => {
-    setFormData(prev => ({ ...prev, professeurId: professeur.id.toString() }));
-    setProfesseurSearch(professeur.nom);
-    setIsProfesseurOpen(false);
-    if (errors.professeurId) setErrors(prev => ({ ...prev, professeurId: '' }));
-    setSubmitError('');
-  };
-
-  const handleSelectMention = (mention) => {
-    const libelle = mention.libelle || mention;
-    setFormData(prev => ({ ...prev, mention: libelle }));
-    setMentionSearch(libelle);
-    setIsMentionOpen(false);
-    if (errors.mention) setErrors(prev => ({ ...prev, mention: '' }));
-    if (errors.coursId) setErrors(prev => ({ ...prev, coursId: '' }));
-    if (errors.professeurId) setErrors(prev => ({ ...prev, professeurId: '' }));
-    setSubmitError('');
-  };
-
-  const handleSelectNiveau = (niveau) => {
-    const libelle = niveau.libelle || niveau;
-    setFormData(prev => ({ ...prev, niveau: libelle }));
-    setNiveauSearch(libelle);
-    setIsNiveauOpen(false);
-    if (errors.niveau) setErrors(prev => ({ ...prev, niveau: '' }));
-    if (errors.coursId) setErrors(prev => ({ ...prev, coursId: '' }));
-    if (errors.professeurId) setErrors(prev => ({ ...prev, professeurId: '' }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
     setSubmitError('');
   };
 
@@ -282,7 +161,6 @@ const EditAffectationModal = ({
     e.preventDefault();
     setSubmitError('');
     
-    // Validation avant soumission
     const isValid = validateForm();
     if (!isValid) {
       return;
@@ -291,39 +169,11 @@ const EditAffectationModal = ({
     const selectedCours = coursList.find(c => c.id === parseInt(formData.coursId));
     const selectedProfesseur = professeursList.find(p => p.id === parseInt(formData.professeurId));
 
-    // Vérification supplémentaire avant soumission
-    const conflict = checkProfessorConflict(
-      formData.coursId, 
-      formData.mention, 
-      formData.niveau, 
-      formData.professeurId, 
-      editingCourse?.id
-    );
-    
-    if (conflict) {
-      const coursNom = selectedCours?.nom || '';
-      const autreProf = professeursList.find(p => p.id === parseInt(conflict.professeurId))?.nom || 'un autre professeur';
-      setErrors({
-        professeurId: `! Le cours "${coursNom}" est déjà affecté à ${autreProf} dans ${formData.mention} - ${formData.niveau}`
-      });
-      return;
-    }
-
-    // Vérifier les doublons
-    if (checkIfExists(formData.coursId, formData.mention, formData.niveau, editingCourse?.id)) {
-      const coursNom = selectedCours?.nom || '';
-      setErrors({
-        coursId: `! Le cours "${coursNom}" est déjà assigné à ${formData.mention} - ${formData.niveau}`
-      });
-      return;
-    }
-
     const dataToSave = {
       name: selectedCours?.nom || '',
       professor: selectedProfesseur?.nom || '',
       mention: formData.mention,
-      niveau: formData.niveau,
-      code: selectedCours?.code || ''
+      niveau: formData.niveau
     };
 
     setIsSubmitting(true);
@@ -348,11 +198,6 @@ const EditAffectationModal = ({
         errorMessage = error.message;
       }
       
-      if (errorMessage.includes('already') || errorMessage.includes('existe') || errorMessage.includes('unique') || errorMessage.includes('déjà')) {
-        const coursNom = selectedCours?.nom || '';
-        errorMessage = `! Le cours "${coursNom}" est déjà assigné à ${formData.mention} - ${formData.niveau}`;
-      }
-      
       setSubmitError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -366,7 +211,6 @@ const EditAffectationModal = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
@@ -382,23 +226,21 @@ const EditAffectationModal = ({
           </button>
         </div>
 
-        {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {loadingData && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
               <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-              <p className="text-sm text-blue-600">Chargement des données...</p>
+              <p className="text-sm text-blue-600">Chargement des donnees...</p>
             </div>
           )}
 
           {!loadingData && !hasData && (
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-amber-700">Aucune donnée disponible.</p>
+              <p className="text-sm text-amber-700">Aucune donnee disponible.</p>
             </div>
           )}
 
-          {/* Message d'erreur global */}
           {submitError && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 shadow-sm">
               <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -409,182 +251,104 @@ const EditAffectationModal = ({
             </div>
           )}
 
-          {/* Code du cours (lecture seule) */}
-          {editingCourse?.code && (
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-gray-700">Code du cours</label>
-              <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700">
-                {editingCourse.code}
-              </div>
+          {/* Code du cours - Lecture seule */}
+          <div className="space-y-1">
+            <label className="block text-sm font-semibold text-gray-700">Code du cours</label>
+            <div className="bg-gray-100 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700">
+              {editingCourse?.code || 'N/A'}
             </div>
-          )}
+          </div>
 
-          {/* Cours avec autocomplétion */}
-          <div className="space-y-1" ref={coursRef}>
-            <label className="block text-sm font-semibold text-gray-700">Cours <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <input
-                type="text"
-                value={coursSearch}
-                onChange={(e) => {
-                  setCoursSearch(e.target.value);
-                  setIsCoursOpen(true);
-                  if (!e.target.value) setFormData(prev => ({ ...prev, coursId: '' }));
-                }}
-                onFocus={() => setIsCoursOpen(true)}
-                placeholder="Rechercher un cours..."
-                className={`w-full border ${errors.coursId ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white`}
-                disabled={loadingData || !hasData}
-              />
-              <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 transition-transform ${isCoursOpen ? 'rotate-180' : ''}`} />
-            </div>
-            {isCoursOpen && filteredCours.length > 0 && (
-              <div className="absolute z-50 w-full max-w-md mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
-                <div className="max-h-48 overflow-y-auto">
-                  {filteredCours.map((cours) => (
-                    <div
-                      key={cours.id}
-                      className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
-                        formData.coursId === cours.id.toString() ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
-                      }`}
-                      onClick={() => handleSelectCours(cours)}
-                    >
-                      {cours.nom} <span className="text-xs text-gray-400">({cours.code})</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+          {/* Cours - Select */}
+          <div className="space-y-1">
+            <label className="block text-sm font-semibold text-gray-700">
+              Cours <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="coursId"
+              value={formData.coursId}
+              onChange={handleChange}
+              className={`w-full border ${errors.coursId ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white`}
+              disabled={loadingData || !hasData}
+            >
+              <option value="">Selectionner un cours</option>
+              {coursList.map((cours) => (
+                <option key={cours.id} value={cours.id.toString()}>
+                  {cours.code} - {cours.nom}
+                </option>
+              ))}
+            </select>
             {errors.coursId && <p className="text-red-500 text-xs">{errors.coursId}</p>}
           </div>
 
-          {/* Professeur avec autocomplétion */}
-          <div className="space-y-1" ref={professeurRef}>
+          {/* Professeur - Select */}
+          <div className="space-y-1">
             <label className="block text-sm font-semibold text-gray-700">Professeur <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <input
-                type="text"
-                value={professeurSearch}
-                onChange={(e) => {
-                  setProfesseurSearch(e.target.value);
-                  setIsProfesseurOpen(true);
-                  if (!e.target.value) setFormData(prev => ({ ...prev, professeurId: '' }));
-                }}
-                onFocus={() => setIsProfesseurOpen(true)}
-                placeholder="Rechercher un professeur..."
-                className={`w-full border ${errors.professeurId ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white`}
-                disabled={loadingData || !hasData}
-              />
-              <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 transition-transform ${isProfesseurOpen ? 'rotate-180' : ''}`} />
-            </div>
-            {isProfesseurOpen && filteredProfesseurs.length > 0 && (
-              <div className="absolute z-50 w-full max-w-md mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
-                <div className="max-h-48 overflow-y-auto">
-                  {filteredProfesseurs.map((professeur) => (
-                    <div
-                      key={professeur.id}
-                      className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
-                        formData.professeurId === professeur.id.toString() ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
-                      }`}
-                      onClick={() => handleSelectProfesseur(professeur)}
-                    >
-                      {professeur.nom} 
-                      {professeur.im && <span className="text-xs text-gray-400 ml-2">({professeur.im})</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <select
+              name="professeurId"
+              value={formData.professeurId}
+              onChange={handleChange}
+              className={`w-full border ${errors.professeurId ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white`}
+              disabled={loadingData || !hasData}
+            >
+              <option value="">Selectionner un professeur</option>
+              {professeursList.map((professeur) => (
+                <option key={professeur.id} value={professeur.id.toString()}>
+                  {professeur.nom} {professeur.im && `(${professeur.im})`}
+                </option>
+              ))}
+            </select>
             {errors.professeurId && <p className="text-red-500 text-xs">{errors.professeurId}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {/* Mention avec autocomplétion */}
-            <div className="space-y-1" ref={mentionRef}>
+            {/* Mention - Select */}
+            <div className="space-y-1">
               <label className="block text-sm font-semibold text-gray-700">Mention <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={mentionSearch}
-                  onChange={(e) => {
-                    setMentionSearch(e.target.value);
-                    setIsMentionOpen(true);
-                    if (!e.target.value) setFormData(prev => ({ ...prev, mention: '' }));
-                  }}
-                  onFocus={() => setIsMentionOpen(true)}
-                  placeholder="Rechercher une mention..."
-                  className={`w-full border ${errors.mention ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white`}
-                  disabled={loadingData || !hasData}
-                />
-                <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 transition-transform ${isMentionOpen ? 'rotate-180' : ''}`} />
-              </div>
-              {isMentionOpen && filteredMentions.length > 0 && (
-                <div className="absolute z-50 w-full max-w-md mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
-                  <div className="max-h-48 overflow-y-auto">
-                    {filteredMentions.map((mention) => {
-                      const libelle = mention.libelle || mention;
-                      return (
-                        <div
-                          key={mention.id || libelle}
-                          className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
-                            formData.mention === libelle ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
-                          }`}
-                          onClick={() => handleSelectMention(mention)}
-                        >
-                          {libelle}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              <select
+                name="mention"
+                value={formData.mention}
+                onChange={handleChange}
+                className={`w-full border ${errors.mention ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white`}
+                disabled={loadingData || !hasData}
+              >
+                <option value="">Selectionner une mention</option>
+                {mentionsList.map((mention) => {
+                  const libelle = mention.libelle || mention;
+                  return (
+                    <option key={mention.id || libelle} value={libelle}>
+                      {libelle}
+                    </option>
+                  );
+                })}
+              </select>
               {errors.mention && <p className="text-red-500 text-xs">{errors.mention}</p>}
             </div>
 
-            {/* Niveau avec autocomplétion */}
-            <div className="space-y-1" ref={niveauRef}>
+            {/* Niveau - Select */}
+            <div className="space-y-1">
               <label className="block text-sm font-semibold text-gray-700">Niveau <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={niveauSearch}
-                  onChange={(e) => {
-                    setNiveauSearch(e.target.value);
-                    setIsNiveauOpen(true);
-                    if (!e.target.value) setFormData(prev => ({ ...prev, niveau: '' }));
-                  }}
-                  onFocus={() => setIsNiveauOpen(true)}
-                  placeholder="Rechercher un niveau..."
-                  className={`w-full border ${errors.niveau ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white`}
-                  disabled={loadingData || !hasData}
-                />
-                <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 transition-transform ${isNiveauOpen ? 'rotate-180' : ''}`} />
-              </div>
-              {isNiveauOpen && filteredNiveaux.length > 0 && (
-                <div className="absolute z-50 w-full max-w-md mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
-                  <div className="max-h-48 overflow-y-auto">
-                    {filteredNiveaux.map((niveau) => {
-                      const libelle = niveau.libelle || niveau;
-                      return (
-                        <div
-                          key={niveau.id || libelle}
-                          className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
-                            formData.niveau === libelle ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
-                          }`}
-                          onClick={() => handleSelectNiveau(niveau)}
-                        >
-                          {libelle}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              <select
+                name="niveau"
+                value={formData.niveau}
+                onChange={handleChange}
+                className={`w-full border ${errors.niveau ? 'border-red-500' : 'border-gray-300'} rounded-lg py-2.5 px-4 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white`}
+                disabled={loadingData || !hasData}
+              >
+                <option value="">Selectionner un niveau</option>
+                {niveauxList.map((niveau) => {
+                  const libelle = niveau.libelle || niveau;
+                  return (
+                    <option key={niveau.id || libelle} value={libelle}>
+                      {libelle}
+                    </option>
+                  );
+                })}
+              </select>
               {errors.niveau && <p className="text-red-500 text-xs">{errors.niveau}</p>}
             </div>
           </div>
 
-          {/* Footer */}
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
             <button
               type="button"
