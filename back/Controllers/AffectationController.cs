@@ -1,3 +1,5 @@
+// back/Controllers/AffectationController.cs - Version corrigée
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using back.Data;
@@ -11,10 +13,12 @@ namespace back.Controllers;
 public class AffectationController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<AffectationController> _logger;
 
-    public AffectationController(AppDbContext context)
+    public AffectationController(AppDbContext context, ILogger<AffectationController> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     // GET: api/affectation
@@ -39,7 +43,9 @@ public class AffectationController : ControllerBase
                 Name = e.Cours != null ? e.Cours.Nom : "",
                 Professor = e.Enseignant != null ? e.Enseignant.Nom : "",
                 Mention = e.Parcours != null ? e.Parcours.Libelle : "",
-                Niveau = e.Niveau != null ? e.Niveau.Libelle : ""
+                Niveau = e.Niveau != null ? e.Niveau.Libelle : "",
+                CoursId = e.IdMatiere,
+                ProfesseurId = e.IdEnseignant
             };
 
             affectations.Add(dto);
@@ -73,12 +79,12 @@ public class AffectationController : ControllerBase
     public async Task<IActionResult> GetProfesseurs()
     {
         var professeurs = await _context.Enseignants
-            .Select(e => new { e.Id, e.Nom })
+            .Select(e => new { e.Id, e.Nom, e.Im })
             .ToListAsync();
         return Ok(professeurs);
     }
 
-    // GET: api/affectation/exists - Vérifier si une affectation existe déjà
+    // GET: api/affectation/exists
     [HttpGet("exists")]
     public async Task<IActionResult> CheckExists(
         [FromQuery] int coursId,
@@ -88,11 +94,9 @@ public class AffectationController : ControllerBase
     {
         try
         {
-            // Récupérer le parcours (mention)
             var parcours = await _context.Parcours
                 .FirstOrDefaultAsync(p => p.Libelle == mention);
 
-            // Récupérer le niveau
             var niveauEntity = await _context.Niveaux
                 .FirstOrDefaultAsync(n => n.Libelle == niveau);
 
@@ -101,7 +105,6 @@ public class AffectationController : ControllerBase
                 return Ok(new { exists = false });
             }
 
-            // Vérifier si l'enseignement existe
             var exists = await _context.Enseignements
                 .AnyAsync(e => e.IdMatiere == coursId &&
                               e.IdEnseignant == professeurId &&
@@ -152,11 +155,11 @@ public class AffectationController : ControllerBase
                 await _context.SaveChangesAsync();
             }
 
-            // Trouver l'enseignant sans le créer immédiatement
+            // Trouver l'enseignant
             var enseignant = await _context.Enseignants
                 .FirstOrDefaultAsync(e => e.Nom == dto.Professor);
 
-            // Vérifier si la matière est déjà affectée pour ce niveau et ce parcours
+            // Vérifier si la matière est déjà affectée
             var existingEnseignement = await _context.Enseignements
                 .FirstOrDefaultAsync(e => e.IdMatiere == cours.Id &&
                                           e.IdNiveau == niveau.Id &&
@@ -164,14 +167,7 @@ public class AffectationController : ControllerBase
 
             if (existingEnseignement != null)
             {
-                if (enseignant != null && existingEnseignement.IdEnseignant == enseignant.Id)
-                {
-                    return BadRequest(new { message = "Cette affectation existe déjà pour ce professeur" });
-                }
-                else
-                {
-                    return BadRequest(new { message = "Ce cours est déjà affecté à un autre professeur pour ce niveau et parcours" });
-                }
+                return BadRequest(new { message = "Ce cours est déjà affecté à ce niveau et parcours" });
             }
 
             if (enseignant == null)
@@ -203,148 +199,129 @@ public class AffectationController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Erreur lors de la création");
             return StatusCode(500, new { message = "Erreur lors de la création", error = ex.Message });
         }
     }
 
-    // PUT: api/affectation/{id}
+    // 🔴 PUT: api/affectation/{id} - Version corrigée
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateAffectationDto dto)
     {
         try
         {
+            _logger.LogInformation($"Mise à jour de l'affectation {id}");
+
             var enseignement = await _context.Enseignements
                 .Include(e => e.Cours)
+                .Include(e => e.Enseignant)
+                .Include(e => e.Niveau)
+                .Include(e => e.Parcours)
                 .FirstOrDefaultAsync(e => e.Id == id);
 
             if (enseignement == null)
+            {
                 return NotFound(new { message = "Affectation non trouvée" });
+            }
 
-            // Mettre à jour le nom du cours
+            // 🔴 1. Mettre à jour le nom du cours (sans changer le code)
             if (enseignement.Cours != null && !string.IsNullOrEmpty(dto.Name))
             {
+                // Vérifier si un autre cours existe déjà avec ce nom
+                var existingCours = await _context.Matieres
+                    .FirstOrDefaultAsync(m => m.Nom == dto.Name && m.Id != enseignement.Cours.Id);
+
+                if (existingCours != null)
+                {
+                    return BadRequest(new { message = $"Un cours avec le nom '{dto.Name}' existe déjà" });
+                }
+
                 enseignement.Cours.Nom = dto.Name;
+                _context.Matieres.Update(enseignement.Cours);
             }
 
-            // Déterminer le professeur cible
-            int targetEnseignantId = enseignement.IdEnseignant;
-            Enseignant? targetEnseignant = null;
+            // 🔴 2. Gérer le professeur
             if (!string.IsNullOrEmpty(dto.Professor))
             {
-                targetEnseignant = await _context.Enseignants
+                var targetEnseignant = await _context.Enseignants
                     .FirstOrDefaultAsync(e => e.Nom == dto.Professor);
 
-                if (targetEnseignant != null)
-                {
-                    targetEnseignantId = targetEnseignant.Id;
-                }
-            }
-
-            // Déterminer le parcours cible
-            int targetParcoursId = enseignement.IdParcours;
-            Parcours? targetParcours = null;
-            if (!string.IsNullOrEmpty(dto.Mention))
-            {
-                targetParcours = await _context.Parcours
-                    .FirstOrDefaultAsync(p => p.Libelle == dto.Mention);
-                if (targetParcours != null)
-                {
-                    targetParcoursId = targetParcours.Id;
-                }
-            }
-
-            // Déterminer le niveau cible
-            int targetNiveauId = enseignement.IdNiveau;
-            Niveau? targetNiveau = null;
-            if (!string.IsNullOrEmpty(dto.Niveau))
-            {
-                targetNiveau = await _context.Niveaux
-                    .FirstOrDefaultAsync(n => n.Libelle == dto.Niveau);
-                if (targetNiveau != null)
-                {
-                    targetNiveauId = targetNiveau.Id;
-                }
-            }
-
-            // Vérifier les conflits d'affectation pour la même matière / niveau / parcours
-            var canCheckConflict = true;
-            if (!string.IsNullOrEmpty(dto.Mention) && targetParcours == null)
-            {
-                canCheckConflict = false;
-            }
-            if (!string.IsNullOrEmpty(dto.Niveau) && targetNiveau == null)
-            {
-                canCheckConflict = false;
-            }
-
-            if (canCheckConflict)
-            {
-                var existingEnseignement = await _context.Enseignements
-                    .FirstOrDefaultAsync(e => e.IdMatiere == enseignement.IdMatiere &&
-                                              e.IdNiveau == targetNiveauId &&
-                                              e.IdParcours == targetParcoursId &&
-                                              e.Id != enseignement.Id);
-
-                if (existingEnseignement != null)
-                {
-                    if (targetEnseignantId == existingEnseignement.IdEnseignant)
-                    {
-                        return BadRequest(new { message = "Cette affectation existe déjà pour ce professeur" });
-                    }
-                    else
-                    {
-                        return BadRequest(new { message = "Ce cours est déjà affecté à un autre professeur pour ce niveau et parcours" });
-                    }
-                }
-            }
-
-            // Mettre à jour l'enseignant
-            if (!string.IsNullOrEmpty(dto.Professor))
-            {
                 if (targetEnseignant == null)
                 {
+                    // Créer un nouveau professeur
                     var randomIm = "IM-" + DateTime.Now.Ticks.ToString().Substring(0, 8);
-                    var newEnseignant = new Enseignant
+                    targetEnseignant = new Enseignant
                     {
                         Nom = dto.Professor,
                         Im = randomIm
                     };
-                    _context.Enseignants.Add(newEnseignant);
+                    _context.Enseignants.Add(targetEnseignant);
                     await _context.SaveChangesAsync();
-                    targetEnseignant = newEnseignant;
                 }
+
                 enseignement.IdEnseignant = targetEnseignant.Id;
             }
 
-            // Mettre à jour le parcours
+            // 🔴 3. Gérer le parcours (mention)
             if (!string.IsNullOrEmpty(dto.Mention))
             {
+                var targetParcours = await _context.Parcours
+                    .FirstOrDefaultAsync(p => p.Libelle == dto.Mention);
+
                 if (targetParcours == null)
                 {
                     targetParcours = new Parcours { Libelle = dto.Mention };
                     _context.Parcours.Add(targetParcours);
                     await _context.SaveChangesAsync();
                 }
+
                 enseignement.IdParcours = targetParcours.Id;
             }
 
-            // Mettre à jour le niveau
+            // 🔴 4. Gérer le niveau
             if (!string.IsNullOrEmpty(dto.Niveau))
             {
+                var targetNiveau = await _context.Niveaux
+                    .FirstOrDefaultAsync(n => n.Libelle == dto.Niveau);
+
                 if (targetNiveau == null)
                 {
                     targetNiveau = new Niveau { Libelle = dto.Niveau };
                     _context.Niveaux.Add(targetNiveau);
                     await _context.SaveChangesAsync();
                 }
+
                 enseignement.IdNiveau = targetNiveau.Id;
             }
 
+            // 🔴 5. Vérifier les conflits (optionnel - peut être fait côté frontend)
+            // Sauvegarder les changements
             await _context.SaveChangesAsync();
-            return Ok(new { message = "Affectation modifiée avec succès" });
+
+            _logger.LogInformation($"Affectation {id} mise à jour avec succès");
+
+            return Ok(new
+            {
+                success = true,
+                message = "Affectation modifiée avec succès",
+                data = new
+                {
+                    id = enseignement.Id,
+                    name = enseignement.Cours?.Nom,
+                    professor = enseignement.Enseignant?.Nom,
+                    mention = enseignement.Parcours?.Libelle,
+                    niveau = enseignement.Niveau?.Libelle
+                }
+            });
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            _logger.LogError(ex, "Erreur de concurrence lors de la mise à jour");
+            return StatusCode(409, new { message = "Conflit de modification, veuillez réessayer" });
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Erreur lors de la mise à jour de l'affectation");
             return StatusCode(500, new { message = "Erreur lors de la modification", error = ex.Message });
         }
     }
@@ -355,16 +332,24 @@ public class AffectationController : ControllerBase
     {
         try
         {
-            var enseignement = await _context.Enseignements.FindAsync(id);
+            var enseignement = await _context.Enseignements
+                .Include(e => e.Cours)
+                .FirstOrDefaultAsync(e => e.Id == id);
+
             if (enseignement == null)
                 return NotFound(new { message = "Affectation non trouvée" });
 
+            // Optionnel : Supprimer aussi le cours s'il n'est utilisé nulle part ailleurs ?
+            // Mais par sécurité, on ne supprime que l'enseignement
+
             _context.Enseignements.Remove(enseignement);
             await _context.SaveChangesAsync();
+
             return Ok(new { message = "Affectation supprimée avec succès" });
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Erreur lors de la suppression");
             return StatusCode(500, new { message = "Erreur lors de la suppression", error = ex.Message });
         }
     }

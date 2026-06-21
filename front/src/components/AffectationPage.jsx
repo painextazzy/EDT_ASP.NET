@@ -23,9 +23,7 @@ const AffectationPage = () => {
   const [mentionsList, setMentionsList] = useState([]);
   const [niveauxList, setNiveauxList] = useState([]);
   
-  // Toutes les affectations (brutes)
   const [allAffectations, setAllAffectations] = useState([]);
-  // Affectations groupées par mention pour l'affichage
   const [groupedAffectations, setGroupedAffectations] = useState({});
 
   const showNotification = (message, type) => {
@@ -45,26 +43,24 @@ const AffectationPage = () => {
         api.affectation.getAll()
       ]);
       
-
-      
       setCoursList(Array.isArray(cours) ? cours : []);
       setProfesseursList(Array.isArray(professeurs) ? professeurs : []);
       setMentionsList(Array.isArray(mentions) ? mentions : []);
       setNiveauxList(Array.isArray(niveaux) ? niveaux : []);
       
-      // Stocker toutes les affectations
       const formattedAffectations = Array.isArray(affectationsData) ? affectationsData.map(item => ({
         id: item.id,
         code: item.code || '',
         name: item.name || '',
         professor: item.professor || '',
         mention: item.mention || '',
-        niveau: item.niveau || ''
+        niveau: item.niveau || '',
+        coursId: item.coursId || item.id,
+        professeurId: item.professeurId || ''
       })) : [];
       
       setAllAffectations(formattedAffectations);
       
-      // Grouper par mention
       const grouped = {};
       formattedAffectations.forEach(item => {
         const mention = item.mention || 'Sans mention';
@@ -88,65 +84,75 @@ const AffectationPage = () => {
     loadAllData();
   }, []);
 
-  const handleMenuToggle = (id) => {
+  // Fermer le menu quand on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openMenuId !== null) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [openMenuId]);
+
+  const handleMenuToggle = (id, event) => {
+    event.stopPropagation();
     setOpenMenuId(openMenuId === id ? null : id);
   };
 
-  const handleOpenEditModal = (course) => {
+  const handleOpenEditModal = (course, event) => {
+    event.stopPropagation();
     setEditingMention(course.mention);
     setEditingCourse({ ...course });
-    setShowEditModal(true);
     setOpenMenuId(null);
+    setShowEditModal(true);
   };
 
-// src/components/AffectationPage.jsx - Dans handleSaveEdit
-
-const handleSaveEdit = async (formData) => {
-  try {
-    const result = await api.affectation.update(editingCourse.id, {
-      name: formData.name,
-      professor: formData.professor,
-      mention: formData.mention,
-      niveau: formData.niveau
-    });
-    
-    if (result.message) {
-      await loadAllData();
-      setShowEditModal(false);
-      setEditingCourse(null);
-      setEditingMention(null);
-      showNotification(result.message, 'success');
-    }
-  } catch (error) {
-    console.error('Erreur modification:', error);
-    
-    let errorMessage = "Erreur lors de la modification";
-    
-    if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error.response?.data?.errors) {
-      const errorsObj = error.response.data.errors;
-      const firstError = Object.values(errorsObj)[0];
-      if (Array.isArray(firstError)) {
-        errorMessage = firstError[0];
-      } else {
-        errorMessage = firstError || "Erreur de validation";
+  const handleSaveEdit = async (formData) => {
+    try {
+      const result = await api.affectation.update(editingCourse.id, {
+        name: formData.name,
+        professor: formData.professor,
+        mention: formData.mention,
+        niveau: formData.niveau
+      });
+      
+      if (result.message) {
+        await loadAllData();
+        setShowEditModal(false);
+        setEditingCourse(null);
+        setEditingMention(null);
+        showNotification(result.message, 'success');
       }
-    } else if (error.message) {
-      errorMessage = error.message;
+    } catch (error) {
+      console.error('Erreur modification:', error);
+      
+      let errorMessage = "Erreur lors de la modification";
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.errors) {
+        const errorsObj = error.response.data.errors;
+        const firstError = Object.values(errorsObj)[0];
+        if (Array.isArray(firstError)) {
+          errorMessage = firstError[0];
+        } else {
+          errorMessage = firstError || "Erreur de validation";
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      if (errorMessage.includes('already') || errorMessage.includes('existe') || errorMessage.includes('unique')) {
+        errorMessage = `Ce cours est déjà assigné à ${formData.mention} - ${formData.niveau}`;
+      }
+      
+      throw new Error(errorMessage);
     }
-    
-    // Message spécifique pour les doublons
-    if (errorMessage.includes('already') || errorMessage.includes('existe') || errorMessage.includes('unique')) {
-      errorMessage = `Ce cours est déjà assigné à ${formData.mention} - ${formData.niveau}`;
-    }
-    
-    // L'erreur sera affichée dans le modal via submitError
-    throw new Error(errorMessage);
-  }
-};
+  };
 
-  const handleDelete = async (courseId, courseName) => {
+  const handleDelete = async (courseId, courseName, event) => {
+    event.stopPropagation();
     if (window.confirm(`Supprimer l'affectation "${courseName}" ?`)) {
       try {
         const result = await api.affectation.delete(courseId);
@@ -161,37 +167,32 @@ const handleSaveEdit = async (formData) => {
     setOpenMenuId(null);
   };
 
-// src/components/AffectationPage.jsx
-// Dans handleAddAffectation - simplifié car l'erreur est gérée dans le modal
-
-const handleAddAffectation = async (formData) => {
-  try {
-    const result = await api.affectation.create({
-      code: formData.code,
-      name: formData.name,
-      professor: formData.professor,
-      mention: formData.mention,
-      niveau: formData.niveau,
-      coursId: formData.coursId,
-      professeurId: formData.professeurId
-    });
-    
-    if (result.message) {
-      await loadAllData();
-      setShowAddModal(false);
-      showNotification(result.message, 'success');
+  const handleAddAffectation = async (formData) => {
+    try {
+      const result = await api.affectation.create({
+        code: formData.code,
+        name: formData.name,
+        professor: formData.professor,
+        mention: formData.mention,
+        niveau: formData.niveau,
+        coursId: formData.coursId,
+        professeurId: formData.professeurId
+      });
+      
+      if (result.message) {
+        await loadAllData();
+        setShowAddModal(false);
+        showNotification(result.message, 'success');
+      }
+    } catch (error) {
+      throw error;
     }
-  } catch (error) {
-    // L'erreur est propagée au modal
-    throw error;
-  }
-};
+  };
 
   // Filtrer les affectations
   const getFilteredAffectations = () => {
     let filtered = [...allAffectations];
     
-    // Filtre par recherche
     if (searchTerm) {
       filtered = filtered.filter(item => 
         item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -200,17 +201,14 @@ const handleAddAffectation = async (formData) => {
       );
     }
     
-    // Filtre par mention
     if (selectedMention !== 'Toutes les Mentions') {
       filtered = filtered.filter(item => item.mention === selectedMention);
     }
     
-    // Filtre par niveau
     if (selectedNiveau !== 'Tous les Niveaux') {
       filtered = filtered.filter(item => item.niveau === selectedNiveau);
     }
     
-    // Regrouper par mention
     const grouped = {};
     filtered.forEach(item => {
       const mention = item.mention || 'Sans mention';
@@ -247,7 +245,7 @@ const handleAddAffectation = async (formData) => {
   }
 
   return (
-    <div>
+    <div className="relative">
       {/* Notification Toast */}
       {notification.show && (
         <div className="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 animate-slideDown">
@@ -263,8 +261,14 @@ const handleAddAffectation = async (formData) => {
         </div>
       )}
 
-      {/* Header avec compteur */}
-
+      {/* Header avec compteur - SANS le bouton Ajouter */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Gestion des Affectations</h1>
+          <p className="text-sm text-gray-500 mt-1">{totalAffectations} affectations au total</p>
+        </div>
+        {/* ❌ Bouton "Nouvelle affectation" SUPPRIMÉ */}
+      </div>
 
       {/* Search and Filters */}
       <div className="flex flex-col md:flex-row gap-4 mb-10">
@@ -315,7 +319,7 @@ const handleAddAffectation = async (formData) => {
         </div>
       ) : (
         <div className="space-y-12">
-          {Object.keys(filteredGroupedAffectations).sort().map((mention, idx) => {
+          {Object.keys(filteredGroupedAffectations).sort().map((mention) => {
             const courses = filteredGroupedAffectations[mention];
             
             return (
@@ -326,30 +330,22 @@ const handleAddAffectation = async (formData) => {
                   <span className="text-sm text-gray-500">{courses.length} cours</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {/* Cardbox Ajouter - UNIQUEMENT dans la première section */}
-                  {idx === 0 && (
-                    <div 
-                      className="bg-white p-5 border-2 border-dashed border-gray-300 relative group transition-all rounded-2xl hover:shadow-md flex flex-col items-center justify-center gap-3 cursor-pointer min-h-[280px]"
-                      onClick={() => setShowAddModal(true)}
-                    >
-                      <div className="w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Plus className="w-6 h-6 text-gray-400" />
-                      </div>
-                      <span className="text-gray-400 uppercase tracking-widest text-xs">Ajouter une affectation</span>
-                    </div>
-                  )}
-
-                  {/* Cartes des affectations */}
                   {courses.map((course) => (
                     <div 
                       key={course.id} 
                       className="bg-white p-5 border border-gray-100 relative group transition-all rounded-2xl shadow-sm hover:shadow-md"
                     >
+                      {/* Code et Nom du cours */}
                       <div className="mb-4">
-                        <span className="font-mono text-xs font-bold tracking-wider text-blue-500">{course.code}</span>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-mono text-xs font-bold tracking-wider text-blue-500 bg-blue-50 px-2 py-0.5 rounded">
+                            {course.code || 'N/A'}
+                          </span>
+                        </div>
                         <h3 className="text-lg font-semibold text-gray-800 mt-1 line-clamp-2">{course.name}</h3>
                       </div>
                       
+                      {/* Professeur */}
                       <div className="mb-6">
                         <p className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">Assigné à</p>
                         <div className="flex items-center gap-3">
@@ -360,6 +356,7 @@ const handleAddAffectation = async (formData) => {
                         </div>
                       </div>
                       
+                      {/* Mention et Niveau */}
                       <div className="flex gap-2">
                         <span className="px-2 py-0.5 text-[10px] font-bold border border-gray-200 rounded-full text-gray-600 line-clamp-1">
                           {course.mention}
@@ -369,27 +366,28 @@ const handleAddAffectation = async (formData) => {
                         </span>
                       </div>
                       
-                      {/* Bouton paramètre */}
+                      {/* Bouton paramètre (3 points) */}
                       <div className="absolute bottom-4 right-4">
                         <button 
-                          onClick={() => handleMenuToggle(course.id)}
-                          className="text-gray-400 hover:text-blue-500 transition-colors"
+                          onClick={(e) => handleMenuToggle(course.id, e)}
+                          className="text-gray-400 hover:text-blue-500 transition-colors p-1 rounded-lg hover:bg-gray-100"
                         >
                           <MoreVertical className="w-5 h-5" />
                         </button>
 
+                        {/* Menu déroulant */}
                         {openMenuId === course.id && (
                           <div className="absolute bottom-8 right-0 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 min-w-[140px]">
                             <button 
-                              onClick={() => handleOpenEditModal(course)}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                              onClick={(e) => handleOpenEditModal(course, e)}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
                             >
                               <Edit className="w-4 h-4" />
                               Modifier
                             </button>
                             <button 
-                              onClick={() => handleDelete(course.id, course.name)}
-                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                              onClick={(e) => handleDelete(course.id, course.name, e)}
+                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
                               Supprimer
@@ -406,15 +404,20 @@ const handleAddAffectation = async (formData) => {
         </div>
       )}
 
+      {/* ✅ Bouton "+" flottant en bas à droite - Ouvre AddAffectationModal */}
+      <button 
+        onClick={() => setShowAddModal(true)}
+        className="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 hover:bg-blue-700 transition-all z-40"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
       {/* Modals */}
       <AddAffectationModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSave={handleAddAffectation}
-        coursList={coursList}
-        professeursList={professeursList}
-        mentionsList={mentionsList}
-        niveauxList={niveauxList}
+        affectationsExistantes={allAffectations}
       />
 
       <EditAffectationModal
@@ -426,9 +429,24 @@ const handleAddAffectation = async (formData) => {
         }}
         onSave={handleSaveEdit}
         editingCourse={editingCourse}
-        editingMention={editingMention}
-        niveauxList={niveauxList}
+        affectationsExistantes={allAffectations}
       />
+
+      <style>{`
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translate(-50%, -100%);
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+        }
+        .animate-slideDown {
+          animation: slideDown 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
