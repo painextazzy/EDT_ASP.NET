@@ -3,17 +3,21 @@ using Microsoft.EntityFrameworkCore;
 using back.Data;
 using back.Models;
 using back.Dtos;
+using Microsoft.AspNetCore.SignalR;
+using back.Hubs;
 
-namespace back.Services
+public class PlanningService
 {
-    public class PlanningService
-    {
-        private readonly AppDbContext _context;
+    private readonly AppDbContext _context;
+    private readonly IHubContext<CoursAnnuleHub> _hubContext;
 
-        public PlanningService(AppDbContext context)
-        {
-            _context = context;
-        }
+    public PlanningService(
+        AppDbContext context,
+        IHubContext<CoursAnnuleHub> hubContext)
+    {
+        _context = context;
+        _hubContext = hubContext;
+    }
 
         // ========== MÉTHODES POUR RÉCUPÉRER LES SALLES ==========
 
@@ -200,7 +204,11 @@ namespace back.Services
             }
 
             await _context.SaveChangesAsync();
-
+            
+            // Notifier tous les clients connectés
+            await _hubContext.Clients.All.SendAsync(
+                "coursAnnulesUpdated"
+            );
             return planning;
         }
 
@@ -242,6 +250,9 @@ namespace back.Services
             }
 
             await _context.SaveChangesAsync();
+            await _hubContext.Clients.All.SendAsync(
+            "coursAnnulesUpdated"
+            );
 
             return planning;
         }
@@ -261,6 +272,9 @@ namespace back.Services
             _context.Plannings.Remove(planning);
 
             await _context.SaveChangesAsync();
+            await _hubContext.Clients.All.SendAsync(
+            "coursAnnulesUpdated"
+);
         }
 
         public async Task<Planning> AnnulerAsync(int id, string motif)
@@ -274,8 +288,10 @@ namespace back.Services
             planning.MotifAnnulation = motif;
 
             await _context.SaveChangesAsync();
+            await _hubContext.Clients.All.SendAsync(
+             "coursAnnulesUpdated"
+);
 
             return planning;
         }
     }
-}

@@ -16,6 +16,15 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
+
+    // Policy dédiée pour SignalR (origine explicite requise pour les credentials)
+    options.AddPolicy("SignalRPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
 });
 
 // Base de données
@@ -37,6 +46,9 @@ builder.Services.AddScoped<InscriptionService>();
 builder.Services.AddScoped<CoursService>();
 builder.Services.AddScoped<AffectationService>();
 builder.Services.AddScoped<SalleService>();
+
+builder.Services.AddSignalR();
+builder.Services.AddScoped<back.Services.CoursAnnuleService>();
 
 builder.Services.AddScoped<DelegueService>();
 
@@ -62,5 +74,8 @@ app.UseCors("AllowAll");
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+
+app.MapHub<back.Hubs.CoursAnnuleHub>("/hubs/cours-annule")
+   .RequireCors("SignalRPolicy");
 
 app.Run();

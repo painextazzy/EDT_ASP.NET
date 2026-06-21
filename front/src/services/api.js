@@ -161,6 +161,14 @@ export const salleApi = {
     apiClient(`/api/Salle/${id}`, { method: 'DELETE' }),
 };
 
+// cours anulles 
+// ========== SERVICE POUR LES COURS ANNULÉS (module indépendant) ==========
+export const coursAnnuleApi = {
+  getAll: () => 
+    apiClient('/api/cours-annule', { method: 'GET' }),
+};
+
+
 // ========== GESTION DES NIVEAUX ==========
 export const niveauApi = {
   getAll: () => 
@@ -459,6 +467,7 @@ const api = {
   niveau: niveauApi,
   planning: planningApi,  // ← NOUVEA
   planningSalle: planningSalleApi,  // ← NOUVEA
+  coursAnnule: coursAnnuleApi,
 };
 
 export default api;

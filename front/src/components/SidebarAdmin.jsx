@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useSidebar } from './SidebarContext';
+import api from '../services/api';
+import { startCoursAnnuleConnection, onCoursAnnuleEvent, offCoursAnnuleEvent } from '../services/coursAnnuleSocket';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -17,9 +19,59 @@ import {
   UserCheck
 } from 'lucide-react';
 
+const SEEN_KEY = 'coursAnnules_lastSeenCount';
+
 const SidebarAdmin = () => {
   const { isSidebarOpen, closeSidebar, isCollapsed, toggleCollapse } = useSidebar();
   const location = useLocation();
+  const [hasNewAnnules, setHasNewAnnules] = useState(false);
+
+  // ── Détection de nouveaux cours annulés via WebSocket (temps réel) ───────────
+  useEffect(() => {
+    const checkNewAnnules = async () => {
+      try {
+        const data = await api.coursAnnule.getAll();
+        const currentCount = data.length;
+        const lastSeen = parseInt(localStorage.getItem(SEEN_KEY) || '0', 10);
+        setHasNewAnnules(currentCount > lastSeen);
+      } catch (error) {}
+    };
+
+    // Vérification initiale au montage de la sidebar
+    checkNewAnnules();
+
+    let active = true;
+
+    const setupSocket = async () => {
+      await startCoursAnnuleConnection();
+      if (!active) return;
+
+      // Dès qu'un cours est annulé n'importe où dans l'app,
+      // le serveur pousse l'événement -> on revérifie le badge.
+      onCoursAnnuleEvent('coursAnnulesUpdated', checkNewAnnules);
+    };
+
+    setupSocket();
+
+    return () => {
+      active = false;
+      offCoursAnnuleEvent('coursAnnulesUpdated');
+    };
+  }, []);
+
+  // Quand on visite la page des cours annulés, on marque tout comme "vu"
+  useEffect(() => {
+    if (location.pathname === '/admin/cours-annules') {
+      const markAsSeen = async () => {
+        try {
+          const data = await api.coursAnnule.getAll();
+          localStorage.setItem(SEEN_KEY, String(data.length));
+          setHasNewAnnules(false);
+        } catch (error) {}
+      };
+      markAsSeen();
+    }
+  }, [location.pathname]);
 
   const menuItems = [
     { label: 'Tableau de bord', icon: LayoutDashboard, path: '/admin' },
@@ -30,7 +82,7 @@ const SidebarAdmin = () => {
     { label: 'Niveau & Parcours', icon: Layers, path: '/admin/niveaux-parcours' },
 
     { label: 'Délégués', icon: UserCheck, path: '/admin/delegues' },
-    { label: 'Historiques cours annulés', icon: History, path: '/admin/cours-annules' },
+    { label: 'Historiques cours annulés', icon: History, path: '/admin/cours-annules', badge: hasNewAnnules },
     { label: 'Sauvegarde', icon: CloudUpload, path: '/admin/sauvegarde' }
 
   ];
@@ -94,7 +146,7 @@ const SidebarAdmin = () => {
                   to={item.path}
                   onClick={closeSidebar}
                   className={`
-                    flex items-center gap-3 px-3 py-2.5 rounded-xl
+                    relative flex items-center gap-3 px-3 py-2.5 rounded-xl
                     transition-all duration-200 group
                     ${isCollapsed ? 'justify-center' : ''}
                     ${isActive 
@@ -104,12 +156,24 @@ const SidebarAdmin = () => {
                   `}
                   title={isCollapsed ? item.label : ''}
                 >
-                  <Icon className={`w-5 h-5 transition-all duration-200 ${isActive ? 'text-white' : 'group-hover:text-gray-800'}`} />
+                  <div className="relative">
+                    <Icon className={`w-5 h-5 transition-all duration-200 ${isActive ? 'text-white' : 'group-hover:text-gray-800'}`} />
+                    {item.badge && isCollapsed && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-gray-100 animate-pulse" />
+                    )}
+                  </div>
+
                   {!isCollapsed && (
-                    <span className={`text-sm font-medium transition-all duration-200 ${isActive ? 'text-white' : 'group-hover:text-gray-900'}`}>
+                    <span className={`text-sm font-medium transition-all duration-200 flex items-center gap-2 ${isActive ? 'text-white' : 'group-hover:text-gray-900'}`}>
                       {item.label}
+                      {item.badge && (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${isActive ? 'bg-white/25 text-white' : 'bg-red-500 text-white animate-pulse'}`}>
+                          nouveau
+                        </span>
+                      )}
                     </span>
                   )}
+
                   {isActive && !isCollapsed && (
                     <div className="ml-auto w-1.5 h-8 bg-white/50 rounded-full" />
                   )}
