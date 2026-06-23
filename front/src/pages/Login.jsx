@@ -73,25 +73,40 @@ const Login = () => {
 
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-3xl overflow-hidden shadow-2xl shadow-black/20 relative z-10">
         
-        {/* ===== PARTIE GAUCHE - IMAGE ===== */}
-        <div className="hidden lg:block relative min-h-[600px]">
+        {/* ===== PARTIE GAUCHE - IMAGE (visible sur toutes les tailles) ===== */}
+        <div className="relative min-h-[200px] sm:min-h-[300px] lg:min-h-[600px] order-1 lg:order-none">
           <img 
             src="/src/assets/EMIT.jpg" 
             alt="EMIT Campus" 
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent lg:from-black/20"></div>
+          {/* Overlay de texte sur l'image pour mobile */}
+          <div className="absolute bottom-4 left-4 right-4 lg:hidden">
+            <h2 className="text-white text-xl font-bold">EMIT</h2>
+            <p className="text-white/70 text-sm">École de Management</p>
+          </div>
         </div>
 
         {/* ===== PARTIE DROITE - FORMULAIRE ===== */}
-        <div className="bg-white/95 backdrop-blur-sm p-6 sm:p-8 md:p-10 lg:p-14 flex flex-col justify-center min-h-[500px] lg:min-h-[600px]">
-          {/* Titre */}
-          <div className="mb-6 sm:mb-8">
+        <div className="bg-white/95 backdrop-blur-sm p-6 sm:p-8 md:p-10 lg:p-14 flex flex-col justify-center min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] order-2 lg:order-none">
+          {/* Titre - Masqué sur mobile car déjà sur l'image */}
+          <div className="hidden lg:block mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800">
               Bienvenue
             </h1>
             <p className="text-gray-500 text-sm sm:text-base mt-1">
               Connectez-vous pour accéder à votre espace
+            </p>
+          </div>
+
+          {/* Titre visible sur mobile */}
+          <div className="lg:hidden mb-4 sm:mb-6">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+              Bienvenue
+            </h1>
+            <p className="text-gray-500 text-xs sm:text-sm mt-0.5">
+              Connectez-vous à votre espace
             </p>
           </div>
 
@@ -147,7 +162,6 @@ const Login = () => {
                 </button>
               </div>
             </div>
-            
 
             {/* Terms */}
             <div className="flex items-start gap-2">
@@ -165,12 +179,12 @@ const Login = () => {
               </label>
             </div>
 
-            {/* Bouton de connexion - Réduit de 50% en largeur, sans icône, couleur unie */}
+            {/* Bouton de connexion */}
             <div className="flex justify-center">
               <Button
                 type="submit"
                 disabled={isLoading}
-                 className="bg-blue-500 text-white hover:bg-blue-600 shadow-md hover:shadow-lg px-12 py-3.5 text-lg rounded-3xl w-auto min-w-[220px]"
+                className="bg-blue-500 text-white hover:bg-blue-600 shadow-md hover:shadow-lg px-12 py-3.5 text-lg rounded-3xl w-auto min-w-[220px]"
               >
                 {isLoading ? (
                   <>
