@@ -7,7 +7,7 @@ import api from '../../services/api';
 import AddEventModal from './modals/AddEventModal';
 import EventDetailsModal from './modals/EventDetailsModal';
 import EditEventModal from './modals/EditEventModal';
-import { CardGridSkeleton } from '../SkeletonLoader';
+import SkeletonLoader from '../SkeletonLoader';
 
 const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -464,17 +464,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   );
 
   if (loading) {
-    return (
-      <div className="h-full bg-gray-50 rounded-2xl p-6">
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-pulse">
-            <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-md w-2/5 mb-4"></div>
-            <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-md w-1/3"></div>
-          </div>
-          <CardGridSkeleton cards={4} cols={4} />
-        </div>
-      </div>
-    );
+    return <SkeletonLoader />;
   }
 
   return (
