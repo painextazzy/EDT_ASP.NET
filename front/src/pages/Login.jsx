@@ -1,7 +1,9 @@
 // src/pages/Login.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import AOS from 'aos';
+import 'aos/dist/aos.css';
 
 // ===== COMPOSANTS SHADCN STYLE =====
 const Button = ({ children, type = 'button', disabled, className = '', ...props }) => (
@@ -50,6 +52,18 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
+  // ===== INITIALISATION AOS =====
+  useEffect(() => {
+    AOS.init({
+      duration: 800,
+      easing: 'ease-in-out',
+      once: true,
+      mirror: false,
+      offset: 50,
+      delay: 100,
+    });
+  }, []);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -71,27 +85,40 @@ const Login = () => {
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
       </div>
 
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-3xl overflow-hidden shadow-2xl shadow-black/20 relative z-10">
+      <div 
+        className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-3xl overflow-hidden shadow-2xl shadow-black/20 relative z-10"
+        data-aos="fade-up"
+        data-aos-duration="1000"
+      >
         
-        {/* ===== PARTIE GAUCHE - IMAGE (visible sur toutes les tailles) ===== */}
-        <div className="relative min-h-[200px] sm:min-h-[300px] lg:min-h-[600px] order-1 lg:order-none">
+        {/* ===== PARTIE GAUCHE - IMAGE ===== */}
+        <div 
+          className="hidden lg:block relative min-h-[600px]"
+          data-aos="fade-right"
+          data-aos-delay="200"
+          data-aos-duration="800"
+        >
           <img 
             src="/src/assets/EMIT.jpg" 
             alt="EMIT Campus" 
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent lg:from-black/20"></div>
-          {/* Overlay de texte sur l'image pour mobile */}
-          <div className="absolute bottom-4 left-4 right-4 lg:hidden">
-            <h2 className="text-white text-xl font-bold">EMIT</h2>
-            <p className="text-white/70 text-sm">École de Management</p>
-          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
         </div>
 
         {/* ===== PARTIE DROITE - FORMULAIRE ===== */}
-        <div className="bg-white/95 backdrop-blur-sm p-6 sm:p-8 md:p-10 lg:p-14 flex flex-col justify-center min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] order-2 lg:order-none">
-          {/* Titre - Masqué sur mobile car déjà sur l'image */}
-          <div className="hidden lg:block mb-6 sm:mb-8">
+        <div 
+          className="bg-white/95 backdrop-blur-sm p-6 sm:p-8 md:p-10 lg:p-14 flex flex-col justify-center min-h-[500px] lg:min-h-[600px]"
+          data-aos="fade-left"
+          data-aos-delay="300"
+          data-aos-duration="800"
+        >
+          {/* Titre */}
+          <div 
+            className="mb-6 sm:mb-8"
+            data-aos="fade-down"
+            data-aos-delay="400"
+          >
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800">
               Bienvenue
             </h1>
@@ -100,20 +127,10 @@ const Login = () => {
             </p>
           </div>
 
-          {/* Titre visible sur mobile */}
-          <div className="lg:hidden mb-4 sm:mb-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
-              Bienvenue
-            </h1>
-            <p className="text-gray-500 text-xs sm:text-sm mt-0.5">
-              Connectez-vous à votre espace
-            </p>
-          </div>
-
           {/* Formulaire */}
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             {/* Email */}
-            <div>
+            <div data-aos="fade-up" data-aos-delay="500">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
@@ -127,7 +144,7 @@ const Login = () => {
             </div>
 
             {/* Mot de passe */}
-            <div>
+            <div data-aos="fade-up" data-aos-delay="600">
               <div className="flex justify-between items-center mb-1.5">
                 <Label htmlFor="password">Mot de passe</Label>
                 <button 
@@ -164,7 +181,11 @@ const Login = () => {
             </div>
 
             {/* Terms */}
-            <div className="flex items-start gap-2">
+            <div 
+              className="flex items-start gap-2"
+              data-aos="fade-up"
+              data-aos-delay="700"
+            >
               <Checkbox
                 id="terms"
                 checked={rememberMe}
@@ -180,28 +201,37 @@ const Login = () => {
             </div>
 
             {/* Bouton de connexion */}
-            <div className="flex justify-center">
-<Button
-  type="submit"
-  disabled={isLoading}
-  className="bg-blue-500 text-white hover:bg-blue-600 shadow-md hover:shadow-lg px-12 py-4 text-lg rounded-full w-full max-w-[320px]"
->
-  {isLoading ? (
-    <>
-      <svg className="animate-spin h-5 w-5 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      Connexion...
-    </>
-  ) : (
-    "Se connecter"
-  )}
-</Button>
+            <div 
+              className="flex justify-center"
+              data-aos="zoom-in"
+              data-aos-delay="800"
+              data-aos-duration="600"
+            >
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="bg-blue-500 text-white hover:bg-blue-600 shadow-md hover:shadow-lg px-12 py-4 text-lg rounded-full w-full max-w-[320px]"
+              >
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Connexion...
+                  </>
+                ) : (
+                  "Se connecter"
+                )}
+              </Button>
             </div>
 
             {/* Lien d'inscription */}
-            <div className="text-center">
+            <div 
+              className="text-center"
+              data-aos="fade-up"
+              data-aos-delay="900"
+            >
               <p className="text-sm text-gray-500">
                 Vous n'avez pas de compte ? 
                 <button 
