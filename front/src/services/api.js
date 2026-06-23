@@ -446,6 +446,13 @@ export const planningSalleApi = {
 
 
 
+// ========== SERVICE POUR LE DASHBOARD ==========
+export const dashboardApi = {
+  // Récupérer les statistiques du dashboard avec filtrage par période
+  getStats: (period = 'month') => 
+    apiClient(`/api/Dashboard/stats?period=${period}`, { method: 'GET' }),
+};
+
 const api = {
   inscription: inscriptionApi,
   cours: coursApi,
@@ -459,6 +466,7 @@ const api = {
   niveau: niveauApi,
   planning: planningApi,  // ← NOUVEA
   planningSalle: planningSalleApi,  // ← NOUVEA
+  dashboard: dashboardApi,  // ← NOUVEAU
 };
 
 export default api;

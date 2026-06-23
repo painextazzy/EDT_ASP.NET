@@ -29,6 +29,43 @@ namespace back.Services
                 .FirstOrDefaultAsync(s => s.Id == id);
         }
 
+        // ========== MÉTHODES POUR LES NOTIFICATIONS ==========
+
+        public async Task<Planning?> GetPlanningWithDetailsAsync(int id)
+        {
+            return await _context.Plannings
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Cours)
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Enseignant)
+                .Include(p => p.PlanningSalles)
+                    .ThenInclude(ps => ps.Salle)
+                .FirstOrDefaultAsync(p => p.Id == id);
+        }
+
+        public async Task<List<Salle>> GetSallesByPlanningIdAsync(int planningId)
+        {
+            return await _context.PlanningSalles
+                .Where(ps => ps.IdPlanning == planningId)
+                .Select(ps => ps.Salle)
+                .ToListAsync();
+        }
+
+        public async Task<List<int>> GetSalleIdsByPlanningIdAsync(int planningId)
+        {
+            return await _context.PlanningSalles
+                .Where(ps => ps.IdPlanning == planningId)
+                .Select(ps => ps.IdSalle)
+                .ToListAsync();
+        }
+
+        public async Task<List<Salle>> GetSallesByIdsAsync(List<int> salleIds)
+        {
+            return await _context.Salles
+                .Where(s => salleIds.Contains(s.Id))
+                .ToListAsync();
+        }
+
         // ========== VÉRIFICATIONS DE DISPONIBILITÉ ==========
 
         public async Task<bool> IsProfesseurAvailableAsync(int professeurId, DateTime start, DateTime end, int? excludeId = null)
@@ -65,7 +102,7 @@ namespace back.Services
             return !await query.AnyAsync();
         }
 
-        // ✅ VÉRIFICATION DES CONFLITS (avec gestion des types)
+        // ✅ VÉRIFICATION DES CONFLITS
         public async Task<(bool IsValid, string Message)> CheckConflictsAsync(PlanningDto dto, int? excludeId = null)
         {
             var enseignement = await _context.Enseignements
@@ -222,6 +259,11 @@ namespace back.Services
             var (isValid, message) = await CheckConflictsAsync(dto, id);
             if (!isValid)
                 throw new Exception(message);
+
+            // Sauvegarder l'ancien état pour les notifications
+            var oldDebut = planning.DateDebut;
+            var oldFin = planning.DateFin;
+            var oldSalles = planning.PlanningSalles.Select(ps => ps.IdSalle).ToList();
 
             planning.IdEnseignement = dto.IdEnseignement;
             planning.TypeEvenement = dto.TypeEvenement;
