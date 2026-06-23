@@ -1,102 +1,207 @@
+// src/pages/Login.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
+// ===== COMPOSANTS SHADCN STYLE =====
+const Button = ({ children, type = 'button', disabled, className = '', ...props }) => (
+  <button
+    type={type}
+    disabled={disabled}
+    className={`inline-flex items-center justify-center rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ${className}`}
+    {...props}
+  >
+    {children}
+  </button>
+);
+
+const Input = ({ className = '', icon: Icon, ...props }) => (
+  <div className="relative">
+    {Icon && (
+      <Icon className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+    )}
+    <input
+      className={`w-full pl-9 sm:pl-12 pr-3 sm:pr-4 py-3 sm:py-3.5 bg-gray-50/80 border border-gray-200 rounded-xl focus:ring-2 focus:ring-sky-400 focus:border-transparent outline-none transition-all text-gray-800 placeholder-gray-400 text-sm sm:text-base ${className}`}
+      {...props}
+    />
+  </div>
+);
+
+const Checkbox = ({ className = '', ...props }) => (
+  <input
+    type="checkbox"
+    className={`w-4 h-4 rounded border-gray-300 text-sky-500 focus:ring-sky-400 focus:ring-2 ${className}`}
+    {...props}
+  />
+);
+
+const Label = ({ children, className = '', ...props }) => (
+  <label className={`block text-sm font-medium text-gray-700 mb-1.5 ${className}`} {...props}>
+    {children}
+  </label>
+);
+
+// ===== PAGE LOGIN =====
 const Login = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      navigate('/admin');
+    }, 1500);
+  };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-6 bg-slate-900 overflow-hidden">
-      {/* Arrière-plan conservé avec aspect flouté */}
+    <div className="min-h-screen flex items-center justify-center p-4 relative bg-gradient-to-br from-sky-100 via-sky-50 to-sky-100">
+      {/* Image de fond en arrière-plan */}
       <div className="absolute inset-0 z-0">
         <img 
-          src="/src/assets/EMIT.jpg" 
-          alt="Fond Campus" 
-          className="w-full h-full object-cover blur-md scale-105 opacity-50" 
+          src="/src/assets/gb.jpg" 
+          alt="Background" 
+          className="w-full h-full object-cover"
         />
-        {/* Overlay pour assombrir légèrement et augmenter le contraste */}
-        <div className="absolute inset-0 bg-slate-900/40"></div>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
       </div>
-      
-      <div className="relative z-10 w-full max-w-md">
-        {/* Formulaire avec ombre portée accentuée (shadow-2xl + shadow-black/50) */}
-        <div className="bg-white rounded-[36px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] p-10 md:p-12 border border-slate-100">
-          
-          {/* Logo centré */}
-          <div className="flex flex-col items-center mb-10">
-            <img src="/src/assets/logo.jpg" alt="Logo EMIT" className="h-16 w-auto mb-4" />
-            <div className="h-1 w-12 bg-slate-200 rounded-full"></div>
+
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-3xl overflow-hidden shadow-2xl shadow-black/20 relative z-10">
+        
+        {/* ===== PARTIE GAUCHE - IMAGE ===== */}
+        <div className="hidden lg:block relative min-h-[600px]">
+          <img 
+            src="/src/assets/EMIT.jpg" 
+            alt="EMIT Campus" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+        </div>
+
+        {/* ===== PARTIE DROITE - FORMULAIRE ===== */}
+        <div className="bg-white/95 backdrop-blur-sm p-6 sm:p-8 md:p-10 lg:p-14 flex flex-col justify-center min-h-[500px] lg:min-h-[600px]">
+          {/* Titre */}
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800">
+              Bienvenue
+            </h1>
+            <p className="text-gray-500 text-sm sm:text-base mt-1">
+              Connectez-vous pour accéder à votre espace
+            </p>
           </div>
 
-          <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+          {/* Formulaire */}
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+            {/* Email */}
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-[0.15em] mb-2 ml-1">
-                email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="email"
-                  required
-                  className="w-full px-12 py-4 bg-slate-50 border border-slate-200 rounded-4xl focus:ring-2 focus:ring-slate-800 focus:bg-white outline-none transition-all text-slate-800 placeholder-slate-400"
-                  placeholder="nom.prenom@professeur.mg"
-                />
-              </div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                icon={Mail}
+                placeholder="nom.prenom@professeur.mg"
+                required
+              />
             </div>
 
+            {/* Mot de passe */}
             <div>
-              <div className="flex justify-between items-center mb-2 ml-1">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-[0.15em]">
-                  Mot de passe
-                </label>
+              <div className="flex justify-between items-center mb-1.5">
+                <Label htmlFor="password">Mot de passe</Label>
+                <button 
+                  type="button"
+                  onClick={() => navigate('/verify-email')}
+                  className="text-xs sm:text-sm text-blue-500 hover:text-blue-700 font-medium transition-colors"
+                >
+                  Mot de passe oublié ?
+                </button>
               </div>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
+                <Input
+                  id="password"
                   type={showPassword ? "text" : "password"}
-                  required
-                  className="w-full px-12 py-4 bg-slate-50 border border-slate-200 rounded-4xl focus:ring-2 focus:ring-slate-800 focus:bg-white outline-none transition-all text-slate-800"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  icon={Lock}
                   placeholder="••••••••"
+                  required
+                  className="pr-9 sm:pr-12"
                 />
-                {/* Bouton Eye Icon pour voir le MDP avec Lucide React */}
                 <button 
                   type="button" 
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800 transition-colors"
+                  className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   {showPassword ? (
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
                   ) : (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" />
                   )}
                 </button>
               </div>
             </div>
+            
 
-            <button type="button" className="text-[12px] font-bold text-slate-800 hover:text-indigo-600 transition-colors">
-              <a href="/verify">Mot de passe oublié ?</a>
-            </button>
+            {/* Terms */}
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="terms"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                required
+              />
+              <label htmlFor="terms" className="text-xs sm:text-sm text-gray-500 cursor-pointer">
+                En vous connectant, vous acceptez les 
+                <a href="#" className="text-blue-500 hover:text-blue-700 ml-1">Conditions d'utilisation</a>
+                {' '}et la{' '}
+                <a href="#" className="text-blue-500 hover:text-blue-700">Politique de confidentialité</a>
+              </label>
+            </div>
 
-            <button className="w-full bg-slate-900 text-white font-bold py-4 rounded-4xl hover:bg-black transition-all shadow-lg active:scale-[0.98]">
-              Se connecter
-            </button>
+            {/* Bouton de connexion - Réduit de 50% en largeur, sans icône, couleur unie */}
+            <div className="flex justify-center">
+              <Button
+                type="submit"
+                disabled={isLoading}
+                 className="bg-blue-500 text-white hover:bg-blue-600 shadow-md hover:shadow-lg px-12 py-3.5 text-lg rounded-3xl w-auto min-w-[220px]"
+              >
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Connexion...
+                  </>
+                ) : (
+                  "Se connecter"
+                )}
+              </Button>
+            </div>
+
+            {/* Lien d'inscription */}
+            <div className="text-center">
+              <p className="text-sm text-gray-500">
+                Vous n'avez pas de compte ? 
+                <button 
+                  type="button"
+                  onClick={() => navigate('/inscription')}
+                  className="text-blue-500 hover:text-blue-700 font-semibold ml-1.5 transition-colors"
+                >
+                  Créer un compte
+                </button>
+              </p>
+            </div>
           </form>
 
-          <div className="mt-10 text-center space-y-4">
-            <p className="text-sm text-slate-500">
-              Vous n'avez pas de compte ?  
-              <a href="/inscription">
-                <button className="font-bold text-brand-blue hover:underline ml-1">Créer un compte</button>
-              </a>
-            </p>
-            <button 
-              onClick={() => navigate('/')} 
-              className="text-[10px] text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-[0.2em] font-bold"
-            >
-              ← Retour 
-            </button>
-          </div>
+
         </div>
       </div>
     </div>
