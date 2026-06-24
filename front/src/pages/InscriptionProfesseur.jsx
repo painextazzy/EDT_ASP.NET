@@ -337,10 +337,24 @@ const InscriptionProfesseur = () => {
               alt="EMIT Campus" 
               className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/70 to-blue-600/20"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/50 to-blue-600/20"></div>
           </div>
           
-        
+          <div className="relative z-10 text-center text-white p-8">
+            <div className="flex items-center justify-center gap-4 mb-6">
+
+           
+            </div>
+
+            <h2 className="text-3xl font-bold text-white mb-2">
+              Créez votre compte
+            </h2>
+            <p className="text-white/80 text-sm max-w-sm mx-auto">
+              Remplissez ce formulaire pour créer votre compte académique
+            </p>
+
+
+          </div>
         </div>
 
         {/* ===== PARTIE DROITE - FORMULAIRE ===== */}
@@ -352,7 +366,7 @@ const InscriptionProfesseur = () => {
           {/* Titre mobile */}
           <div className="lg:hidden mb-6">
             <h1 className="text-2xl font-bold text-gray-800">Créer votre compte</h1>
-            <p className="text-gray-500 text-sm mt-1">Remplissez les informations ci-dessous</p>
+            <p className="text-gray-500 text-sm mt-1">Remplissez le formulaire pour créer votre compte académique</p>
           </div>
 
           {/* Stepper horizontal */}
@@ -386,6 +400,13 @@ const InscriptionProfesseur = () => {
             </div>
           </div>
 
+          {/* Titre du formulaire - visible sur desktop */}
+          <div className="hidden lg:block text-center mb-6">
+            <p className="text-sm text-gray-500">
+              Remplissez ce formulaire pour créer votre compte académique
+            </p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* STEP 1: Identité */}
             <div className={`space-y-4 ${step !== 1 ? 'hidden' : ''}`}>
@@ -408,7 +429,7 @@ const InscriptionProfesseur = () => {
                   </select>
                   <input
                     name="firstName"
-                    placeholder="Jean"
+                    placeholder="Votre grade et nom"
                     value={formData.firstName}
                     onChange={handleChange}
                     className={`w-full px-4 py-3 bg-gray-50/80 border border-gray-200 rounded-r-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition-all text-gray-800 placeholder-gray-400 text-sm ${errors.firstName ? 'border-red-300 focus:ring-red-400' : ''}`}
@@ -423,7 +444,7 @@ const InscriptionProfesseur = () => {
                 </label>
                 <Input
                   name="lastName"
-                  placeholder="Dupont"
+                  placeholder="Votre Prénom"
                   value={formData.lastName}
                   onChange={handleChange}
                   icon={User}
@@ -435,7 +456,7 @@ const InscriptionProfesseur = () => {
                 <Button
                   type="button"
                   onClick={handleNextStep}
-                  className="px-8 py-3.5 rounded-2xl"
+                  className="px-8 py-3.5 rounded-3xl"
                 >
                   Suivant
                   <ArrowRight className="w-5 h-5 ml-2" />
