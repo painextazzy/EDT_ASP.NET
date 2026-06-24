@@ -1,5 +1,5 @@
-// Dto/Auth/EnseignantAVerifierDto.cs
-namespace back.DTos.Auth
+// Dtos/EnseignantAVerifierDto.cs
+namespace back.Dtos
 {
     public class EnseignantAVerifierDto
     {

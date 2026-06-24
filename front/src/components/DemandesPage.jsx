@@ -1,8 +1,12 @@
 // src/components/DemandesPage.jsx
 import React, { useState, useRef, useEffect } from 'react';
+import { Search, User, Mail, MoreVertical, CheckCircle, XCircle, RefreshCw, UserCheck, UserX, X } from 'lucide-react';
 import api from '../services/api';
-import { BASE_URL, IMAGES_URL } from '../services/config';
+import { IMAGES_URL } from '../services/config';
 import SkeletonTableRow from './ui/SkeletonTableRow';
+
+// ✅ Avatar par défaut avec Lucide User (base64)
+const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23e5e7eb"/%3E%3Ctext x="50" y="58" font-family="Arial" font-size="40" text-anchor="middle" fill="%239ca3af"%3E👤%3C/text%3E%3C/svg%3E';
 
 const DemandesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,13 +21,12 @@ const DemandesPage = () => {
   const menuRef = useRef(null);
   const notificationTimeoutRef = useRef(null);
 
-  // Charger les demandes depuis l'API
   useEffect(() => {
     loadDemandes();
   }, []);
 
   const getPhotoUrl = (photoUrl) => {
-    if (!photoUrl) return `${IMAGES_URL}/images/avatars/default-avatar.jpg`;
+    if (!photoUrl) return DEFAULT_AVATAR;
     if (photoUrl.startsWith('http')) return photoUrl;
     if (photoUrl.startsWith('/')) return `${IMAGES_URL}${photoUrl}`;
     return `${IMAGES_URL}/${photoUrl}`;
@@ -32,26 +35,57 @@ const DemandesPage = () => {
   const loadDemandes = async () => {
     try {
       setLoading(true);
-      const data = await api.validation.getEnseignantsEnAttente();
-      // Transformer les données au format attendu par le tableau
-      const formattedData = data.map(enseignant => ({
-        id: enseignant.id,
-        nom: enseignant.nom,
-       
-        im: enseignant.im,
-        email: enseignant.email,
+      
+      const response = await api.validation.getEnseignantsEnAttente();
+      
+      let enseignants = [];
+      
+      if (response) {
+        if (response.success && Array.isArray(response.data)) {
+          enseignants = response.data;
+        } else if (Array.isArray(response)) {
+          enseignants = response;
+        } else if (response.data && Array.isArray(response.data)) {
+          enseignants = response.data;
+        } else {
+          enseignants = [];
+        }
+      } else {
+        enseignants = [];
+      }
+      
+      const formattedData = enseignants.map(enseignant => ({
+        id: enseignant.id || 0,
+        nom: enseignant.nom || 'Nom non spécifié',
+        im: enseignant.im || 'N/A',
+        email: enseignant.email || 'Email non spécifié',
+        photoUrl: enseignant.photoUrl || null,
         statut: "En attente"
       }));
+      
       setDemandes(formattedData);
+      
     } catch (error) {
-      console.error('Erreur lors du chargement:', error);
-      showNotification('Erreur lors du chargement des demandes', 'error');
+      let errorMessage = 'Erreur lors du chargement des demandes';
+      
+      if (error.message === 'SESSION_EXPIRED') {
+        errorMessage = 'Session expirée, veuillez vous reconnecter';
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      showNotification(errorMessage, 'error');
+      setDemandes([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fermer le menu quand on clique ailleurs
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -62,7 +96,6 @@ const DemandesPage = () => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // Nettoyer le timeout de notification
   useEffect(() => {
     return () => {
       if (notificationTimeoutRef.current) {
@@ -114,27 +147,37 @@ const DemandesPage = () => {
   const confirmActionHandler = async () => {
     if (confirmAction === 'validate' && selectedDemande) {
       try {
-        await api.validation.validerEnseignant(selectedDemande.id);
+        const response = await api.validation.validerEnseignant(selectedDemande.id);
         
-        // Mettre à jour l'état local
-        setDemandes(demandes.map(d => 
-          d.id === selectedDemande.id 
-            ? { ...d, statut: "Validé" }
-            : d
-        ));
-        showNotification(`Demande de ${selectedDemande.nom} validée avec succès`, 'success');
+        if (response && response.success) {
+          setDemandes(demandes.map(d => 
+            d.id === selectedDemande.id 
+              ? { ...d, statut: "Validé" }
+              : d
+          ));
+          showNotification(`✅ Demande de ${selectedDemande.nom} validée avec succès`, 'success');
+          setTimeout(() => loadDemandes(), 1000);
+        } else {
+          showNotification(response?.message || 'Erreur lors de la validation', 'error');
+        }
       } catch (error) {
-        showNotification(`Erreur lors de la validation: ${error.response?.data?.message || 'Erreur inconnue'}`, 'error');
+        const errorMsg = error.response?.data?.message || error.message || 'Erreur inconnue';
+        showNotification(`❌ Erreur: ${errorMsg}`, 'error');
       }
     } else if (confirmAction === 'reject' && selectedDemande) {
       try {
-        await api.validation.refuserEnseignant(selectedDemande.id);
+        const response = await api.validation.refuserEnseignant(selectedDemande.id);
         
-        // Supprimer de l'état local
-        setDemandes(demandes.filter(d => d.id !== selectedDemande.id));
-        showNotification(`Demande de ${selectedDemande.nom} refusée`, 'error');
+        if (response && response.success) {
+          setDemandes(demandes.filter(d => d.id !== selectedDemande.id));
+          showNotification(`✅ Demande de ${selectedDemande.nom} refusée`, 'success');
+          setTimeout(() => loadDemandes(), 1000);
+        } else {
+          showNotification(response?.message || 'Erreur lors du refus', 'error');
+        }
       } catch (error) {
-        showNotification(`Erreur lors du refus: ${error.response?.data?.message || 'Erreur inconnue'}`, 'error');
+        const errorMsg = error.response?.data?.message || error.message || 'Erreur inconnue';
+        showNotification(`❌ Erreur: ${errorMsg}`, 'error');
       }
     }
     setShowConfirmModal(false);
@@ -152,9 +195,9 @@ const DemandesPage = () => {
 
   const getStatutIcon = (statut) => {
     switch (statut) {
-      case 'Validé': return '✓';
-      case 'Refusé': return '✗';
-      default: return '●';
+      case 'Validé': return <CheckCircle className="w-3 h-3" />;
+      case 'Refusé': return <XCircle className="w-3 h-3" />;
+      default: return <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />;
     }
   };
 
@@ -163,11 +206,11 @@ const DemandesPage = () => {
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'success':
-        return <span className="material-symbols-outlined text-lg">check_circle</span>;
+        return <CheckCircle className="w-5 h-5 text-emerald-600" />;
       case 'error':
-        return <span className="material-symbols-outlined text-lg">error</span>;
+        return <XCircle className="w-5 h-5 text-rose-600" />;
       default:
-        return <span className="material-symbols-outlined text-lg">info</span>;
+        return <User className="w-5 h-5 text-blue-600" />;
     }
   };
 
@@ -232,7 +275,7 @@ const DemandesPage = () => {
               onClick={() => setNotification({ show: false, message: '', type: '' })}
               className="ml-auto text-gray-400 hover:text-gray-600 transition-colors"
             >
-              <span className="material-symbols-outlined text-sm">close</span>
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -243,7 +286,7 @@ const DemandesPage = () => {
         <div className="flex gap-4 items-center">
           <div className="relative flex-1 max-w-2xl">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="material-symbols-outlined text-gray-400">search</span>
+              <Search className="w-4 h-4 text-gray-400" />
             </div>
             <input 
               className="block w-full pl-10 pr-4 py-3 bg-white border border-gray-300 text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-sm rounded-lg" 
@@ -279,98 +322,97 @@ const DemandesPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredDemandes.map((demande) => (
-                <tr key={demande.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="py-3 px-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 flex-shrink-0 rounded-full overflow-hidden bg-gray-100">
-                        {demande.avatar ? (
-                          <img 
-                src={getPhotoUrl(demande.photoUrl)}
-                alt={demande.nom}
-                className="w-10 h-10 rounded-full object-cover border border-gray-200"
-                onError={(e) => {
-                  e.target.src = `${IMAGES_URL}/images/avatars/default-avatar.png`;
-                }}
-              />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <span className="material-symbols-outlined text-gray-400 text-sm">person</span>
-                          </div>
-                        )}
+              {filteredDemandes.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="py-12 text-center text-gray-500">
+                    <Search className="w-12 h-12 text-gray-300 mx-auto" />
+                    <p className="mt-2 text-gray-500">Aucune demande trouvée</p>
+                    <p className="text-sm text-gray-400">Modifiez vos filtres pour voir plus de résultats</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredDemandes.map((demande) => (
+                  <tr key={demande.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="py-3 px-6">
+                      <div className="flex items-center gap-3">
+                        {/* ✅ Avatar avec icône User de Lucide */}
+                        <div className="w-10 h-10 flex-shrink-0 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
+                          {demande.photoUrl ? (
+                            <img 
+                              src={getPhotoUrl(demande.photoUrl)}
+                              alt={demande.nom}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                // Afficher l'icône User à la place
+                                const parent = e.target.parentElement;
+                                const icon = document.createElement('div');
+                                icon.className = 'text-gray-400';
+                                icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+                                parent.appendChild(icon);
+                              }}
+                            />
+                          ) : (
+                            <User className="w-6 h-6 text-gray-400" />
+                          )}
+                        </div>
+                        <span className="text-sm font-medium text-gray-800">{demande.nom}</span>
                       </div>
-                      <span className="text-sm font-medium text-gray-800">{demande.nom}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-6">
-                    <span className="text-xs font-mono text-gray-500">{demande.im}</span>
-                  </td>
-                  <td className="py-3 px-6">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[14px] text-gray-400">mail</span>
-                      <span className="text-xs text-gray-600">{demande.email}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-6">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider ${getStatutClass(demande.statut)}`}>
-                      <span className="text-[10px]">{getStatutIcon(demande.statut)}</span>
-                      {demande.statut}
-                    </span>
-                  </td>
-                  <td className="py-3 px-6">
-                    <div className="relative">
-                      {demande.statut === 'En attente' && (
-                        <button
-                          onClick={(e) => toggleMenu(demande.id, e)}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-[18px] text-gray-400">more_vert</span>
-                        </button>
-                      )}
-                      {openMenuId === demande.id && (
-                        <div 
-                          ref={menuRef}
-                          className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 animate-fadeIn"
-                        >
-                          {demande.statut !== 'Validé' && (
+                    </td>
+                    <td className="py-3 px-6">
+                      <span className="text-xs font-mono text-gray-500">{demande.im}</span>
+                    </td>
+                    <td className="py-3 px-6">
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-gray-400" />
+                        <span className="text-xs text-gray-600">{demande.email}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-6">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider ${getStatutClass(demande.statut)}`}>
+                        {getStatutIcon(demande.statut)}
+                        {demande.statut}
+                      </span>
+                    </td>
+                    <td className="py-3 px-6">
+                      <div className="relative" ref={menuRef}>
+                        {demande.statut === 'En attente' && (
+                          <button
+                            onClick={(e) => toggleMenu(demande.id, e)}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                          >
+                            <MoreVertical className="w-5 h-5 text-gray-400" />
+                          </button>
+                        )}
+                        {openMenuId === demande.id && (
+                          <div className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 animate-fadeIn">
                             <button
                               onClick={() => handleValidate(demande)}
                               className="w-full text-left px-3 py-2 text-xs text-emerald-600 hover:bg-emerald-50 flex items-center gap-2 transition-colors"
                             >
-                              <span className="material-symbols-outlined text-sm">check_circle</span>
+                              <UserCheck className="w-4 h-4" />
                               Valider
                             </button>
-                          )}
-                          {demande.statut !== 'Refusé' && (
                             <button
                               onClick={() => handleReject(demande)}
                               className="w-full text-left px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors"
                             >
-                              <span className="material-symbols-outlined text-sm">cancel</span>
+                              <UserX className="w-4 h-4" />
                               Refuser
                             </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-
-        {/* Message si aucun résultat */}
-        {filteredDemandes.length === 0 && (
-          <div className="text-center py-12">
-            <span className="material-symbols-outlined text-5xl text-gray-300">search_off</span>
-            <p className="mt-2 text-gray-500">Aucune demande trouvée</p>
-            <p className="text-sm text-gray-400">Modifiez vos filtres pour voir plus de résultats</p>
-          </div>
-        )}
       </div>
 
-      {/* Modal de confirmation avec effet de flou */}
+      {/* Modal de confirmation */}
       {showConfirmModal && (
         <>
           <div 
@@ -387,7 +429,7 @@ const DemandesPage = () => {
                   onClick={() => setShowConfirmModal(false)} 
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  <span className="material-symbols-outlined">close</span>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6">
@@ -407,13 +449,23 @@ const DemandesPage = () => {
                 </button>
                 <button
                   onClick={confirmActionHandler}
-                  className={`px-4 py-2 rounded-lg text-white transition-colors ${
+                  className={`px-4 py-2 rounded-lg text-white transition-colors flex items-center gap-2 ${
                     confirmAction === 'validate' 
                       ? 'bg-emerald-600 hover:bg-emerald-700' 
                       : 'bg-rose-600 hover:bg-rose-700'
                   }`}
                 >
-                  {confirmAction === 'validate' ? 'Valider' : 'Refuser'}
+                  {confirmAction === 'validate' ? (
+                    <>
+                      <UserCheck className="w-4 h-4" />
+                      Valider
+                    </>
+                  ) : (
+                    <>
+                      <UserX className="w-4 h-4" />
+                      Refuser
+                    </>
+                  )}
                 </button>
               </div>
             </div>
