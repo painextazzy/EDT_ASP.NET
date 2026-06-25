@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useSidebar } from './SidebarContext';
 import { Settings, LogOut, Bell, User, ChevronDown } from 'lucide-react';
 import SettingModal from './modals/SettingsModal';
+import { authApi } from '../services/auth';
 
 const NavbarAdmin = ({
   userSettings = {},
@@ -11,8 +12,18 @@ const NavbarAdmin = ({
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [user, setUser] = useState(null);
   const dropdownRef = useRef(null);
   const { toggleSidebar, isSidebarOpen } = useSidebar();
+
+  // ✅ Récupérer l'utilisateur directement dans le composant
+  useEffect(() => {
+    const loadUser = () => {
+      const currentUser = authApi.getUser();
+      setUser(currentUser);
+    };
+    loadUser();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -41,6 +52,20 @@ const NavbarAdmin = ({
   const handleOpenSettings = () => {
     setShowDropdown(false);
     setShowSettingsModal(true);
+  };
+
+  // ✅ Données utilisateur
+  const userEmail = user?.email || userSettings?.email || "Utilisateur";
+  const userNom = user?.nom || userSettings?.nom || userEmail.split('@')[0] || "Utilisateur";
+  const userAvatar = user?.avatar || userSettings?.avatar || null;
+
+  // ✅ Gestion de la déconnexion
+  const handleLogout = () => {
+    if (onLogout) {
+      onLogout();
+    } else {
+      authApi.logout();
+    }
   };
 
   return (
@@ -82,12 +107,20 @@ const NavbarAdmin = ({
               className="flex items-center space-x-2 pl-3 border-l border-gray-300 cursor-pointer hover:bg-gray-200 p-1 rounded-lg transition-colors"
               onClick={toggleDropdown}
             >
-              {/* Icône utilisateur grise - sans nom */}
-              <div className="w-7 h-7 bg-gray-200 rounded-full flex items-center justify-center shadow-sm">
-                <User className="w-4 h-4 text-gray-500" />
+              {/* ✅ Avatar uniquement (sans le nom) */}
+              <div className="w-7 h-7 rounded-full flex items-center justify-center shadow-sm overflow-hidden bg-gray-200">
+                {userAvatar ? (
+                  <img 
+                    src={userAvatar} 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-4 h-4 text-gray-500" />
+                )}
               </div>
 
-              {/* Chevron */}
+              {/* ❌ Pas de nom ici, seulement l'icône chevron */}
               <ChevronDown 
                 className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
               />
@@ -96,22 +129,30 @@ const NavbarAdmin = ({
             {/* Dropdown */}
             {showDropdown && (
               <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 animate-fadeIn">
-                {/* Header avec icône utilisateur */}
+                {/* ✅ Nom et email apparaissent ICI uniquement */}
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center shadow-sm flex-shrink-0">
-                    <User className="w-5 h-5 text-gray-500" />
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-sm overflow-hidden bg-gray-200 flex-shrink-0">
+                    {userAvatar ? (
+                      <img 
+                        src={userAvatar} 
+                        alt="Avatar" 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-5 h-5 text-gray-500" />
+                    )}
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">
-                      {userSettings?.nom || "Administrateur"}
+                  <div className="min-w-0">
+                    {/* ✅ Nom affiché ici */}
+                    <p className="text-sm font-semibold text-gray-800 truncate">
+                      {userNom}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {userSettings?.email || "admin@email.com"}
+                    <p className="text-xs text-gray-500 truncate">
+                      {userEmail}
                     </p>
                   </div>
                 </div>
 
-                {/* Paramètres - avec icône Settings */}
                 <button
                   onClick={handleOpenSettings}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-3 border-b border-gray-100"
@@ -120,9 +161,8 @@ const NavbarAdmin = ({
                   <span>Paramètres</span>
                 </button>
 
-                {/* Déconnexion */}
                 <button
-                  onClick={onLogout}
+                  onClick={handleLogout}
                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3"
                 >
                   <LogOut className="w-4 h-4" />
@@ -134,7 +174,6 @@ const NavbarAdmin = ({
         </div>
       </nav>
 
-      {/* Modal des paramètres */}
       <SettingModal
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}

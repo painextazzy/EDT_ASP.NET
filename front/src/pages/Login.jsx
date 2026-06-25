@@ -1,12 +1,57 @@
 // src/pages/Login.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, CheckCircle, AlertCircle, X } from 'lucide-react';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
-import authApi from '../services/auth';
+import { authApi } from '../services/auth';
 
-// ===== COMPOSANTS =====
+// ===== COMPOSANT TOAST NOTIFICATION =====
+const ToastNotification = ({ type, message, onClose }) => {
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(false);
+      if (onClose) setTimeout(onClose, 400);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const styles = {
+    success: {
+      bg: 'bg-green-50',
+      border: 'border-green-200',
+      text: 'text-green-800',
+      icon: <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+    },
+    error: {
+      bg: 'bg-red-50',
+      border: 'border-red-200',
+      text: 'text-red-800',
+      icon: <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+    }
+  };
+
+  const style = styles[type] || styles.error;
+
+  return (
+    <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
+      <div className={`flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border ${style.bg} ${style.border} ${style.text} min-w-[320px] max-w-md`}>
+        {style.icon}
+        <span className="text-sm font-medium flex-1">{message}</span>
+        <button 
+          onClick={() => { setIsVisible(false); if (onClose) setTimeout(onClose, 400); }}
+          className="flex-shrink-0 hover:opacity-70 transition-opacity"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ===== COMPOSANTS UI =====
 const Button = ({ children, type = 'button', disabled, className = '', ...props }) => (
   <button
     type={type}
@@ -46,79 +91,84 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     AOS.init({ duration: 800, easing: 'ease-in-out', once: true });
     
-    // Vérifier si déjà connecté
     if (authApi.isAuthenticated()) {
       const user = authApi.getUser();
       if (user?.role === 'ADMIN') navigate('/admin');
       else if (user?.role === 'ENSEIGNANT') navigate('/enseignant');
-      else navigate('/dashboard');
+      else navigate('/login');
     }
   }, [navigate]);
 
+  const showToast = (type, message) => {
+    setToast({ type, message });
+  };
+
+  const clearToast = () => {
+    setToast(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    clearToast();
     setIsLoading(true);
 
     try {
-      console.log('🔐 Tentative de connexion...');
-      
       const result = await authApi.login(email, password);
       
-      console.log('✅ Connexion réussie:', result);
-      
       if (result && result.success) {
-        setSuccess('✅ Connexion réussie ! Redirection en cours...');
+        showToast('success', 'Connexion réussie. Redirection en cours...');
         
         const user = authApi.getUser();
-        console.log('👤 Utilisateur:', user);
         
-        // ✅ Redirection après un délai
         setTimeout(() => {
           if (user?.role === 'ADMIN') {
             navigate('/admin');
           } else if (user?.role === 'ENSEIGNANT') {
             navigate('/enseignant');
           } else {
-            navigate('/dashboard');
+            navigate('/login');
           }
         }, 1500);
       }
     } catch (error) {
-      console.error('❌ Erreur de connexion:', error);
+      let message = 'Email ou mot de passe incorrect';
       
-      // ✅ Messages d'erreur personnalisés
       if (error.message === 'SESSION_EXPIRED') {
-        setError('❌ Session expirée, veuillez vous reconnecter');
+        message = 'Session expirée, veuillez vous reconnecter';
       } else if (error.message === 'Compte non validé. Veuillez vérifier votre email.') {
-        setError('⚠️ Compte non validé. Veuillez vérifier votre email.');
-      } else {
-        setError(error.message || '❌ Email ou mot de passe incorrect');
+        message = 'Compte non validé. Veuillez vérifier votre email.';
+      } else if (error.message) {
+        message = error.message;
       }
       
-      // ✅ Réinitialiser le formulaire partiellement
+      showToast('error', message);
       setPassword('');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ✅ Effacer les messages quand l'utilisateur tape
   const handleInputChange = (setter) => (e) => {
     setter(e.target.value);
-    setError('');
-    setSuccess('');
+    clearToast();
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative bg-gradient-to-br from-sky-100 via-sky-50 to-sky-100">
+      {/* Toast Notification */}
+      {toast && (
+        <ToastNotification
+          type={toast.type}
+          message={toast.message}
+          onClose={clearToast}
+        />
+      )}
+
       <div className="absolute inset-0 z-0">
         <img src="/src/assets/gb.jpg" alt="Background" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
@@ -137,20 +187,6 @@ const Login = () => {
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800">Bienvenue</h1>
             <p className="text-gray-500 text-sm sm:text-base mt-1">Connectez-vous pour accéder à votre espace</p>
           </div>
-
-          {/* ✅ Message de succès */}
-          {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-green-600 text-sm flex items-center gap-2 animate-fadeIn">
-              <span>{success}</span>
-            </div>
-          )}
-
-          {/* ✅ Message d'erreur */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm flex items-center gap-2 animate-fadeIn">
-              <span>{error}</span>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             <div>
