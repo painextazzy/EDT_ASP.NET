@@ -1,33 +1,43 @@
+
 const API_URL = import.meta.env.VITE_API_URL;
+export { API_URL };
 
 const apiClient = async (endpoint, options = {}) => {
   const url = `${API_URL}${endpoint}`;
+  
+  // ✅ Récupération automatique du token
+  const token = localStorage.getItem('jwt_token');
+  
   const config = {
+    ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }), // ✅ Ajout global
       ...options.headers,
     },
-    ...options,
   };
 
   try {
     const response = await fetch(url, config);
 
     if (!response.ok) {
+      // ✅ Correction : Gérer les réponses vides (ex: 401 sans corps JSON)
+      const text = await response.text();
       let errorData;
       try {
-        const text = await response.text();
-        errorData = JSON.parse(text);
+        errorData = text ? JSON.parse(text) : { message: 'Erreur serveur sans détail' };
       } catch (e) {
-        errorData = { message: 'Une erreur est survenue' };
+        errorData = { message: response.statusText || 'Une erreur est survenue' };
       }
       
-      const error = new Error();
+      const error = new Error(errorData.message);
       error.response = { data: errorData, status: response.status };
       throw error;
     }
 
-    return await response.json();
+    // ✅ Vérifier si la réponse a du contenu avant de parser
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
   } catch (error) {
     throw error;
   }
@@ -476,6 +486,75 @@ export const dashboardApi = {
     apiClient(`/api/Dashboard/stats?period=${period}`, { method: 'GET' }),
 };
 
+// ========== SERVICE PROFIL ==========
+export const profilApi = {
+  getMe: () => 
+    apiClient('/api/profile/me', { method: 'GET' }),
+  
+  update: (data) => 
+    apiClient('/api/profile/update', { 
+      method: 'PUT', 
+      body: JSON.stringify(data) 
+    }),
+  
+  uploadPhoto: async (file) => {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) throw new Error('Non authentifié');
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await fetch(`${API_URL}/api/profile/upload-photo`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+          // ⚠️ NE PAS AJOUTER Content-Type
+        },
+        body: formData
+      });
+
+      // ✅ Lire la réponse
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || 'Erreur serveur');
+      }
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Erreur lors de l\'upload');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+      throw error;
+    }
+  },
+  
+  deletePhoto: async () => {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) throw new Error('Non authentifié');
+    
+    const response = await fetch(`${API_URL}/api/profile/delete-photo`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Erreur lors de la suppression');
+    }
+    
+    return await response.json();
+  }
+};
+
 const api = {
   inscription: inscriptionApi,
   cours: coursApi,
@@ -490,6 +569,7 @@ const api = {
   planning: planningApi,  // ← NOUVEA
   planningSalle: planningSalleApi,  // ← NOUVEA
   dashboard: dashboardApi,  // ← NOUVEAU
+  profil : profilApi,  
 };
 
 export default api;

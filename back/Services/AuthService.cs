@@ -40,7 +40,7 @@ public class AuthService : IAuthService
         {
             _logger.LogInformation($"🔐 Tentative de connexion pour: {loginDto.Email}");
 
-            // ✅ 1. Vérifier l'email
+            // ✅ 1. Vérifier l'email avec l'enseignant inclus
             var user = await _context.Utilisateurs
                 .Include(u => u.Enseignant)
                 .FirstOrDefaultAsync(u => u.Email == loginDto.Email);
@@ -51,7 +51,14 @@ public class AuthService : IAuthService
                 throw new UnauthorizedAccessException("Email ou mot de passe incorrect");
             }
 
-            // ✅ 2. Vérifier le mot de passe (BCrypt)
+            // ✅ 2. Vérifier si le compte est validé
+            if (!user.EstValide)
+            {
+                _logger.LogWarning($"⚠️ Compte non validé: {user.Email}");
+                throw new UnauthorizedAccessException("Compte non validé. Veuillez vérifier votre email.");
+            }
+
+            // ✅ 3. Vérifier le mot de passe (BCrypt)
             if (!BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
             {
                 _logger.LogWarning($"❌ Mot de passe incorrect pour: {user.Email}");
@@ -60,15 +67,31 @@ public class AuthService : IAuthService
 
             _logger.LogInformation($"✅ Connexion réussie pour: {user.Email}");
 
-            // ✅ 3. Générer le token avec le rôle
+            // ✅ 4. Générer le token avec le rôle
             var token = GenerateJwtToken(user);
 
-            // ✅ 4. Retourner la réponse avec le rôle
+            // ✅ 5. Récupérer les informations de l'enseignant
+            string nom = "Utilisateur";
+            string? photoUrl = null;
+
+            if (user.Enseignant != null)
+            {
+                nom = user.Enseignant.Nom ?? user.Email?.Split('@')[0] ?? "Utilisateur";
+                photoUrl = user.Enseignant.PhotoUrl;
+            }
+            else
+            {
+                nom = user.Email?.Split('@')[0] ?? "Utilisateur";
+            }
+
+            _logger.LogInformation($"📝 Nom: {nom}, Photo: {photoUrl ?? "Aucune"}");
+
+            // ✅ 6. Retourner la réponse complète avec Nom et PhotoUrl
             return new LoginResponseDto
             {
                 Token = token,
                 Email = user.Email,
-                Role = user.Role ?? "ENSEIGNANT",  // 👈 Le rôle
+                Role = user.Role ?? "ENSEIGNANT",
                 RedirectUrl = user.Role?.ToUpper() switch
                 {
                     "ADMIN" => "/admin",
@@ -77,7 +100,9 @@ public class AuthService : IAuthService
                 },
                 ExpiresAt = DateTime.UtcNow.AddMinutes(60),
                 UserId = user.Id,
-                EstValide = user.EstValide
+                EstValide = user.EstValide,
+                Nom = nom,          // ✅ Ajout du nom
+                PhotoUrl = photoUrl  // ✅ Ajout de la photo
             };
         }
         catch (Exception ex)
@@ -99,7 +124,7 @@ public class AuthService : IAuthService
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Role, user.Role ?? "ENSEIGNANT"),  // 👈 Rôle dans le token
+            new Claim(ClaimTypes.Role, user.Role ?? "ENSEIGNANT"),
             new Claim("est_valide", user.EstValide.ToString()),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };

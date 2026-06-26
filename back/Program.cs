@@ -7,11 +7,10 @@ using back.Data;
 using back.Services;
 using back.Hubs;
 using EFCore.BulkExtensions;
-
+using back.Models;  // ✅ Ajouter ce using pour FileUploadOptions
 
 // Charger les variables d'environnement
 Env.Load();
-
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +32,11 @@ builder.Services.AddCors(options =>
 // ========== BASE DE DONNÉES (via DatabaseConfig) ==========
 builder.Services.AddDatabase();
 
+// ========== 📸 CONFIGURATION UPLOAD PHOTOS ==========
+// ✅ DOIT être AVANT builder.Build() et AVANT l'appel à app.Build()
+builder.Services.Configure<FileUploadOptions>(
+    builder.Configuration.GetSection("FileUpload")
+);
 
 // ========== AUTHENTIFICATION JWT ==========
 var keyString = Environment.GetEnvironmentVariable("JWT_KEY")
@@ -61,7 +65,6 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 
-    // ✅ Logs pour déboguer
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -110,17 +113,38 @@ builder.Services.AddSignalR(options =>
 // ========== CONTROLEURS ==========
 builder.Services.AddControllers();
 
+// ✅ Construction de l'application (APRÈS toutes les configurations)
 var app = builder.Build();
+
+// ========== CRÉER LES DOSSIERS NÉCESSAIRES ==========
+using (var scope = app.Services.CreateScope())
+{
+    var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
+
+    // Dossier des avatars par défaut
+    var defaultAvatarDir = Path.Combine(env.WebRootPath, "images", "avatars");
+    if (!Directory.Exists(defaultAvatarDir))
+    {
+        Directory.CreateDirectory(defaultAvatarDir);
+        Console.WriteLine($"✅ Dossier avatars créé: {defaultAvatarDir}");
+    }
+
+    // Dossier d'upload des photos
+    var uploadDir = Path.Combine(env.WebRootPath, "images", "uploads", "avatars");
+    if (!Directory.Exists(uploadDir))
+    {
+        Directory.CreateDirectory(uploadDir);
+        Console.WriteLine($"✅ Dossier upload créé: {uploadDir}");
+    }
+}
 
 // ========== STATIC FILES ==========
 app.UseStaticFiles();
 
-// ========== MIDDLEWARE PIPELINE (ORDRE IMPORTANT !) ==========
+// ========== MIDDLEWARE PIPELINE ==========
 app.UseCors("AllowReactApp");
 app.UseHttpsRedirection();
-
-// ✅ ORDRE CORRECT : Authentication AVANT Authorization
-app.UseAuthentication();  // 👈 DOIT être AVANT UseAuthorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
@@ -149,5 +173,6 @@ Console.WriteLine($"🔗 Frontend: {frontendUrl}");
 Console.WriteLine($"🔑 JWT_KEY: {(keyString != null ? "✅ Configurée" : "❌ Non configurée")}");
 Console.WriteLine($"🔐 Issuer: {Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "https://localhost:5181"}");
 Console.WriteLine($"🔐 Audience: {Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "http://localhost:5173"}");
+Console.WriteLine($"📁 Upload path: wwwroot/images/uploads/avatars");
 
 app.Run();

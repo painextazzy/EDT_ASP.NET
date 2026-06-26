@@ -18,7 +18,7 @@ namespace back.Models
         public string Nom { get; set; } = string.Empty;
 
         [Column("photo_url")]
-        public string PhotoUrl { get; set; } = string.Empty;
+        public string PhotoUrl { get; set; } = "default-avatar.png";
 
         [Column("id_utilisateur")]
         public int? IdUtilisateur { get; set; }

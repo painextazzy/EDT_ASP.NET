@@ -23,4 +23,8 @@ public class LoginResponseDto
     public DateTime ExpiresAt { get; set; }
     public int UserId { get; set; }
     public bool EstValide { get; set; }
+
+    // ✅ Ajout des champs pour l'enseignant
+    public string? Nom { get; set; }      // Nom de l'enseignant
+    public string? PhotoUrl { get; set; } // Photo de l'enseignant
 }

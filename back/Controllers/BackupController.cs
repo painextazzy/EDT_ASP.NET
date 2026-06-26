@@ -36,8 +36,8 @@ namespace back.Controllers
                 var utilisateurs = await _context.Utilisateurs.ToListAsync();
                 exportData["utilisateurs"] = utilisateurs;
 
-                // Cours (Matières)
-                var cours = await _context.Matieres.ToListAsync();
+                // ✅ Cours (modèle Cours, table matiere)
+                var cours = await _context.Matieres.ToListAsync();  // DbSet<Cours>
                 exportData["cours"] = cours;
 
                 // Niveaux
@@ -51,14 +51,38 @@ namespace back.Controllers
                 // Enseignements
                 var enseignements = await _context.Enseignements
                     .Include(e => e.Enseignant)
-                    .Include(e => e.Cours)
+                    .Include(e => e.Cours)  // ✅ Navigation property Cours
                     .Include(e => e.Niveau)
                     .Include(e => e.Parcours)
                     .ToListAsync();
                 exportData["enseignements"] = enseignements;
 
+                // Salles
+                var salles = await _context.Salles.ToListAsync();
+                exportData["salles"] = salles;
+
+                // Délégués
+                var delegues = await _context.Delegues
+                    .Include(d => d.Niveau)
+                    .Include(d => d.Parcours)
+                    .ToListAsync();
+                exportData["delegues"] = delegues;
+
+                // Plannings
+                var plannings = await _context.Plannings
+                    .Include(p => p.Enseignement)
+                    .ToListAsync();
+                exportData["plannings"] = plannings;
+
+                // Planning_Salle
+                var planningSalles = await _context.PlanningSalles
+                    .Include(ps => ps.Planning)
+                    .Include(ps => ps.Salle)
+                    .ToListAsync();
+                exportData["planning_salles"] = planningSalles;
+
                 exportData["exportDate"] = DateTime.Now;
-                exportData["version"] = "1.0.0";
+                exportData["version"] = "2.0.0";
 
                 var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions
                 {
@@ -103,9 +127,18 @@ namespace back.Controllers
                 {
                     try
                     {
-                        // Nettoyer les tables
+                        // Nettoyer les tables (ordre inverse des dépendances)
+                        if (data.ContainsKey("planning_salles"))
+                            _context.PlanningSalles.RemoveRange(_context.PlanningSalles);
+
+                        if (data.ContainsKey("plannings"))
+                            _context.Plannings.RemoveRange(_context.Plannings);
+
                         if (data.ContainsKey("enseignements"))
                             _context.Enseignements.RemoveRange(_context.Enseignements);
+
+                        if (data.ContainsKey("delegues"))
+                            _context.Delegues.RemoveRange(_context.Delegues);
 
                         if (data.ContainsKey("enseignants"))
                             _context.Enseignants.RemoveRange(_context.Enseignants);
@@ -113,84 +146,59 @@ namespace back.Controllers
                         if (data.ContainsKey("utilisateurs"))
                             _context.Utilisateurs.RemoveRange(_context.Utilisateurs);
 
+                        // ✅ Nettoyer la table matiere (DbSet<Cours>)
                         if (data.ContainsKey("cours"))
-                            _context.Matieres.RemoveRange(_context.Matieres);
+                            _context.Matieres.RemoveRange(_context.Matieres);  // Matieres = DbSet<Cours>
 
-                        if (data.ContainsKey("niveaux"))
-                            _context.Niveaux.RemoveRange(_context.Niveaux);
+                        if (data.ContainsKey("salles"))
+                            _context.Salles.RemoveRange(_context.Salles);
 
                         if (data.ContainsKey("parcours"))
                             _context.Parcours.RemoveRange(_context.Parcours);
+
+                        if (data.ContainsKey("niveaux"))
+                            _context.Niveaux.RemoveRange(_context.Niveaux);
 
                         await _context.SaveChangesAsync();
 
                         int tablesRestored = 0;
 
-                        // Importer
-                        if (data.ContainsKey("parcours") && data["parcours"] != null)
+                        // Fonction d'import générique
+                        async Task ImportTable<T>(string key) where T : class
                         {
-                            var items = JsonSerializer.Deserialize<List<Parcours>>(data["parcours"].ToString());
-                            if (items != null && items.Any())
+                            if (data.ContainsKey(key) && data[key] != null)
                             {
-                                await _context.Parcours.AddRangeAsync(items);
-                                tablesRestored++;
+                                var jsonElement = (JsonElement)data[key];
+                                var items = JsonSerializer.Deserialize<List<T>>(jsonElement.GetRawText());
+                                if (items != null && items.Any())
+                                {
+                                    await _context.Set<T>().AddRangeAsync(items);
+                                    tablesRestored++;
+                                }
                             }
                         }
 
-                        if (data.ContainsKey("niveaux") && data["niveaux"] != null)
-                        {
-                            var items = JsonSerializer.Deserialize<List<Niveau>>(data["niveaux"].ToString());
-                            if (items != null && items.Any())
-                            {
-                                await _context.Niveaux.AddRangeAsync(items);
-                                tablesRestored++;
-                            }
-                        }
-
-                        if (data.ContainsKey("cours") && data["cours"] != null)
-                        {
-                            var items = JsonSerializer.Deserialize<List<Cours>>(data["cours"].ToString());
-                            if (items != null && items.Any())
-                            {
-                                await _context.Matieres.AddRangeAsync(items);
-                                tablesRestored++;
-                            }
-                        }
-
-                        if (data.ContainsKey("utilisateurs") && data["utilisateurs"] != null)
-                        {
-                            var items = JsonSerializer.Deserialize<List<Utilisateur>>(data["utilisateurs"].ToString());
-                            if (items != null && items.Any())
-                            {
-                                await _context.Utilisateurs.AddRangeAsync(items);
-                                tablesRestored++;
-                            }
-                        }
-
-                        if (data.ContainsKey("enseignants") && data["enseignants"] != null)
-                        {
-                            var items = JsonSerializer.Deserialize<List<Enseignant>>(data["enseignants"].ToString());
-                            if (items != null && items.Any())
-                            {
-                                await _context.Enseignants.AddRangeAsync(items);
-                                tablesRestored++;
-                            }
-                        }
-
-                        if (data.ContainsKey("enseignements") && data["enseignements"] != null)
-                        {
-                            var items = JsonSerializer.Deserialize<List<Enseignement>>(data["enseignements"].ToString());
-                            if (items != null && items.Any())
-                            {
-                                await _context.Enseignements.AddRangeAsync(items);
-                                tablesRestored++;
-                            }
-                        }
+                        // ✅ Importer avec le bon modèle
+                        await ImportTable<Niveau>("niveaux");
+                        await ImportTable<Parcours>("parcours");
+                        await ImportTable<Salle>("salles");
+                        await ImportTable<Cours>("cours");  // ✅ Modèle Cours
+                        await ImportTable<Utilisateur>("utilisateurs");
+                        await ImportTable<Enseignant>("enseignants");
+                        await ImportTable<Delegue>("delegues");
+                        await ImportTable<Enseignement>("enseignements");
+                        await ImportTable<Planning>("plannings");
+                        await ImportTable<PlanningSalle>("planning_salles");
 
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
 
-                        return Ok(new { success = true, message = "Import réussi", tablesRestored = tablesRestored });
+                        return Ok(new
+                        {
+                            success = true,
+                            message = "Import réussi",
+                            tablesRestored = tablesRestored
+                        });
                     }
                     catch (Exception ex)
                     {
