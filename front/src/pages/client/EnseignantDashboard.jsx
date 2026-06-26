@@ -11,7 +11,7 @@ import { authApi } from '../../services/auth';
 import api from '../../services/api';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import logo from '../../assets/logo.jpg'; // Import du logo
+import logo from '../../assets/logo.jpg';
 
 // Couleurs pour les cours
 const courseColors = [
@@ -38,8 +38,8 @@ const EnseignantDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   
-  // État pour la demande d'annulation
-  const [showCancelRequestModal, setShowCancelRequestModal] = useState(false);
+  // État pour la modale d'annulation (directe, sans approbation)
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedCancelCourse, setSelectedCancelCourse] = useState(null);
   const [cancelMotif, setCancelMotif] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -253,33 +253,33 @@ const EnseignantDashboard = () => {
   const filteredCourses = viewMode === 'day' ? getCoursesForDay() : getCoursesForWeek();
   const cancelledCourses = getCancelledCourses();
 
-  // ========== DEMANDE D'ANNULATION ==========
-  const openCancelRequestModal = (course) => {
+  // ========== ANNULATION DIRECTE (sans approbation) ==========
+  const openCancelModal = (course) => {
     setSelectedCancelCourse(course);
     setCancelMotif('');
-    setShowCancelRequestModal(true);
+    setShowCancelModal(true);
   };
 
-  const closeCancelRequestModal = () => {
-    setShowCancelRequestModal(false);
+  const closeCancelModal = () => {
+    setShowCancelModal(false);
     setSelectedCancelCourse(null);
     setCancelMotif('');
     setSubmitting(false);
   };
 
-  const handleSubmitCancelRequest = async () => {
+  const handleConfirmCancel = async () => {
     if (!cancelMotif.trim() || !selectedCancelCourse) return;
     
     setSubmitting(true);
     try {
-      const result = await api.annulation.demander(selectedCancelCourse.id, cancelMotif);
+      const result = await api.planning.cancel(selectedCancelCourse.id, cancelMotif);
       if (result.message) {
-        alert('✅ Demande d\'annulation envoyée avec succès ! En attente de validation par l\'administrateur.');
+        alert('✅ Cours annulé avec succès !');
         await loadCourses(true);
-        closeCancelRequestModal();
+        closeCancelModal();
       }
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'Erreur lors de l\'envoi de la demande';
+      const errorMsg = error.response?.data?.message || 'Erreur lors de l\'annulation';
       alert(`❌ ${errorMsg}`);
     } finally {
       setSubmitting(false);
@@ -301,7 +301,6 @@ const EnseignantDashboard = () => {
       container.style.zIndex = '9999';
       document.body.appendChild(container);
       
-      // ===== EN-TÊTE PROFESSIONNEL AVEC LOGO =====
       const header = document.createElement('div');
       header.style.display = 'flex';
       header.style.justifyContent = 'space-between';
@@ -310,13 +309,10 @@ const EnseignantDashboard = () => {
       header.style.paddingBottom = '20px';
       header.style.borderBottom = '3px solid #1a237e';
       
-      // Logo à gauche
       const logoDiv = document.createElement('div');
       logoDiv.style.width = '80px';
       logoDiv.style.height = '80px';
       logoDiv.style.flexShrink = '0';
-      
-      // Charger le logo depuis l'import
       const img = new Image();
       img.src = logo;
       img.style.width = '100%';
@@ -325,7 +321,6 @@ const EnseignantDashboard = () => {
       img.alt = 'Logo';
       logoDiv.appendChild(img);
       
-      // Titre au centre
       const titleDiv = document.createElement('div');
       titleDiv.style.textAlign = 'center';
       titleDiv.style.flex = '1';
@@ -334,7 +329,6 @@ const EnseignantDashboard = () => {
         <div style="font-size:16px;color:#333;margin-top:4px;font-weight:500;">${getMonthName(currentDate)}</div>
       `;
       
-      // Date à droite
       const dateDiv = document.createElement('div');
       dateDiv.style.textAlign = 'right';
       dateDiv.style.flexShrink = '0';
@@ -348,7 +342,6 @@ const EnseignantDashboard = () => {
       header.appendChild(dateDiv);
       container.appendChild(header);
       
-      // ===== INFORMATIONS SUPPLEMENTAIRES =====
       const infoBar = document.createElement('div');
       infoBar.style.display = 'flex';
       infoBar.style.justifyContent = 'space-between';
@@ -365,7 +358,6 @@ const EnseignantDashboard = () => {
       `;
       container.appendChild(infoBar);
       
-      // ===== TABLEAU =====
       const table = document.createElement('table');
       table.style.width = '100%';
       table.style.borderCollapse = 'collapse';
@@ -452,7 +444,6 @@ const EnseignantDashboard = () => {
       table.innerHTML = html;
       container.appendChild(table);
       
-      // ===== PIED DE PAGE =====
       const footer = document.createElement('div');
       footer.style.display = 'flex';
       footer.style.justifyContent = 'space-between';
@@ -799,17 +790,17 @@ const EnseignantDashboard = () => {
         </div>
       )}
 
-      {/* ===== MODALE DE DEMANDE D'ANNULATION ===== */}
-      {showCancelRequestModal && selectedCancelCourse && (
+      {/* ===== MODALE D'ANNULATION (directe, sans approbation) ===== */}
+      {showCancelModal && selectedCancelCourse && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                 <XCircle className="w-6 h-6 text-red-500" />
-                Demander l'annulation
+                Annuler le cours
               </h2>
               <button 
-                onClick={closeCancelRequestModal}
+                onClick={closeCancelModal}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5 text-gray-500" />
@@ -836,21 +827,18 @@ const EnseignantDashboard = () => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none resize-none"
                   rows="4"
                 />
-                <p className="text-xs text-gray-400 mt-1">
-                  Une demande sera envoyée à l'administrateur pour validation.
-                </p>
               </div>
             </div>
             
             <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
               <button 
-                onClick={closeCancelRequestModal}
+                onClick={closeCancelModal}
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 rounded-xl transition-colors"
               >
                 Annuler
               </button>
               <button 
-                onClick={handleSubmitCancelRequest}
+                onClick={handleConfirmCancel}
                 disabled={!cancelMotif.trim() || submitting}
                 className={`px-6 py-2 text-sm font-medium bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all flex items-center gap-2 ${
                   !cancelMotif.trim() || submitting ? 'opacity-50 cursor-not-allowed' : ''
@@ -859,10 +847,10 @@ const EnseignantDashboard = () => {
                 {submitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    Envoi...
+                    Annulation...
                   </>
                 ) : (
-                  'Envoyer la demande'
+                  'Confirmer l\'annulation'
                 )}
               </button>
             </div>
@@ -951,7 +939,7 @@ const EnseignantDashboard = () => {
                 )}
               </div>
 
-              {/* ===== GRILLE AVEC NOM DE LA MATIÈRE ===== */}
+              {/* ===== GRILLE AVEC BOUTON D'ANNULATION ===== */}
               <div ref={calendarRef} className="calendar-grid-container relative overflow-y-auto" style={{ maxHeight: '520px' }}>
                 <div className="flex">
                   <div className="w-16 flex-shrink-0 border-r border-gray-200 bg-gray-50 sticky left-0 z-10">
@@ -1014,10 +1002,10 @@ const EnseignantDashboard = () => {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    openCancelRequestModal(course);
+                                    openCancelModal(course);
                                   }}
                                   className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1 p-0.5 bg-red-500 hover:bg-red-600 rounded-full text-white"
-                                  title="Demander l'annulation"
+                                  title="Annuler le cours"
                                 >
                                   <X className="w-3 h-3" />
                                 </button>

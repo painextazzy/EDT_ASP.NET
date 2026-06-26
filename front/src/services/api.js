@@ -107,7 +107,7 @@ export const affectationApi = {
   delete: (id) => 
     apiClient(`/api/Affectation/${id}`, { method: 'DELETE' }),
 
-   checkExists: (params) => {
+  checkExists: (params) => {
     const queryString = new URLSearchParams({
       coursId: params.coursId,
       professeurId: params.professeurId,
@@ -117,7 +117,6 @@ export const affectationApi = {
     return apiClient(`/api/Affectation/exists?${queryString}`, { method: 'GET' });
   },
 };
-
 
 // ========== GESTION DES SALLES ==========
 export const salleApi = {
@@ -332,7 +331,7 @@ export const planningApi = {
   getAll: () => 
     apiClient('/api/Planning', { method: 'GET' }),
   
-  // ========== NOUVEAU : Récupérer les événements d'un enseignant par son ID ==========
+  // Récupérer les événements d'un enseignant par son ID (PROFESSEUR)
   getByEnseignantId: (enseignantId) => 
     apiClient(`/api/Planning/enseignant/${enseignantId}`, { method: 'GET' }),
   
@@ -358,7 +357,7 @@ export const planningApi = {
       body: JSON.stringify(data) 
     }),
   
-  // Annuler un événement
+  // ========== CORRECTION : Annuler un événement (direct, sans approbation) ==========
   cancel: (id, motif) => 
     apiClient(`/api/Planning/${id}/annuler`, { 
       method: 'PATCH', 
@@ -369,32 +368,25 @@ export const planningApi = {
   delete: (id) => 
     apiClient(`/api/Planning/${id}`, { method: 'DELETE' }),
 
-  // ========== GESTION DES SALLES D'UN PLANNING ==========
-  
-  // Récupérer toutes les salles d'un planning
+  // Gestion des salles d'un planning
   getSallesByPlanning: (planningId) => 
     apiClient(`/api/PlanningSalle/planning/${planningId}`, { method: 'GET' }),
   
-  // Ajouter une salle à un planning
   addSalleToPlanning: (planningId, salleId) => 
     apiClient('/api/PlanningSalle', { 
       method: 'POST', 
       body: JSON.stringify({ idPlanning: planningId, idSalle: salleId }) 
     }),
   
-  // Retirer une salle d'un planning
   removeSalleFromPlanning: (planningId, salleId) => 
     apiClient(`/api/PlanningSalle?planningId=${planningId}&salleId=${salleId}`, { 
       method: 'DELETE' 
     }),
   
-  // Récupérer tous les plannings d'une salle
   getPlanningsBySalle: (salleId) => 
     apiClient(`/api/PlanningSalle/salle/${salleId}`, { method: 'GET' }),
 
-  // ========== VÉRIFICATIONS DE DISPONIBILITÉ ==========
-  
-  // Vérifier la disponibilité d'un professeur
+  // Vérifications de disponibilité
   checkProfesseurDisponibilite: (professeurId, start, end, excludeId = null) => {
     let url = `/api/Planning/check-professeur?professeurId=${professeurId}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
     if (excludeId) {
@@ -403,7 +395,6 @@ export const planningApi = {
     return apiClient(url, { method: 'GET' });
   },
 
-  // Vérifier la disponibilité d'une salle par nom
   checkSalleDisponibilite: (salleNom, start, end, excludeId = null) => {
     let url = `/api/Planning/check-salle?salleNom=${encodeURIComponent(salleNom)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
     if (excludeId) {
@@ -412,7 +403,6 @@ export const planningApi = {
     return apiClient(url, { method: 'GET' });
   },
 
-  // Vérifier la disponibilité d'une salle par ID
   checkSalleDisponibiliteById: (salleId, start, end, excludeId = null) => {
     let url = `/api/Planning/check-salle-by-id?salleId=${salleId}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
     if (excludeId) {
@@ -424,62 +414,33 @@ export const planningApi = {
 
 // ========== SERVICE POUR PLANNING_SALLE ==========
 export const planningSalleApi = {
-  // Récupérer toutes les salles d'un planning
   getSallesByPlanning: (planningId) => 
     apiClient(`/api/PlanningSalle/planning/${planningId}`, { method: 'GET' }),
   
-  // Ajouter une salle à un planning
   addSalleToPlanning: (planningId, salleId) => 
     apiClient('/api/PlanningSalle', { 
       method: 'POST', 
       body: JSON.stringify({ idPlanning: planningId, idSalle: salleId }) 
     }),
   
-  // Retirer une salle d'un planning
   removeSalleFromPlanning: (planningId, salleId) => 
     apiClient(`/api/PlanningSalle?planningId=${planningId}&salleId=${salleId}`, { 
       method: 'DELETE' 
     }),
   
-  // Récupérer tous les plannings d'une salle
   getPlanningsBySalle: (salleId) => 
     apiClient(`/api/PlanningSalle/salle/${salleId}`, { method: 'GET' }),
 };
 
 // ========== SERVICE POUR LE DASHBOARD ==========
 export const dashboardApi = {
-  // Récupérer les statistiques du dashboard avec filtrage par période
   getStats: (period = 'month') => 
     apiClient(`/api/Dashboard/stats?period=${period}`, { method: 'GET' }),
 };
-// ========== SERVICE POUR LES DEMANDES D'ANNULATION ==========
-export const annulationApi = {
-  // Enseignant : demander l'annulation d'un cours
-  demander: (planningId, motif) => 
-    apiClient(`/api/Planning/${planningId}/demander-annulation`, { 
-      method: 'POST', 
-      body: JSON.stringify({ motif }) 
-    }),
 
-  // Admin : lister les demandes en attente
-  getDemandes: () => 
-    apiClient('/api/Planning/demandes-annulation', { method: 'GET' }),
-
-  // Admin : approuver une demande
-  approuver: (requestId, commentaire) => 
-    apiClient(`/api/Planning/demandes-annulation/${requestId}/approuver`, { 
-      method: 'PATCH', 
-      body: JSON.stringify({ commentaire }) 
-    }),
-
-  // Admin : refuser une demande
-  refuser: (requestId, commentaire) => 
-    apiClient(`/api/Planning/demandes-annulation/${requestId}/refuser`, { 
-      method: 'PATCH', 
-      body: JSON.stringify({ commentaire }) 
-    }),
-};
-
+// ==========================================
+// ========== EXPORT PRINCIPAL ==========
+// ==========================================
 const api = {
   inscription: inscriptionApi,
   cours: coursApi,
@@ -491,10 +452,10 @@ const api = {
   enseignant: enseignantApi,
   parcours: parcoursApi,
   niveau: niveauApi,
-  planning: planningApi,  // ← NOUVEAU
-  planningSalle: planningSalleApi,  // ← NOUVEAU
-  dashboard: dashboardApi,  // ← NOUVEAU
-  annulation: annulationApi,
+  planning: planningApi,
+  planningSalle: planningSalleApi,
+  dashboard: dashboardApi,
+  // annulation: annulationApi, ← SUPPRIMÉ (plus nécessaire)
 };
 
 export default api;
