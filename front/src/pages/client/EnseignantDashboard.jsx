@@ -11,6 +11,7 @@ import { authApi } from '../../services/auth';
 import api from '../../services/api';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import logo from '../../assets/logo.jpg'; // Import du logo
 
 // Couleurs pour les cours
 const courseColors = [
@@ -90,16 +91,37 @@ const EnseignantDashboard = () => {
           const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
           const color = courseColors[index % courseColors.length];
           
+          let matiereName = 'Cours';
+          if (item.titre) matiereName = item.titre;
+          else if (item.matiere?.nom) matiereName = item.matiere.nom;
+          else if (item.cours?.nom) matiereName = item.cours.nom;
+          else if (item.enseignement?.cours?.nom) matiereName = item.enseignement.cours.nom;
+          else if (item.name) matiereName = item.name;
+          
+          let enseignantName = '';
+          if (item.enseignant?.nom) enseignantName = item.enseignant.nom;
+          else if (item.enseignement?.enseignant?.nom) enseignantName = item.enseignement.enseignant.nom;
+          
+          let niveauName = '';
+          if (item.niveau) niveauName = item.niveau;
+          else if (item.enseignement?.niveau?.libelle) niveauName = item.enseignement.niveau.libelle;
+          
+          let roomName = 'Salle non définie';
+          if (item.salles && Array.isArray(item.salles) && item.salles.length > 0) {
+            roomName = item.salles.map(s => s.nom || s.numero).join(', ');
+          }
+          
           return {
             id: item.id,
-            name: item.titre || item.matiere?.nom || item.cours?.nom || 'Cours',
+            name: matiereName,
+            matiere: matiereName,
             day: dayIndex,
             start: startDate.getHours(),
             end: endDate.getHours(),
             color: color,
-            room: item.salles?.map(s => s.nom || s.numero).join(', ') || 'Salle non définie',
-            enseignant: item.enseignant?.nom || item.enseignement?.enseignant?.nom,
-            niveau: item.niveau || item.enseignement?.niveau?.libelle,
+            room: roomName,
+            enseignant: enseignantName,
+            niveau: niveauName,
             statut: item.statut || 'Actif',
             date: startDate
           };
@@ -264,195 +286,239 @@ const EnseignantDashboard = () => {
     }
   };
 
- 
-// ========== EXPORT PDF - VERSION SANS OKLCH ==========
-const exportToPDF = async () => {
-  try {
-    setIsExporting(true);
-    
-    // Créer un conteneur temporaire pour l'export
-    const container = document.createElement('div');
-    container.style.position = 'fixed';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = '1200px';
-    container.style.backgroundColor = '#ffffff';
-    container.style.padding = '30px';
-    container.style.zIndex = '9999';
-    document.body.appendChild(container);
-    
-    // En-tête
-    const header = document.createElement('div');
-    header.style.textAlign = 'center';
-    header.style.marginBottom = '25px';
-    header.style.borderBottom = '2px solid #1a237e';
-    header.style.paddingBottom = '15px';
-    header.innerHTML = `
-      <h1 style="font-size:22px;font-weight:bold;color:#1a237e;margin:0;">📚 Emploi du temps</h1>
-      <h2 style="font-size:16px;color:#333;margin:5px 0 0 0;">${getMonthName(currentDate)}</h2>
-      <p style="font-size:11px;color:#888;margin:5px 0 0 0;">Exporté le ${new Date().toLocaleDateString('fr')} à ${new Date().toLocaleTimeString('fr')}</p>
-    `;
-    container.appendChild(header);
-    
-    // Créer un tableau propre
-    const table = document.createElement('table');
-    table.style.width = '100%';
-    table.style.borderCollapse = 'collapse';
-    table.style.fontSize = '12px';
-    table.style.fontFamily = 'Arial, sans-serif';
-    
-    // En-tête du tableau
-    let html = `
-      <thead>
-        <tr style="background-color: #1a237e;color:#ffffff;">
-          <th style="padding:10px 8px;text-align:center;border:1px solid #999;width:12%;">Horaire</th>
-          <th style="padding:10px 8px;text-align:center;border:1px solid #999;width:17.6%;">Lundi 22</th>
-          <th style="padding:10px 8px;text-align:center;border:1px solid #999;width:17.6%;">Mardi 23</th>
-          <th style="padding:10px 8px;text-align:center;border:1px solid #999;width:17.6%;">Mercredi 24</th>
-          <th style="padding:10px 8px;text-align:center;border:1px solid #999;width:17.6%;">Jeudi 25</th>
-          <th style="padding:10px 8px;text-align:center;border:1px solid #999;width:17.6%;">Vendredi 26</th>
-        </tr>
-      </thead>
-      <tbody>
-    `;
-    
-    // Définir les couleurs hex (sans oklch)
-    const colorMap = {
-      'bg-purple-100': '#f3e8ff',
-      'bg-blue-100': '#dbeafe',
-      'bg-green-100': '#d1fae5',
-      'bg-cyan-100': '#cffafe',
-      'bg-pink-100': '#fce7f3',
-      'bg-amber-100': '#fef3c7',
-      'bg-indigo-100': '#e0e7ff',
-      'bg-rose-100': '#ffe4e6',
-    };
-    
-    const borderColorMap = {
-      'border-purple-500': '#8B5CF6',
-      'border-blue-500': '#3B82F6',
-      'border-green-500': '#10B981',
-      'border-cyan-500': '#06B6D4',
-      'border-pink-500': '#EC4899',
-      'border-amber-500': '#F59E0B',
-      'border-indigo-500': '#6366F1',
-      'border-rose-500': '#F43F5E',
-    };
-    
-    // Lignes du tableau (7h à 18h)
-    for (let i = 7; i <= 18; i++) {
-      const hour = i.toString().padStart(2, '0') + ':00';
-      const isEven = i % 2 === 0;
-      html += `<tr style="background-color: ${isEven ? '#f5f5f5' : '#ffffff'};">`;
-      html += `<td style="padding:8px;text-align:center;border:1px solid #999;font-weight:bold;background-color:#e8eaf6;">${hour}</td>`;
+  // ========== EXPORT PDF - VERSION PROFESSIONNELLE AVEC LOGO ==========
+  const exportToPDF = async () => {
+    try {
+      setIsExporting(true);
       
-      for (let day = 0; day < 5; day++) {
-        const coursesAtHour = filteredCourses.filter(c => c.day === day && c.start === i);
-        let cellContent = '';
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.style.width = '1200px';
+      container.style.backgroundColor = '#ffffff';
+      container.style.padding = '40px';
+      container.style.zIndex = '9999';
+      document.body.appendChild(container);
+      
+      // ===== EN-TÊTE PROFESSIONNEL AVEC LOGO =====
+      const header = document.createElement('div');
+      header.style.display = 'flex';
+      header.style.justifyContent = 'space-between';
+      header.style.alignItems = 'center';
+      header.style.marginBottom = '25px';
+      header.style.paddingBottom = '20px';
+      header.style.borderBottom = '3px solid #1a237e';
+      
+      // Logo à gauche
+      const logoDiv = document.createElement('div');
+      logoDiv.style.width = '80px';
+      logoDiv.style.height = '80px';
+      logoDiv.style.flexShrink = '0';
+      
+      // Charger le logo depuis l'import
+      const img = new Image();
+      img.src = logo;
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+      img.alt = 'Logo';
+      logoDiv.appendChild(img);
+      
+      // Titre au centre
+      const titleDiv = document.createElement('div');
+      titleDiv.style.textAlign = 'center';
+      titleDiv.style.flex = '1';
+      titleDiv.innerHTML = `
+        <div style="font-size:26px;font-weight:bold;color:#1a237e;letter-spacing:2px;">EMPLOI DU TEMPS</div>
+        <div style="font-size:16px;color:#333;margin-top:4px;font-weight:500;">${getMonthName(currentDate)}</div>
+      `;
+      
+      // Date à droite
+      const dateDiv = document.createElement('div');
+      dateDiv.style.textAlign = 'right';
+      dateDiv.style.flexShrink = '0';
+      dateDiv.innerHTML = `
+        <div style="font-size:10px;color:#666;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">Document</div>
+        <div style="font-size:12px;color:#333;font-weight:500;">${new Date().toLocaleDateString('fr', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
+      `;
+      
+      header.appendChild(logoDiv);
+      header.appendChild(titleDiv);
+      header.appendChild(dateDiv);
+      container.appendChild(header);
+      
+      // ===== INFORMATIONS SUPPLEMENTAIRES =====
+      const infoBar = document.createElement('div');
+      infoBar.style.display = 'flex';
+      infoBar.style.justifyContent = 'space-between';
+      infoBar.style.marginBottom = '20px';
+      infoBar.style.padding = '12px 16px';
+      infoBar.style.backgroundColor = '#f5f5f5';
+      infoBar.style.borderRadius = '4px';
+      infoBar.style.fontSize = '11px';
+      infoBar.style.color = '#555';
+      infoBar.innerHTML = `
+        <div><strong>Enseignant :</strong> ${user?.nom || user?.email?.split('@')[0] || 'Non défini'}</div>
+        <div><strong>Semaine :</strong> ${filteredCourses.length > 0 ? '22 - 26 Juin 2026' : 'Aucun cours'}</div>
+        <div><strong>Total :</strong> ${filteredCourses.length} cours</div>
+      `;
+      container.appendChild(infoBar);
+      
+      // ===== TABLEAU =====
+      const table = document.createElement('table');
+      table.style.width = '100%';
+      table.style.borderCollapse = 'collapse';
+      table.style.fontSize = '11px';
+      table.style.fontFamily = 'Arial, sans-serif';
+      
+      const colorMap = {
+        'bg-purple-100': '#f3e8ff',
+        'bg-blue-100': '#dbeafe',
+        'bg-green-100': '#d1fae5',
+        'bg-cyan-100': '#cffafe',
+        'bg-pink-100': '#fce7f3',
+        'bg-amber-100': '#fef3c7',
+        'bg-indigo-100': '#e0e7ff',
+        'bg-rose-100': '#ffe4e6',
+      };
+      
+      const borderColorMap = {
+        'border-purple-500': '#8B5CF6',
+        'border-blue-500': '#3B82F6',
+        'border-green-500': '#10B981',
+        'border-cyan-500': '#06B6D4',
+        'border-pink-500': '#EC4899',
+        'border-amber-500': '#F59E0B',
+        'border-indigo-500': '#6366F1',
+        'border-rose-500': '#F43F5E',
+      };
+      
+      let html = `
+        <thead>
+          <tr style="background-color: #1a237e;color:#ffffff;">
+            <th style="padding:12px 10px;text-align:center;border:1px solid #2a3a7e;width:12%;font-size:12px;font-weight:600;letter-spacing:0.5px;">HORAIRE</th>
+            <th style="padding:12px 10px;text-align:center;border:1px solid #2a3a7e;width:17.6%;font-size:12px;font-weight:600;letter-spacing:0.5px;">LUNDI<br><span style="font-weight:400;font-size:10px;">22 Juin</span></th>
+            <th style="padding:12px 10px;text-align:center;border:1px solid #2a3a7e;width:17.6%;font-size:12px;font-weight:600;letter-spacing:0.5px;">MARDI<br><span style="font-weight:400;font-size:10px;">23 Juin</span></th>
+            <th style="padding:12px 10px;text-align:center;border:1px solid #2a3a7e;width:17.6%;font-size:12px;font-weight:600;letter-spacing:0.5px;">MERCREDI<br><span style="font-weight:400;font-size:10px;">24 Juin</span></th>
+            <th style="padding:12px 10px;text-align:center;border:1px solid #2a3a7e;width:17.6%;font-size:12px;font-weight:600;letter-spacing:0.5px;">JEUDI<br><span style="font-weight:400;font-size:10px;">25 Juin</span></th>
+            <th style="padding:12px 10px;text-align:center;border:1px solid #2a3a7e;width:17.6%;font-size:12px;font-weight:600;letter-spacing:0.5px;">VENDREDI<br><span style="font-weight:400;font-size:10px;">26 Juin</span></th>
+          </tr>
+        </thead>
+        <tbody>
+      `;
+      
+      for (let i = 7; i <= 20; i++) {
+        const hour = i.toString().padStart(2, '0') + ':00';
+        const isEven = i % 2 === 0;
+        html += `<tr style="background-color: ${isEven ? '#fafafa' : '#ffffff'};">`;
+        html += `<td style="padding:8px 10px;text-align:center;border:1px solid #ddd;font-weight:600;color:#333;background-color:#f0f0f0;">${hour}</td>`;
         
-        if (coursesAtHour.length > 0) {
-          coursesAtHour.forEach(c => {
-            const isCancelled = c.statut === 'Annule';
-            const colorKey = c.color?.bg || 'bg-blue-100';
-            const borderKey = c.color?.border || 'border-blue-500';
-            const bgHex = colorMap[colorKey] || '#dbeafe';
-            const borderHex = borderColorMap[borderKey] || '#3B82F6';
-            
-            cellContent += `<div style="
-              background-color: ${isCancelled ? '#fef2f2' : bgHex};
-              border-left: 4px solid ${isCancelled ? '#ef4444' : borderHex};
-              padding: 6px 8px;
-              margin: 3px 0;
-              border-radius: 4px;
-              ${isCancelled ? 'opacity: 0.7;' : ''}
-            ">
-              <div style="font-weight:bold;font-size:12px;${isCancelled ? 'text-decoration:line-through;color:#999;' : 'color:#333;'}">${c.name}</div>
-              <div style="font-size:10px;color:#666;">${c.room}</div>
-              ${isCancelled ? '<div style="font-size:9px;color:#ef4444;font-weight:bold;margin-top:2px;">❌ ANNULÉ</div>' : ''}
-            </div>`;
-          });
+        for (let day = 0; day < 5; day++) {
+          const coursesAtHour = filteredCourses.filter(c => c.day === day && c.start === i);
+          let cellContent = '';
+          
+          if (coursesAtHour.length > 0) {
+            coursesAtHour.forEach(c => {
+              const isCancelled = c.statut === 'Annule';
+              const colorKey = c.color?.bg || 'bg-blue-100';
+              const borderKey = c.color?.border || 'border-blue-500';
+              const bgHex = colorMap[colorKey] || '#dbeafe';
+              const borderHex = borderColorMap[borderKey] || '#3B82F6';
+              
+              cellContent += `<div style="
+                background-color: ${isCancelled ? '#fef2f2' : bgHex};
+                border-left: 4px solid ${isCancelled ? '#ef4444' : borderHex};
+                padding: 8px 10px;
+                margin: 4px 0;
+                border-radius: 4px;
+                ${isCancelled ? 'opacity: 0.7;' : ''}
+              ">
+                <div style="font-weight:bold;font-size:12px;color:${isCancelled ? '#999' : '#1a1a1a'};">${c.matiere || c.name || 'Cours'}</div>
+                <div style="font-size:9px;color:#666;margin-top:2px;">${c.room}</div>
+                ${c.niveau ? `<div style="font-size:8px;color:#888;margin-top:1px;">${c.niveau}</div>` : ''}
+                ${isCancelled ? '<div style="font-size:9px;color:#dc2626;font-weight:bold;margin-top:3px;">ANNULE</div>' : ''}
+              </div>`;
+            });
+          }
+          
+          html += `<td style="padding:6px;border:1px solid #ddd;vertical-align:top;text-align:center;">${cellContent || ''}</td>`;
         }
         
-        html += `<td style="padding:6px;border:1px solid #999;vertical-align:top;text-align:center;">${cellContent || ''}</td>`;
+        html += '</tr>';
       }
       
-      html += '</tr>';
+      html += '</tbody>';
+      table.innerHTML = html;
+      container.appendChild(table);
+      
+      // ===== PIED DE PAGE =====
+      const footer = document.createElement('div');
+      footer.style.display = 'flex';
+      footer.style.justifyContent = 'space-between';
+      footer.style.marginTop = '25px';
+      footer.style.paddingTop = '15px';
+      footer.style.borderTop = '2px solid #1a237e';
+      footer.style.fontSize = '9px';
+      footer.style.color = '#888';
+      footer.innerHTML = `
+        <div>Document généré automatiquement</div>
+        <div>${user?.email || 'Utilisateur'} • ${new Date().toLocaleDateString('fr')}</div>
+        <div>${filteredCourses.length} cours programmés</div>
+      `;
+      container.appendChild(footer);
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const canvas = await html2canvas(container, {
+        scale: 2.5,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true,
+        onclone: (clonedDoc) => {
+          const allElements = clonedDoc.querySelectorAll('*');
+          allElements.forEach((el) => {
+            const style = window.getComputedStyle(el);
+            const bgColor = style.backgroundColor;
+            const color = style.color;
+            const borderColor = style.borderColor;
+            
+            if (bgColor && (bgColor.includes('oklab') || bgColor.includes('oklch'))) {
+              el.style.backgroundColor = '#ffffff';
+            }
+            if (color && (color.includes('oklab') || color.includes('oklch'))) {
+              el.style.color = '#000000';
+            }
+            if (borderColor && (borderColor.includes('oklab') || borderColor.includes('oklch'))) {
+              el.style.borderColor = '#999999';
+            }
+          });
+        }
+      });
+      
+      document.body.removeChild(container);
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const pdfWidth = 280;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth - 20, pdfHeight - 20);
+      
+      pdf.save(`Emploi_du_temps_${formatDate(currentDate)}.pdf`);
+      
+    } catch (error) {
+      console.error('❌ Erreur export PDF:', error);
+      alert('Erreur lors de l\'export PDF: ' + error.message);
+    } finally {
+      setIsExporting(false);
     }
-    
-    html += '</tbody>';
-    table.innerHTML = html;
-    container.appendChild(table);
-    
-    // Pied de page
-    const footer = document.createElement('div');
-    footer.style.textAlign = 'center';
-    footer.style.marginTop = '20px';
-    footer.style.paddingTop = '15px';
-    footer.style.borderTop = '1px solid #ddd';
-    footer.style.fontSize = '10px';
-    footer.style.color = '#999';
-    footer.innerHTML = `
-      <p style="margin:0;">Généré par Calendrier - ${user?.email || 'Utilisateur'}</p>
-      <p style="margin:0;font-size:9px;">Total: ${filteredCourses.length} cours cette semaine</p>
-    `;
-    container.appendChild(footer);
-    
-    // Attendre le rendu
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Capturer avec html2canvas (sans oklch)
-    const canvas = await html2canvas(container, {
-      scale: 2,
-      backgroundColor: '#ffffff',
-      logging: false,
-      useCORS: true,
-      // Ignorer les erreurs de couleurs
-      onclone: (clonedDoc) => {
-        const allElements = clonedDoc.querySelectorAll('*');
-        allElements.forEach((el) => {
-          const style = window.getComputedStyle(el);
-          const bgColor = style.backgroundColor;
-          const color = style.color;
-          const borderColor = style.borderColor;
-          
-          if (bgColor && (bgColor.includes('oklab') || bgColor.includes('oklch'))) {
-            el.style.backgroundColor = '#ffffff';
-          }
-          if (color && (color.includes('oklab') || color.includes('oklch'))) {
-            el.style.color = '#000000';
-          }
-          if (borderColor && (borderColor.includes('oklab') || borderColor.includes('oklch'))) {
-            el.style.borderColor = '#999999';
-          }
-        });
-      }
-    });
-    
-    // Supprimer le conteneur
-    document.body.removeChild(container);
-    
-    // Créer le PDF
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4'
-    });
-    
-    const pdfWidth = 280;
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-    
-    pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth - 20, pdfHeight - 20);
-    
-    pdf.save(`emploi_du_temps_${formatDate(currentDate)}.pdf`);
-    
-  } catch (error) {
-    console.error('❌ Erreur export PDF:', error);
-    alert('Erreur lors de l\'export PDF: ' + error.message);
-  } finally {
-    setIsExporting(false);
-  }
-};
+  };
 
   const formatDate = (date) => {
     return date.toISOString().split('T')[0];
@@ -753,7 +819,7 @@ const exportToPDF = async () => {
             <div className="p-6 space-y-4">
               <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
                 <p className="text-sm font-medium text-blue-800">Cours à annuler</p>
-                <p className="font-semibold">{selectedCancelCourse.name}</p>
+                <p className="font-semibold">{selectedCancelCourse.matiere || selectedCancelCourse.name}</p>
                 <p className="text-sm text-gray-500">
                   {selectedCancelCourse.date?.toLocaleDateString('fr')} - {selectedCancelCourse.start}h à {selectedCancelCourse.end}h
                 </p>
@@ -885,7 +951,7 @@ const exportToPDF = async () => {
                 )}
               </div>
 
-              {/* Grille avec bouton d'annulation */}
+              {/* ===== GRILLE AVEC NOM DE LA MATIÈRE ===== */}
               <div ref={calendarRef} className="calendar-grid-container relative overflow-y-auto" style={{ maxHeight: '520px' }}>
                 <div className="flex">
                   <div className="w-16 flex-shrink-0 border-r border-gray-200 bg-gray-50 sticky left-0 z-10">
@@ -904,6 +970,7 @@ const exportToPDF = async () => {
                     {filteredCourses.map((course) => {
                       const isCancelled = course.statut === 'Annule';
                       const color = course.color || courseColors[0];
+                      const matiereName = course.matiere || course.name || 'Cours';
                       
                       return (
                         <div 
@@ -920,32 +987,46 @@ const exportToPDF = async () => {
                             borderLeftColor: color.hex || '#3B82F6',
                             backgroundColor: isCancelled ? '#fef2f2' : undefined,
                           }}
-                          title={`${course.name}\n${course.start}h - ${course.end}h\n${course.room}`}
+                          title={`${matiereName}\n${course.start}h - ${course.end}h\n${course.room}\n${course.niveau || ''}\n${course.enseignant || ''}`}
                         >
-                          <div className="flex items-start justify-between h-full">
-                            <div className="flex-1 min-w-0">
-                              <p className={`font-bold text-[10px] leading-tight truncate ${isCancelled ? 'text-gray-500' : color.text}`}>
-                                {course.name}
-                              </p>
-                              <p className={`text-[8px] opacity-75 ${isCancelled ? 'text-gray-400' : 'text-gray-600'}`}>
-                                {course.start}h - {course.end}h
-                              </p>
-                              <p className="text-[7px] opacity-50 truncate text-gray-500">{course.room}</p>
-                              {isCancelled && (
-                                <span className="text-[7px] text-red-500 font-bold">ANNULÉ</span>
+                          <div className="flex flex-col h-full justify-between">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 min-w-0">
+                                <p className={`font-bold text-[11px] leading-tight truncate ${isCancelled ? 'text-gray-500' : color.text}`}>
+                                  📖 {matiereName}
+                                </p>
+                                <p className={`text-[8px] opacity-75 ${isCancelled ? 'text-gray-400' : 'text-gray-600'}`}>
+                                  🕐 {course.start}h - {course.end}h
+                                </p>
+                                <p className="text-[7px] opacity-50 truncate text-gray-500">
+                                  🏫 {course.room}
+                                </p>
+                                {course.niveau && (
+                                  <p className="text-[7px] opacity-40 truncate text-gray-400">
+                                    📚 {course.niveau}
+                                  </p>
+                                )}
+                                {isCancelled && (
+                                  <span className="text-[7px] text-red-500 font-bold">❌ ANNULÉ</span>
+                                )}
+                              </div>
+                              {!isCancelled && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openCancelRequestModal(course);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1 p-0.5 bg-red-500 hover:bg-red-600 rounded-full text-white"
+                                  title="Demander l'annulation"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
                               )}
                             </div>
-                            {!isCancelled && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openCancelRequestModal(course);
-                                }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1 p-1 bg-red-500 hover:bg-red-600 rounded-full text-white"
-                                title="Demander l'annulation"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
+                            {course.enseignant && (
+                              <div className="text-[6px] opacity-40 truncate text-gray-400 mt-0.5">
+                                👨‍🏫 {course.enseignant}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1007,7 +1088,7 @@ const exportToPDF = async () => {
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {cancelledCourses.map((course, index) => (
                     <div key={index} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
-                      <p className="font-semibold text-sm text-gray-800 truncate">{course.name}</p>
+                      <p className="font-semibold text-sm text-gray-800 truncate">{course.matiere || course.name}</p>
                       <p className="text-xs text-gray-400">
                         {course.date?.toLocaleDateString('fr', { day: '2-digit', month: '2-digit' })} {course.start}h - {course.end}h
                       </p>
