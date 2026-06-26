@@ -452,6 +452,33 @@ export const dashboardApi = {
   getStats: (period = 'month') => 
     apiClient(`/api/Dashboard/stats?period=${period}`, { method: 'GET' }),
 };
+// ========== SERVICE POUR LES DEMANDES D'ANNULATION ==========
+export const annulationApi = {
+  // Enseignant : demander l'annulation d'un cours
+  demander: (planningId, motif) => 
+    apiClient(`/api/Planning/${planningId}/demander-annulation`, { 
+      method: 'POST', 
+      body: JSON.stringify({ motif }) 
+    }),
+
+  // Admin : lister les demandes en attente
+  getDemandes: () => 
+    apiClient('/api/Planning/demandes-annulation', { method: 'GET' }),
+
+  // Admin : approuver une demande
+  approuver: (requestId, commentaire) => 
+    apiClient(`/api/Planning/demandes-annulation/${requestId}/approuver`, { 
+      method: 'PATCH', 
+      body: JSON.stringify({ commentaire }) 
+    }),
+
+  // Admin : refuser une demande
+  refuser: (requestId, commentaire) => 
+    apiClient(`/api/Planning/demandes-annulation/${requestId}/refuser`, { 
+      method: 'PATCH', 
+      body: JSON.stringify({ commentaire }) 
+    }),
+};
 
 const api = {
   inscription: inscriptionApi,
@@ -467,6 +494,7 @@ const api = {
   planning: planningApi,  // ← NOUVEAU
   planningSalle: planningSalleApi,  // ← NOUVEAU
   dashboard: dashboardApi,  // ← NOUVEAU
+  annulation: annulationApi,
 };
 
 export default api;

@@ -1,451 +1,311 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using back.Services;
+using Microsoft.EntityFrameworkCore;
+using back.Data;
+using back.Models;
 using back.Dtos;
 using back.Hubs;
-using back.Models;
+using back.Services;
 
-namespace back.Controllers
+namespace back.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class PlanningController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class PlanningController : ControllerBase
+    private readonly AppDbContext _context;
+    private readonly PlanningService _service;
+    private readonly IHubContext<MainHub> _hubContext;
+
+    public PlanningController(AppDbContext context, PlanningService service, IHubContext<MainHub> hubContext)
     {
-        private readonly PlanningService _service;
-        private readonly IHubContext<MainHub> _hubContext;
+        _context = context;
+        _service = service;
+        _hubContext = hubContext;
+    }
 
-        public PlanningController(PlanningService service, IHubContext<MainHub> hubContext)
+    // ========== GET ALL ==========
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        try
         {
-            _service = service;
-            _hubContext = hubContext;
+            var plannings = await _service.GetAllAsync();
+            return Ok(plannings);
         }
-
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
+        catch (Exception ex)
         {
-            try
-            {
-                var plannings = await _service.GetAllAsync();
-                return Ok(plannings);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = $"Erreur: {ex.Message}" });
-            }
+            return StatusCode(500, new { message = $"Erreur: {ex.Message}" });
         }
+    }
 
-        // ========== GET BY ENSEIGNANT ID (PROFESSEUR) ==========
-        [HttpGet("enseignant/{enseignantId}")]
-        public async Task<IActionResult> GetByEnseignantId(int enseignantId)
+    // ========== GET BY ENSEIGNANT ID ==========
+    [HttpGet("enseignant/{enseignantId}")]
+    public async Task<IActionResult> GetByEnseignantId(int enseignantId)
+    {
+        try
         {
-            try
-            {
-                if (enseignantId <= 0)
-                    return BadRequest(new { message = "L'ID de l'enseignant est requis" });
+            if (enseignantId <= 0)
+                return BadRequest(new { message = "L'ID de l'enseignant est requis" });
 
-                var plannings = await _service.GetPlanningsByEnseignantIdAsync(enseignantId);
-                return Ok(plannings);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = $"Erreur: {ex.Message}" });
-            }
+            var plannings = await _service.GetPlanningsByEnseignantIdAsync(enseignantId);
+            return Ok(plannings);
         }
-
-        // ========== CREER ==========
-        [HttpPost]
-        public async Task<IActionResult> Create([FromBody] PlanningDto dto)
+        catch (Exception ex)
         {
-            try
+            return StatusCode(500, new { message = $"Erreur: {ex.Message}" });
+        }
+    }
+
+    // ========== CREATE ==========
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] PlanningDto dto)
+    {
+        try
+        {
+            var planning = await _service.CreateAsync(dto);
+            await _hubContext.Clients.All.SendAsync("RefreshSalles");
+            return Ok(new { message = "Événement créé avec succès", id = planning.Id });
+        }
+        catch (Exception ex)
+        {
+            if (ex.Message.Contains("occupée") || ex.Message.Contains("professeur"))
+                return Conflict(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // ========== UPDATE ==========
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] PlanningDto dto)
+    {
+        try
+        {
+            var oldPlanning = await _service.GetPlanningWithDetailsAsync(id);
+            if (oldPlanning == null)
+                return NotFound(new { message = "Événement non trouvé" });
+
+            var planning = await _service.UpdateAsync(id, dto);
+            await _hubContext.Clients.All.SendAsync("RefreshSalles");
+
+            return Ok(new { message = "Événement mis à jour avec succès", id = planning.Id });
+        }
+        catch (Exception ex)
+        {
+            if (ex.Message.Contains("occupée") || ex.Message.Contains("professeur"))
+                return Conflict(new { message = ex.Message });
+            if (ex.Message.Contains("non trouvé"))
+                return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // ========== DELETE ==========
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try
+        {
+            var planning = await _service.GetPlanningWithDetailsAsync(id);
+            if (planning == null)
+                return NotFound(new { message = "Événement non trouvé" });
+
+            await _service.DeleteAsync(id);
+            await _hubContext.Clients.All.SendAsync("RefreshSalles");
+
+            return Ok(new { message = "Événement supprimé avec succès" });
+        }
+        catch (Exception ex)
+        {
+            if (ex.Message.Contains("non trouvé"))
+                return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // ========== ANNULER ==========
+    [HttpPatch("{id}/annuler")]
+    public async Task<IActionResult> Annuler(int id, [FromBody] AnnulerPlanningDto dto)
+    {
+        try
+        {
+            var planning = await _service.GetPlanningWithDetailsAsync(id);
+            if (planning == null)
+                return NotFound(new { message = "Événement non trouvé" });
+
+            await _service.AnnulerAsync(id, dto.Motif);
+            await _hubContext.Clients.All.SendAsync("RefreshSalles");
+
+            return Ok(new { message = "Événement annulé avec succès" });
+        }
+        catch (Exception ex)
+        {
+            if (ex.Message.Contains("non trouvé"))
+                return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // ==========================================
+    // ========== DEMANDE D'ANNULATION ==========
+    // ==========================================
+
+    // POST: api/planning/{id}/demander-annulation
+    [HttpPost("{id}/demander-annulation")]
+    public async Task<IActionResult> DemanderAnnulation(int id, [FromBody] DemandeAnnulationDto dto)
+    {
+        try
+        {
+            var planning = await _context.Plannings
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Enseignant)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (planning == null)
+                return NotFound(new { message = "Cours non trouvé" });
+
+            if (planning.Statut == "Annule")
+                return BadRequest(new { message = "Ce cours est déjà annulé" });
+
+            var enseignantId = planning.Enseignement?.IdEnseignant;
+            if (enseignantId == null)
+                return BadRequest(new { message = "Enseignant non associé à ce cours" });
+
+            // Créer la demande d'annulation
+            var request = new AnnulationRequest
             {
-                var planning = await _service.CreateAsync(dto);
+                IdPlanning = id,
+                IdEnseignant = enseignantId.Value,
+                Motif = dto.Motif,
+                Statut = "EN_ATTENTE",
+                DateDemande = DateTime.UtcNow
+            };
 
-                // 🔔 NOTIFIER - Si le cours est en cours
-                await NotifyPlanningCreated(planning);
+            _context.AnnulationRequests.Add(request);
+            await _context.SaveChangesAsync();
 
-                // 🔔 NOTIFIER - Rafraîchir toutes les salles
-                await _hubContext.Clients.All.SendAsync("RefreshSalles");
+            return Ok(new { 
+                message = "Demande d'annulation envoyée avec succès", 
+                requestId = request.Id 
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Erreur: {ex.Message}" });
+        }
+    }
 
-                return Ok(new
+    // GET: api/planning/demandes-annulation (ADMIN)
+    [HttpGet("demandes-annulation")]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> GetDemandesAnnulation()
+    {
+        try
+        {
+            var demandes = await _context.AnnulationRequests
+                .Include(r => r.Planning)
+                    .ThenInclude(p => p.Enseignement)
+                        .ThenInclude(e => e.Cours)
+                .Include(r => r.Planning)
+                    .ThenInclude(p => p.Enseignement)
+                        .ThenInclude(e => e.Enseignant)
+                .Include(r => r.Enseignant)
+                .Where(r => r.Statut == "EN_ATTENTE")
+                .OrderBy(r => r.DateDemande)
+                .ToListAsync();
+
+            var result = demandes.Select(r => new
+            {
+                r.Id,
+                r.Motif,
+                r.DateDemande,
+                r.Statut,
+                planning = new
                 {
-                    message = "Événement créé avec succès",
-                    id = planning.Id
-                });
-            }
-            catch (Exception ex)
-            {
-                if (ex.Message.Contains("occupée") || ex.Message.Contains("professeur"))
-                    return Conflict(new { message = ex.Message });
-
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        // ========== MODIFIER ==========
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] PlanningDto dto)
-        {
-            try
-            {
-                // Récupérer l'ancien planning AVANT modification
-                var oldPlanning = await _service.GetPlanningWithDetailsAsync(id);
-                if (oldPlanning == null)
-                    return NotFound(new { message = "Événement non trouvé" });
-
-                var planning = await _service.UpdateAsync(id, dto);
-
-                // Récupérer le nouveau planning complet
-                var newPlanning = await _service.GetPlanningWithDetailsAsync(id);
-                if (newPlanning != null)
+                    r.Planning.Id,
+                    r.Planning.DateDebut,
+                    r.Planning.DateFin,
+                    cours = r.Planning.Enseignement?.Cours?.Nom,
+                    enseignant = r.Planning.Enseignement?.Enseignant?.Nom
+                },
+                enseignant = new
                 {
-                    await NotifyPlanningUpdated(oldPlanning, newPlanning);
+                    r.Enseignant.Id,
+                    r.Enseignant.Nom
                 }
+            });
 
-                // 🔔 NOTIFIER - Rafraîchir toutes les salles
-                await _hubContext.Clients.All.SendAsync("RefreshSalles");
-
-                return Ok(new
-                {
-                    message = "Événement mis à jour avec succès",
-                    id = planning.Id
-                });
-            }
-            catch (Exception ex)
-            {
-                if (ex.Message.Contains("occupée") || ex.Message.Contains("professeur"))
-                    return Conflict(new { message = ex.Message });
-
-                if (ex.Message.Contains("non trouvé"))
-                    return NotFound(new { message = ex.Message });
-
-                return BadRequest(new { message = ex.Message });
-            }
+            return Ok(result);
         }
-
-        // ========== SUPPRIMER ==========
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        catch (Exception ex)
         {
-            try
-            {
-                // Récupérer le planning AVANT suppression
-                var planning = await _service.GetPlanningWithDetailsAsync(id);
-                if (planning == null)
-                    return NotFound(new { message = "Événement non trouvé" });
-
-                // 🔔 NOTIFIER - Si le cours était en cours, libérer la salle
-                await NotifyPlanningDeleted(planning);
-
-                // Supprimer le planning
-                await _service.DeleteAsync(id);
-
-                // 🔔 NOTIFIER - Rafraîchir toutes les salles
-                await _hubContext.Clients.All.SendAsync("RefreshSalles");
-
-                return Ok(new { message = "Événement supprimé avec succès" });
-            }
-            catch (Exception ex)
-            {
-                if (ex.Message.Contains("non trouvé"))
-                    return NotFound(new { message = ex.Message });
-
-                return BadRequest(new { message = ex.Message });
-            }
+            return StatusCode(500, new { message = $"Erreur: {ex.Message}" });
         }
+    }
 
-        // ========== ANNULER ==========
-        [HttpPatch("{id}/annuler")]
-        public async Task<IActionResult> Annuler(int id, [FromBody] AnnulerPlanningDto dto)
+    // PATCH: api/planning/demandes-annulation/{requestId}/approuver (ADMIN)
+    [HttpPatch("demandes-annulation/{requestId}/approuver")]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> ApprouverAnnulation(int requestId, [FromBody] TraiterAnnulationDto dto)
+    {
+        try
         {
-            try
-            {
-                var planning = await _service.GetPlanningWithDetailsAsync(id);
-                if (planning == null)
-                    return NotFound(new { message = "Événement non trouvé" });
+            var request = await _context.AnnulationRequests
+                .Include(r => r.Planning)
+                .FirstOrDefaultAsync(r => r.Id == requestId);
 
-                // 🔔 NOTIFIER - Si le cours était en cours, libérer la salle
-                await NotifyPlanningDeleted(planning);
+            if (request == null)
+                return NotFound(new { message = "Demande non trouvée" });
 
-                await _service.AnnulerAsync(id, dto.Motif);
+            if (request.Statut != "EN_ATTENTE")
+                return BadRequest(new { message = "Cette demande a déjà été traitée" });
 
-                // 🔔 NOTIFIER - Rafraîchir toutes les salles
-                await _hubContext.Clients.All.SendAsync("RefreshSalles");
+            request.Statut = "APPROUVE";
+            request.DateTraitement = DateTime.UtcNow;
+            request.CommentaireAdmin = dto.Commentaire;
 
-                return Ok(new { message = "Événement annulé avec succès" });
-            }
-            catch (Exception ex)
-            {
-                if (ex.Message.Contains("non trouvé"))
-                    return NotFound(new { message = ex.Message });
+            // Annuler le cours
+            var planning = request.Planning;
+            planning.Statut = "Annule";
+            planning.MotifAnnulation = request.Motif;
 
-                return BadRequest(new { message = ex.Message });
-            }
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Demande d'annulation approuvée avec succès" });
         }
-
-        // ========== MÉTHODES DE NOTIFICATION ==========
-
-        private async Task NotifyPlanningCreated(Planning planning)
+        catch (Exception ex)
         {
-            try
-            {
-                var maintenant = DateTime.UtcNow;
-
-                if (planning.DateDebut.ToUniversalTime() <= maintenant &&
-                    planning.DateFin.ToUniversalTime() >= maintenant)
-                {
-                    await NotifierSalleOccupee(planning);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Erreur notification création: {ex.Message}");
-            }
+            return StatusCode(500, new { message = $"Erreur: {ex.Message}" });
         }
+    }
 
-        private async Task NotifyPlanningUpdated(Planning oldPlanning, Planning newPlanning)
+    // PATCH: api/planning/demandes-annulation/{requestId}/refuser (ADMIN)
+    [HttpPatch("demandes-annulation/{requestId}/refuser")]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> RefuserAnnulation(int requestId, [FromBody] TraiterAnnulationDto dto)
+    {
+        try
         {
-            try
-            {
-                var maintenant = DateTime.UtcNow;
-                var etaitEnCours = oldPlanning.DateDebut.ToUniversalTime() <= maintenant &&
-                                  oldPlanning.DateFin.ToUniversalTime() >= maintenant;
-                var estEnCours = newPlanning.DateDebut.ToUniversalTime() <= maintenant &&
-                                newPlanning.DateFin.ToUniversalTime() >= maintenant;
+            var request = await _context.AnnulationRequests.FindAsync(requestId);
 
-                // Cas 1: Le cours vient de commencer
-                if (!etaitEnCours && estEnCours)
-                {
-                    await NotifierSalleOccupee(newPlanning);
-                }
-                // Cas 2: Le cours vient de se terminer
-                else if (etaitEnCours && !estEnCours)
-                {
-                    await NotifierSalleLibre(oldPlanning);
-                }
-                // Cas 3: Changement de salle
-                else if (estEnCours && etaitEnCours)
-                {
-                    var oldSalles = oldPlanning.PlanningSalles?.Select(ps => ps.IdSalle).ToList() ?? new List<int>();
-                    var newSalles = newPlanning.PlanningSalles?.Select(ps => ps.IdSalle).ToList() ?? new List<int>();
+            if (request == null)
+                return NotFound(new { message = "Demande non trouvée" });
 
-                    var sallesAjoutees = newSalles.Except(oldSalles).ToList();
-                    var sallesRetirees = oldSalles.Except(newSalles).ToList();
+            if (request.Statut != "EN_ATTENTE")
+                return BadRequest(new { message = "Cette demande a déjà été traitée" });
 
-                    if (sallesAjoutees.Any())
-                    {
-                        await NotifierSalleOccupee(newPlanning, sallesAjoutees);
-                    }
+            request.Statut = "REFUSE";
+            request.DateTraitement = DateTime.UtcNow;
+            request.CommentaireAdmin = dto.Commentaire;
 
-                    if (sallesRetirees.Any())
-                    {
-                        await NotifierSalleLibre(oldPlanning, sallesRetirees);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Erreur notification modification: {ex.Message}");
-            }
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Demande d'annulation refusée" });
         }
-
-        private async Task NotifyPlanningDeleted(Planning planning)
+        catch (Exception ex)
         {
-            try
-            {
-                var maintenant = DateTime.UtcNow;
-
-                if (planning.DateDebut.ToUniversalTime() <= maintenant &&
-                    planning.DateFin.ToUniversalTime() >= maintenant)
-                {
-                    await NotifierSalleLibre(planning);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Erreur notification suppression: {ex.Message}");
-            }
-        }
-
-        private async Task NotifierSalleOccupee(Planning planning, List<int>? salleIds = null)
-        {
-            List<Salle> salles = new List<Salle>();
-
-            if (salleIds != null && salleIds.Any())
-            {
-                salles = await _service.GetSallesByIdsAsync(salleIds);
-            }
-            else if (planning.PlanningSalles != null && planning.PlanningSalles.Any())
-            {
-                salles = planning.PlanningSalles.Select(ps => ps.Salle).Where(s => s != null).ToList();
-            }
-
-            if (!salles.Any())
-            {
-                salles = await _service.GetSallesByPlanningIdAsync(planning.Id);
-            }
-
-            foreach (var salle in salles)
-            {
-                if (salle == null) continue;
-
-                var data = new
-                {
-                    id = salle.Id,
-                    numero = salle.Numero,
-                    batiment = salle.Batiment,
-                    etage = salle.Etage,
-                    statut = "OCCUPÉ",
-                    estOccupee = true,
-                    courActuel = planning.Enseignement?.Cours?.Nom ?? "Cours",
-                    enseignant = planning.Enseignement?.Enseignant?.Nom ?? "Enseignant",
-                    horaire = $"{planning.DateDebut.ToUniversalTime():HH:mm} - {planning.DateFin.ToUniversalTime():HH:mm}"
-                };
-
-                await _hubContext.Clients.All.SendAsync("SalleUpdated", data);
-                Console.WriteLine($"🔴 Salle {salle.Numero} occupée: {planning.Enseignement?.Cours?.Nom}");
-            }
-        }
-
-        private async Task NotifierSalleLibre(Planning planning, List<int>? salleIds = null)
-        {
-            List<Salle> salles = new List<Salle>();
-
-            if (salleIds != null && salleIds.Any())
-            {
-                salles = await _service.GetSallesByIdsAsync(salleIds);
-            }
-            else if (planning.PlanningSalles != null && planning.PlanningSalles.Any())
-            {
-                salles = planning.PlanningSalles.Select(ps => ps.Salle).Where(s => s != null).ToList();
-            }
-
-            if (!salles.Any())
-            {
-                salles = await _service.GetSallesByPlanningIdAsync(planning.Id);
-            }
-
-            foreach (var salle in salles)
-            {
-                if (salle == null) continue;
-
-                var data = new
-                {
-                    id = salle.Id,
-                    numero = salle.Numero,
-                    batiment = salle.Batiment,
-                    etage = salle.Etage,
-                    statut = "LIBRE",
-                    estOccupee = false,
-                    courActuel = (string?)null,
-                    enseignant = (string?)null,
-                    horaire = (string?)null
-                };
-
-                await _hubContext.Clients.All.SendAsync("SalleUpdated", data);
-                Console.WriteLine($"🟢 Salle {salle.Numero} libérée");
-            }
-        }
-
-        // ========== ENDPOINTS DE VÉRIFICATION ==========
-
-        [HttpGet("check-professeur")]
-        public async Task<IActionResult> CheckProfesseur(
-            [FromQuery] int professeurId,
-            [FromQuery] DateTime start,
-            [FromQuery] DateTime end,
-            [FromQuery] int? excludeId = null)
-        {
-            try
-            {
-                if (professeurId <= 0)
-                    return BadRequest(new { message = "L'ID du professeur est requis" });
-
-                // Convertir en UTC pour PostgreSQL
-                var startUtc = start.ToUniversalTime();
-                var endUtc = end.ToUniversalTime();
-
-                var disponible = await _service.IsProfesseurAvailableAsync(professeurId, startUtc, endUtc, excludeId);
-
-                return Ok(new
-                {
-                    disponible = disponible,
-                    message = disponible ? "Professeur disponible" : "Le professeur a déjà un cours sur cette tranche horaire"
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = $"Erreur lors de la vérification : {ex.Message}" });
-            }
-        }
-
-        [HttpGet("check-salle")]
-        public async Task<IActionResult> CheckSalle(
-            [FromQuery] string salleNom,
-            [FromQuery] DateTime start,
-            [FromQuery] DateTime end,
-            [FromQuery] int? excludeId = null)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(salleNom))
-                    return BadRequest(new { message = "Le nom de la salle est requis" });
-
-                var salle = await _service.GetSalleByNumeroAsync(salleNom);
-                if (salle == null)
-                    return Ok(new
-                    {
-                        disponible = true,
-                        message = "Salle non trouvée, considérée comme disponible"
-                    });
-
-                var startUtc = start.ToUniversalTime();
-                var endUtc = end.ToUniversalTime();
-
-                var disponible = await _service.IsSalleAvailableAsync(salle.Id, startUtc, endUtc, excludeId);
-
-                return Ok(new
-                {
-                    disponible = disponible,
-                    message = disponible ? $"La salle {salleNom} est disponible" : $"La salle {salleNom} est déjà occupée sur cette tranche horaire",
-                    salle = new { id = salle.Id, nom = salle.Numero }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = $"Erreur lors de la vérification : {ex.Message}" });
-            }
-        }
-
-        [HttpGet("check-salle-by-id")]
-        public async Task<IActionResult> CheckSalleById(
-            [FromQuery] int salleId,
-            [FromQuery] DateTime start,
-            [FromQuery] DateTime end,
-            [FromQuery] int? excludeId = null)
-        {
-            try
-            {
-                if (salleId <= 0)
-                    return BadRequest(new { message = "L'ID de la salle est invalide" });
-
-                var startUtc = start.ToUniversalTime();
-                var endUtc = end.ToUniversalTime();
-
-                var disponible = await _service.IsSalleAvailableAsync(salleId, startUtc, endUtc, excludeId);
-
-                var salle = await _service.GetSalleByIdAsync(salleId);
-                var salleNom = salle?.Numero ?? $"Salle {salleId}";
-
-                return Ok(new
-                {
-                    disponible = disponible,
-                    message = disponible ? $"La salle {salleNom} est disponible" : $"La salle {salleNom} est déjà occupée sur cette tranche horaire"
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = $"Erreur lors de la vérification : {ex.Message}" });
-            }
+            return StatusCode(500, new { message = $"Erreur: {ex.Message}" });
         }
     }
 }

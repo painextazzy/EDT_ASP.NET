@@ -15,12 +15,13 @@ namespace back.Data
         public DbSet<Parcours> Parcours { get; set; } = null!;
         public DbSet<Enseignement> Enseignements { get; set; } = null!;
 
-
         // ========== NOUVEAU : Planning ==========
         public DbSet<Planning> Plannings { get; set; } = null!;
         public DbSet<Delegue> Delegues { get; set; } = null!;
+        public DbSet<PlanningSalle> PlanningSalles { get; set; } = null!;
 
-        public DbSet<PlanningSalle> PlanningSalles { get; set; }
+        // ========== NOUVEAU : Demandes d'annulation ==========
+        public DbSet<AnnulationRequest> AnnulationRequests { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -104,7 +105,6 @@ namespace back.Data
                 entity.HasOne(e => e.Parcours).WithMany().HasForeignKey(e => e.IdParcours);
             });
 
-
             // Configuration pour l'entité Delegue
             modelBuilder.Entity<Delegue>(entity =>
             {
@@ -122,7 +122,7 @@ namespace back.Data
                 entity.HasIndex(d => new { d.IdNiveau, d.IdParcours }).IsUnique();
             });
 
-            // ========== NOUVEAU : Configuration pour Planning ==========
+            // ========== Configuration pour Planning ==========
             modelBuilder.Entity<Planning>(entity =>
             {
                 entity.ToTable("planning");
@@ -141,26 +141,54 @@ namespace back.Data
 
                 entity.HasIndex(e => e.DateDebut);
                 entity.HasIndex(e => e.DateFin);
-
             });
+
+            // ========== Configuration pour PlanningSalle ==========
             modelBuilder.Entity<PlanningSalle>(entity =>
-{
-    entity.ToTable("planning_salle");
-    entity.HasKey(e => new { e.IdPlanning, e.IdSalle });
-    entity.Property(e => e.IdPlanning).HasColumnName("id_planning");
-    entity.Property(e => e.IdSalle).HasColumnName("id_salle");
+            {
+                entity.ToTable("planning_salle");
+                entity.HasKey(e => new { e.IdPlanning, e.IdSalle });
+                entity.Property(e => e.IdPlanning).HasColumnName("id_planning");
+                entity.Property(e => e.IdSalle).HasColumnName("id_salle");
 
-    entity.HasOne(e => e.Planning)
-          .WithMany(p => p.PlanningSalles)
-          .HasForeignKey(e => e.IdPlanning)
-          .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(e => e.Planning)
+                      .WithMany(p => p.PlanningSalles)
+                      .HasForeignKey(e => e.IdPlanning)
+                      .OnDelete(DeleteBehavior.Cascade);
 
-    entity.HasOne(e => e.Salle)
-          .WithMany()
-          .HasForeignKey(e => e.IdSalle)
-          .OnDelete(DeleteBehavior.Cascade);
-});
+                entity.HasOne(e => e.Salle)
+                      .WithMany()
+                      .HasForeignKey(e => e.IdSalle)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
 
+            // ========== NOUVEAU : Configuration pour AnnulationRequest ==========
+            modelBuilder.Entity<AnnulationRequest>(entity =>
+            {
+                entity.ToTable("annulation_request");
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.IdPlanning).HasColumnName("id_planning");
+                entity.Property(e => e.IdEnseignant).HasColumnName("id_enseignant");
+                entity.Property(e => e.Motif).HasColumnName("motif");
+                entity.Property(e => e.Statut).HasColumnName("statut");
+                entity.Property(e => e.DateDemande).HasColumnName("date_demande");
+                entity.Property(e => e.DateTraitement).HasColumnName("date_traitement");
+                entity.Property(e => e.CommentaireAdmin).HasColumnName("commentaire_admin");
+
+                entity.HasOne(e => e.Planning)
+                      .WithMany()
+                      .HasForeignKey(e => e.IdPlanning)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Enseignant)
+                      .WithMany()
+                      .HasForeignKey(e => e.IdEnseignant)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => e.IdPlanning);
+                entity.HasIndex(e => e.IdEnseignant);
+                entity.HasIndex(e => e.Statut);
+            });
         }
     }
 }

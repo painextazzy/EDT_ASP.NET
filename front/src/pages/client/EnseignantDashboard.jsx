@@ -37,7 +37,12 @@ const EnseignantDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   
-  // Paramètres utilisateur
+  // État pour la demande d'annulation
+  const [showCancelRequestModal, setShowCancelRequestModal] = useState(false);
+  const [selectedCancelCourse, setSelectedCancelCourse] = useState(null);
+  const [cancelMotif, setCancelMotif] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  
   const [userSettings, setUserSettings] = useState({
     nom: '',
     email: '',
@@ -71,11 +76,9 @@ const EnseignantDashboard = () => {
         if (role === 'admin' || role === 'ADMIN') {
           data = await api.planning.getAll();
         } else {
-          // Utiliser getByEnseignantId si disponible, sinon getAll
           if (api.planning.getByEnseignantId) {
             data = await api.planning.getByEnseignantId(id);
           } else {
-            // Fallback : utiliser getAll()
             data = await api.planning.getAll();
           }
         }
@@ -228,96 +231,245 @@ const EnseignantDashboard = () => {
   const filteredCourses = viewMode === 'day' ? getCoursesForDay() : getCoursesForWeek();
   const cancelledCourses = getCancelledCourses();
 
-  // ========== EXPORT PDF ==========
-  const exportToPDF = async () => {
-    try {
-      setIsExporting(true);
-      
-      const calendarElement = document.querySelector('.calendar-grid-container');
-      if (!calendarElement) {
-        alert('Impossible d\'exporter le calendrier');
-        return;
-      }
+  // ========== DEMANDE D'ANNULATION ==========
+  const openCancelRequestModal = (course) => {
+    setSelectedCancelCourse(course);
+    setCancelMotif('');
+    setShowCancelRequestModal(true);
+  };
 
-      const originalOverflow = calendarElement.style.overflow;
-      calendarElement.style.overflow = 'visible';
-      
-      const canvas = await html2canvas(calendarElement, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-        width: calendarElement.scrollWidth,
-        height: calendarElement.scrollHeight,
-        onclone: (document, element) => {
-          const allElements = element.querySelectorAll('*');
-          allElements.forEach((el) => {
-            const style = window.getComputedStyle(el);
-            const bgColor = style.backgroundColor;
-            if (bgColor && bgColor.includes('oklch')) {
-              el.style.backgroundColor = '#ffffff';
-            }
-          });
-        }
-      });
-      
-      calendarElement.style.overflow = originalOverflow;
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: 'a4'
-      });
-      
-      const pdfWidth = 280;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.setFontSize(16);
-      pdf.setTextColor(30, 58, 138);
-      pdf.text(`Emploi du temps - ${getMonthName(currentDate)}`, 15, 15);
-      
-      pdf.setFontSize(8);
-      pdf.setTextColor(150, 150, 150);
-      pdf.text(`Exporté le ${new Date().toLocaleDateString('fr')} à ${new Date().toLocaleTimeString('fr')}`, 15, 22);
-      
-      pdf.addImage(imgData, 'PNG', 10, 28, pdfWidth, pdfHeight);
-      
-      pdf.setFontSize(8);
-      pdf.setTextColor(150, 150, 150);
-      pdf.text(`Généré par Calendrier - ${user?.email || 'Utilisateur'}`, 15, pdf.internal.pageSize.height - 10);
-      
-      pdf.save(`emploi_du_temps_${formatDate(currentDate)}.pdf`);
-      
+  const closeCancelRequestModal = () => {
+    setShowCancelRequestModal(false);
+    setSelectedCancelCourse(null);
+    setCancelMotif('');
+    setSubmitting(false);
+  };
+
+  const handleSubmitCancelRequest = async () => {
+    if (!cancelMotif.trim() || !selectedCancelCourse) return;
+    
+    setSubmitting(true);
+    try {
+      const result = await api.annulation.demander(selectedCancelCourse.id, cancelMotif);
+      if (result.message) {
+        alert('✅ Demande d\'annulation envoyée avec succès ! En attente de validation par l\'administrateur.');
+        await loadCourses(true);
+        closeCancelRequestModal();
+      }
     } catch (error) {
-      console.error('Erreur export PDF:', error);
-      alert('Erreur lors de l\'export. Veuillez réessayer.');
+      const errorMsg = error.response?.data?.message || 'Erreur lors de l\'envoi de la demande';
+      alert(`❌ ${errorMsg}`);
     } finally {
-      setIsExporting(false);
+      setSubmitting(false);
     }
   };
+
+ 
+// ========== EXPORT PDF - VERSION SANS OKLCH ==========
+const exportToPDF = async () => {
+  try {
+    setIsExporting(true);
+    
+    // Créer un conteneur temporaire pour l'export
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '1200px';
+    container.style.backgroundColor = '#ffffff';
+    container.style.padding = '30px';
+    container.style.zIndex = '9999';
+    document.body.appendChild(container);
+    
+    // En-tête
+    const header = document.createElement('div');
+    header.style.textAlign = 'center';
+    header.style.marginBottom = '25px';
+    header.style.borderBottom = '2px solid #1a237e';
+    header.style.paddingBottom = '15px';
+    header.innerHTML = `
+      <h1 style="font-size:22px;font-weight:bold;color:#1a237e;margin:0;">📚 Emploi du temps</h1>
+      <h2 style="font-size:16px;color:#333;margin:5px 0 0 0;">${getMonthName(currentDate)}</h2>
+      <p style="font-size:11px;color:#888;margin:5px 0 0 0;">Exporté le ${new Date().toLocaleDateString('fr')} à ${new Date().toLocaleTimeString('fr')}</p>
+    `;
+    container.appendChild(header);
+    
+    // Créer un tableau propre
+    const table = document.createElement('table');
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    table.style.fontSize = '12px';
+    table.style.fontFamily = 'Arial, sans-serif';
+    
+    // En-tête du tableau
+    let html = `
+      <thead>
+        <tr style="background-color: #1a237e;color:#ffffff;">
+          <th style="padding:10px 8px;text-align:center;border:1px solid #999;width:12%;">Horaire</th>
+          <th style="padding:10px 8px;text-align:center;border:1px solid #999;width:17.6%;">Lundi 22</th>
+          <th style="padding:10px 8px;text-align:center;border:1px solid #999;width:17.6%;">Mardi 23</th>
+          <th style="padding:10px 8px;text-align:center;border:1px solid #999;width:17.6%;">Mercredi 24</th>
+          <th style="padding:10px 8px;text-align:center;border:1px solid #999;width:17.6%;">Jeudi 25</th>
+          <th style="padding:10px 8px;text-align:center;border:1px solid #999;width:17.6%;">Vendredi 26</th>
+        </tr>
+      </thead>
+      <tbody>
+    `;
+    
+    // Définir les couleurs hex (sans oklch)
+    const colorMap = {
+      'bg-purple-100': '#f3e8ff',
+      'bg-blue-100': '#dbeafe',
+      'bg-green-100': '#d1fae5',
+      'bg-cyan-100': '#cffafe',
+      'bg-pink-100': '#fce7f3',
+      'bg-amber-100': '#fef3c7',
+      'bg-indigo-100': '#e0e7ff',
+      'bg-rose-100': '#ffe4e6',
+    };
+    
+    const borderColorMap = {
+      'border-purple-500': '#8B5CF6',
+      'border-blue-500': '#3B82F6',
+      'border-green-500': '#10B981',
+      'border-cyan-500': '#06B6D4',
+      'border-pink-500': '#EC4899',
+      'border-amber-500': '#F59E0B',
+      'border-indigo-500': '#6366F1',
+      'border-rose-500': '#F43F5E',
+    };
+    
+    // Lignes du tableau (7h à 18h)
+    for (let i = 7; i <= 18; i++) {
+      const hour = i.toString().padStart(2, '0') + ':00';
+      const isEven = i % 2 === 0;
+      html += `<tr style="background-color: ${isEven ? '#f5f5f5' : '#ffffff'};">`;
+      html += `<td style="padding:8px;text-align:center;border:1px solid #999;font-weight:bold;background-color:#e8eaf6;">${hour}</td>`;
+      
+      for (let day = 0; day < 5; day++) {
+        const coursesAtHour = filteredCourses.filter(c => c.day === day && c.start === i);
+        let cellContent = '';
+        
+        if (coursesAtHour.length > 0) {
+          coursesAtHour.forEach(c => {
+            const isCancelled = c.statut === 'Annule';
+            const colorKey = c.color?.bg || 'bg-blue-100';
+            const borderKey = c.color?.border || 'border-blue-500';
+            const bgHex = colorMap[colorKey] || '#dbeafe';
+            const borderHex = borderColorMap[borderKey] || '#3B82F6';
+            
+            cellContent += `<div style="
+              background-color: ${isCancelled ? '#fef2f2' : bgHex};
+              border-left: 4px solid ${isCancelled ? '#ef4444' : borderHex};
+              padding: 6px 8px;
+              margin: 3px 0;
+              border-radius: 4px;
+              ${isCancelled ? 'opacity: 0.7;' : ''}
+            ">
+              <div style="font-weight:bold;font-size:12px;${isCancelled ? 'text-decoration:line-through;color:#999;' : 'color:#333;'}">${c.name}</div>
+              <div style="font-size:10px;color:#666;">${c.room}</div>
+              ${isCancelled ? '<div style="font-size:9px;color:#ef4444;font-weight:bold;margin-top:2px;">❌ ANNULÉ</div>' : ''}
+            </div>`;
+          });
+        }
+        
+        html += `<td style="padding:6px;border:1px solid #999;vertical-align:top;text-align:center;">${cellContent || ''}</td>`;
+      }
+      
+      html += '</tr>';
+    }
+    
+    html += '</tbody>';
+    table.innerHTML = html;
+    container.appendChild(table);
+    
+    // Pied de page
+    const footer = document.createElement('div');
+    footer.style.textAlign = 'center';
+    footer.style.marginTop = '20px';
+    footer.style.paddingTop = '15px';
+    footer.style.borderTop = '1px solid #ddd';
+    footer.style.fontSize = '10px';
+    footer.style.color = '#999';
+    footer.innerHTML = `
+      <p style="margin:0;">Généré par Calendrier - ${user?.email || 'Utilisateur'}</p>
+      <p style="margin:0;font-size:9px;">Total: ${filteredCourses.length} cours cette semaine</p>
+    `;
+    container.appendChild(footer);
+    
+    // Attendre le rendu
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Capturer avec html2canvas (sans oklch)
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      logging: false,
+      useCORS: true,
+      // Ignorer les erreurs de couleurs
+      onclone: (clonedDoc) => {
+        const allElements = clonedDoc.querySelectorAll('*');
+        allElements.forEach((el) => {
+          const style = window.getComputedStyle(el);
+          const bgColor = style.backgroundColor;
+          const color = style.color;
+          const borderColor = style.borderColor;
+          
+          if (bgColor && (bgColor.includes('oklab') || bgColor.includes('oklch'))) {
+            el.style.backgroundColor = '#ffffff';
+          }
+          if (color && (color.includes('oklab') || color.includes('oklch'))) {
+            el.style.color = '#000000';
+          }
+          if (borderColor && (borderColor.includes('oklab') || borderColor.includes('oklch'))) {
+            el.style.borderColor = '#999999';
+          }
+        });
+      }
+    });
+    
+    // Supprimer le conteneur
+    document.body.removeChild(container);
+    
+    // Créer le PDF
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+    
+    const pdfWidth = 280;
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    
+    pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth - 20, pdfHeight - 20);
+    
+    pdf.save(`emploi_du_temps_${formatDate(currentDate)}.pdf`);
+    
+  } catch (error) {
+    console.error('❌ Erreur export PDF:', error);
+    alert('Erreur lors de l\'export PDF: ' + error.message);
+  } finally {
+    setIsExporting(false);
+  }
+};
 
   const formatDate = (date) => {
     return date.toISOString().split('T')[0];
   };
 
-  // ========== GESTION DES NOTIFICATIONS ==========
   const handleNotifications = () => {
     alert('📬 Vous avez 0 notifications non lues');
   };
 
-  // ========== AJOUT D'UN COURS ==========
   const handleAddCourse = () => {
     alert('➕ Fonctionnalité d\'ajout de cours à venir');
   };
 
-  // ========== RECHARGE ==========
   const handleRefresh = async () => {
     await loadCourses(true);
   };
 
-  // ========== PARAMÈTRES ==========
   const openSettings = () => {
     setTempSettings({ ...userSettings });
     setShowSettings(true);
@@ -348,7 +500,6 @@ const EnseignantDashboard = () => {
     alert('✅ Paramètres sauvegardés avec succès !');
   };
 
-  // ========== VUE JOUR ==========
   const setDayView = () => setViewMode('day');
   const setWeekView = () => setViewMode('week');
 
@@ -582,6 +733,77 @@ const EnseignantDashboard = () => {
         </div>
       )}
 
+      {/* ===== MODALE DE DEMANDE D'ANNULATION ===== */}
+      {showCancelRequestModal && selectedCancelCourse && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <XCircle className="w-6 h-6 text-red-500" />
+                Demander l'annulation
+              </h2>
+              <button 
+                onClick={closeCancelRequestModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                <p className="text-sm font-medium text-blue-800">Cours à annuler</p>
+                <p className="font-semibold">{selectedCancelCourse.name}</p>
+                <p className="text-sm text-gray-500">
+                  {selectedCancelCourse.date?.toLocaleDateString('fr')} - {selectedCancelCourse.start}h à {selectedCancelCourse.end}h
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Motif d'annulation <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={cancelMotif}
+                  onChange={(e) => setCancelMotif(e.target.value)}
+                  placeholder="Veuillez expliquer la raison de l'annulation..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none resize-none"
+                  rows="4"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Une demande sera envoyée à l'administrateur pour validation.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+              <button 
+                onClick={closeCancelRequestModal}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 rounded-xl transition-colors"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={handleSubmitCancelRequest}
+                disabled={!cancelMotif.trim() || submitting}
+                className={`px-6 py-2 text-sm font-medium bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all flex items-center gap-2 ${
+                  !cancelMotif.trim() || submitting ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {submitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Envoi...
+                  </>
+                ) : (
+                  'Envoyer la demande'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ===== MAIN CONTENT ===== */}
       <main className="flex-1 p-4 md:p-6 max-w-[1600px] mx-auto w-full">
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
@@ -663,7 +885,7 @@ const EnseignantDashboard = () => {
                 )}
               </div>
 
-              {/* Grille */}
+              {/* Grille avec bouton d'annulation */}
               <div ref={calendarRef} className="calendar-grid-container relative overflow-y-auto" style={{ maxHeight: '520px' }}>
                 <div className="flex">
                   <div className="w-16 flex-shrink-0 border-r border-gray-200 bg-gray-50 sticky left-0 z-10">
@@ -686,8 +908,8 @@ const EnseignantDashboard = () => {
                       return (
                         <div 
                           key={course.id}
-                          className={`absolute ${color.bg} border-l-4 p-1.5 rounded-md shadow-sm m-0.5 cursor-pointer z-20 transition-all ${
-                            isCancelled ? 'opacity-50 line-through' : 'hover:scale-105 hover:shadow-md'
+                          className={`absolute ${color.bg} border-l-4 p-1.5 rounded-md shadow-sm m-0.5 transition-all ${
+                            isCancelled ? 'opacity-60 line-through' : 'hover:shadow-md cursor-pointer group'
                           }`}
                           style={{
                             top: `${getCoursePosition(course.start)}px`,
@@ -700,17 +922,32 @@ const EnseignantDashboard = () => {
                           }}
                           title={`${course.name}\n${course.start}h - ${course.end}h\n${course.room}`}
                         >
-                          <p className={`font-bold text-[11px] leading-tight truncate ${isCancelled ? 'text-gray-500' : color.text}`}>
-                            {course.name}
-                            {isCancelled && ' ❌'}
-                          </p>
-                          <p className={`text-[9px] opacity-75 ${isCancelled ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {course.start}h - {course.end}h
-                          </p>
-                          <p className="text-[8px] opacity-50 truncate text-gray-500">{course.room}</p>
-                          {isCancelled && (
-                            <span className="text-[8px] text-red-500 font-bold">ANNULÉ</span>
-                          )}
+                          <div className="flex items-start justify-between h-full">
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-bold text-[10px] leading-tight truncate ${isCancelled ? 'text-gray-500' : color.text}`}>
+                                {course.name}
+                              </p>
+                              <p className={`text-[8px] opacity-75 ${isCancelled ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {course.start}h - {course.end}h
+                              </p>
+                              <p className="text-[7px] opacity-50 truncate text-gray-500">{course.room}</p>
+                              {isCancelled && (
+                                <span className="text-[7px] text-red-500 font-bold">ANNULÉ</span>
+                              )}
+                            </div>
+                            {!isCancelled && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openCancelRequestModal(course);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1 p-1 bg-red-500 hover:bg-red-600 rounded-full text-white"
+                                title="Demander l'annulation"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
