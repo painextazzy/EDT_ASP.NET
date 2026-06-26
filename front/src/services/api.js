@@ -312,11 +312,7 @@ export const backupApi = {
   }
 };
 
-// ========== NOUVEAU : SERVICE POUR LE PLANNING (CALENDRIER) ==========
-
-
-
-// Service pour les Délégués
+// ========== SERVICE POUR LES DÉLÉGUÉS ==========
 export const delegueApi = {
   getAll: () => apiClient('/api/Delegue', { method: 'GET' }),
   create: (data) => apiClient('/api/Delegue', { 
@@ -329,11 +325,16 @@ export const delegueApi = {
   }),
   delete: (id) => apiClient(`/api/Delegue/${id}`, { method: 'DELETE' }),
 };
+
 // ========== SERVICE POUR LE PLANNING (CALENDRIER) ==========
 export const planningApi = {
-  // Récupérer tous les événements
+  // Récupérer tous les événements (ADMIN)
   getAll: () => 
     apiClient('/api/Planning', { method: 'GET' }),
+  
+  // ========== NOUVEAU : Récupérer les événements d'un enseignant par son ID ==========
+  getByEnseignantId: (enseignantId) => 
+    apiClient(`/api/Planning/enseignant/${enseignantId}`, { method: 'GET' }),
   
   // Récupérer les événements par plage de dates
   getByDateRange: (startDate, endDate) => 
@@ -420,6 +421,7 @@ export const planningApi = {
     return apiClient(url, { method: 'GET' });
   },
 };
+
 // ========== SERVICE POUR PLANNING_SALLE ==========
 export const planningSalleApi = {
   // Récupérer toutes les salles d'un planning
@@ -444,8 +446,6 @@ export const planningSalleApi = {
     apiClient(`/api/PlanningSalle/salle/${salleId}`, { method: 'GET' }),
 };
 
-
-
 // ========== SERVICE POUR LE DASHBOARD ==========
 export const dashboardApi = {
   // Récupérer les statistiques du dashboard avec filtrage par période
@@ -464,8 +464,8 @@ const api = {
   enseignant: enseignantApi,
   parcours: parcoursApi,
   niveau: niveauApi,
-  planning: planningApi,  // ← NOUVEA
-  planningSalle: planningSalleApi,  // ← NOUVEA
+  planning: planningApi,  // ← NOUVEAU
+  planningSalle: planningSalleApi,  // ← NOUVEAU
   dashboard: dashboardApi,  // ← NOUVEAU
 };
 

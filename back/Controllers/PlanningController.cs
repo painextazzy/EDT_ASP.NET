@@ -1,4 +1,3 @@
-// back/Controllers/PlanningController.cs
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using back.Services;
@@ -27,6 +26,24 @@ namespace back.Controllers
             try
             {
                 var plannings = await _service.GetAllAsync();
+                return Ok(plannings);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Erreur: {ex.Message}" });
+            }
+        }
+
+        // ========== GET BY ENSEIGNANT ID (PROFESSEUR) ==========
+        [HttpGet("enseignant/{enseignantId}")]
+        public async Task<IActionResult> GetByEnseignantId(int enseignantId)
+        {
+            try
+            {
+                if (enseignantId <= 0)
+                    return BadRequest(new { message = "L'ID de l'enseignant est requis" });
+
+                var plannings = await _service.GetPlanningsByEnseignantIdAsync(enseignantId);
                 return Ok(plannings);
             }
             catch (Exception ex)
