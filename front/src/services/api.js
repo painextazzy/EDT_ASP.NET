@@ -220,12 +220,16 @@ export const enseignantApi = {
 
 // ========== GESTION DES BACKUPS ==========
 export const backupApi = {
+  // ✅ Export avec token
   export: async (config = {}) => {
     try {
+      const token = localStorage.getItem('jwt_token');
+      
       const response = await fetch(`${API_URL}/api/backup/export`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` })  // ✅ Ajout du token
         },
         body: JSON.stringify({})
       });
@@ -254,13 +258,19 @@ export const backupApi = {
     }
   },
 
+  // ✅ Import avec token
   import: async (file) => {
     const formData = new FormData();
     formData.append('file', file);
 
     try {
+      const token = localStorage.getItem('jwt_token');
+      
       const response = await fetch(`${API_URL}/api/backup/import`, {
         method: 'POST',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` })  // ✅ Ajout du token
+        },
         body: formData
       });
 
@@ -276,6 +286,7 @@ export const backupApi = {
     }
   },
 
+  // ✅ ValidateFile avec plus de tables
   validateFile: (file) => {
     return new Promise((resolve, reject) => {
       if (!file || !file.name.endsWith('.json')) {
@@ -287,19 +298,31 @@ export const backupApi = {
       reader.onload = (e) => {
         try {
           const data = JSON.parse(e.target.result);
+          
+          // ✅ Vérifier toutes les tables
+          const tables = ['enseignants', 'utilisateurs', 'cours', 'niveaux', 
+                         'parcours', 'enseignements', 'salles', 'delegues', 
+                         'plannings', 'planning_salles'];
+          
+          const foundTables = tables.filter(t => data[t] !== undefined);
+          
           resolve({
             valid: true,
-            foundTables: Object.keys(data).filter(k => !['exportDate', 'version'].includes(k)),
+            foundTables: foundTables,
             exportDate: data.exportDate,
             version: data.version,
-            hasData: true,
+            hasData: foundTables.length > 0,
             counts: {
               enseignants: data.enseignants?.length || 0,
               utilisateurs: data.utilisateurs?.length || 0,
               cours: data.cours?.length || 0,
               niveaux: data.niveaux?.length || 0,
               parcours: data.parcours?.length || 0,
-              enseignements: data.enseignements?.length || 0
+              enseignements: data.enseignements?.length || 0,
+              salles: data.salles?.length || 0,
+              delegues: data.delegues?.length || 0,
+              plannings: data.plannings?.length || 0,
+              planning_salles: data.planning_salles?.length || 0
             }
           });
         } catch (error) {

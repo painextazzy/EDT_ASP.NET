@@ -6,9 +6,12 @@ using System.Text;
 using back.Data;
 using back.Services;
 using back.Hubs;
+using EFCore.BulkExtensions;
+
 
 // Charger les variables d'environnement
 Env.Load();
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +32,7 @@ builder.Services.AddCors(options =>
 
 // ========== BASE DE DONNÉES (via DatabaseConfig) ==========
 builder.Services.AddDatabase();
+
 
 // ========== AUTHENTIFICATION JWT ==========
 var keyString = Environment.GetEnvironmentVariable("JWT_KEY")
