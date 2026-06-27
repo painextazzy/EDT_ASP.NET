@@ -17,16 +17,14 @@ const AddAffectationModal = ({
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState(''); // ← Erreur affichée dans le modal
+  const [submitError, setSubmitError] = useState('');
 
-  // États pour les données de l'API
   const [coursList, setCoursList] = useState([]);
   const [professeursList, setProfesseursList] = useState([]);
   const [mentionsList, setMentionsList] = useState([]);
   const [niveauxList, setNiveauxList] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
 
-  // États pour l'autocomplétion
   const [coursSearch, setCoursSearch] = useState('');
   const [professeurSearch, setProfesseurSearch] = useState('');
   const [mentionSearch, setMentionSearch] = useState('');
@@ -42,21 +40,32 @@ const AddAffectationModal = ({
   const mentionRef = useRef(null);
   const niveauRef = useRef(null);
 
-  // Charger les données depuis l'API
   const loadData = async () => {
     setLoadingData(true);
     try {
-      const [cours, professeurs, mentions, niveaux] = await Promise.all([
+      const [cours, enseignantsValides, mentions, niveaux] = await Promise.all([
         api.cours.getAll(),
-        api.affectation.getProfesseurs(),
+        api.enseignant.getValides(),
         api.affectation.getMentions(),
         api.affectation.getNiveaux()
       ]);
       
       setCoursList(Array.isArray(cours) ? cours : []);
       
-      const profsValides = Array.isArray(professeurs) 
-        ? professeurs.filter(p => p && p.nom && p.nom.trim() !== '')
+      // ✅ Filtrer : uniquement les enseignants validés, avec un nom non vide, et exclure les admins
+      const profsValides = Array.isArray(enseignantsValides) 
+        ? enseignantsValides
+            .filter(p => p && p.nom && p.nom.trim() !== '')
+            .filter(p => {
+              // Exclure les administrateurs si le champ 'role' ou 'estAdmin' est présent
+              if (p.role && p.role.toUpperCase() === 'ADMIN') return false;
+              if (p.estAdmin === true) return false;
+              if (p.isAdmin === true) return false;
+              // Fallback : exclure par email ou nom (au cas où)
+              if (p.email && p.email.toLowerCase().includes('admin')) return false;
+              if (p.nom && p.nom.toLowerCase().includes('admin')) return false;
+              return true;
+            })
         : [];
       setProfesseursList(profsValides);
       
@@ -77,14 +86,12 @@ const AddAffectationModal = ({
     }
   };
 
-  // Charger les données quand le modal s'ouvre
   useEffect(() => {
     if (isOpen) {
       loadData();
     }
   }, [isOpen]);
 
-  // Réinitialiser le formulaire quand le modal s'ouvre
   useEffect(() => {
     if (isOpen) {
       setFormData({ coursId: '', professeurId: '', mention: '', niveau: '' });
@@ -93,12 +100,11 @@ const AddAffectationModal = ({
       setMentionSearch('');
       setNiveauSearch('');
       setErrors({});
-      setSubmitError(''); // ← Réinitialiser l'erreur
+      setSubmitError('');
       setIsSubmitting(false);
     }
   }, [isOpen]);
 
-  // Fermer les dropdowns
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (coursRef.current && !coursRef.current.contains(event.target)) setIsCoursOpen(false);
@@ -110,7 +116,6 @@ const AddAffectationModal = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filtrer les options avec useMemo
   const filteredCours = useMemo(() => {
     if (!Array.isArray(coursList) || coursList.length === 0) return [];
     return coursList.filter(c => 
@@ -185,7 +190,7 @@ const AddAffectationModal = ({
     setCoursSearch(cours.nom);
     setIsCoursOpen(false);
     if (errors.coursId) setErrors(prev => ({ ...prev, coursId: '' }));
-    setSubmitError(''); // ← Effacer l'erreur quand l'utilisateur change une valeur
+    setSubmitError('');
   };
 
   const handleSelectProfesseur = (professeur) => {
@@ -216,7 +221,7 @@ const AddAffectationModal = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitError(''); // ← Effacer l'erreur avant la soumission
+    setSubmitError('');
     
     if (!validateForm()) return;
 
@@ -236,7 +241,6 @@ const AddAffectationModal = ({
     setIsSubmitting(true);
     try {
       await onSave(dataToSave);
-      // Si on arrive ici, c'est un succès - le parent fermera le modal
     } catch (error) {
       console.error('Erreur lors de l\'ajout:', error);
       
@@ -256,13 +260,11 @@ const AddAffectationModal = ({
         errorMessage = error.message;
       }
       
-      // Message spécifique pour les doublons
       if (errorMessage.includes('already') || errorMessage.includes('existe') || errorMessage.includes('unique') || errorMessage.includes('déjà')) {
         const coursNom = selectedCours?.nom || '';
         errorMessage = `Le cours "${coursNom}" est déjà assigné à ${formData.mention} - ${formData.niveau}`;
       }
       
-      // ← Afficher l'erreur dans le modal (pas dans le parent)
       setSubmitError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -300,7 +302,6 @@ const AddAffectationModal = ({
             </div>
           )}
 
-          {/* 🔴 Message d'erreur dans le modal (cardbox) */}
           {submitError && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 shadow-sm">
               <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -311,7 +312,7 @@ const AddAffectationModal = ({
             </div>
           )}
 
-          {/* Cours avec autocomplétion */}
+          {/* Cours */}
           <div className="space-y-1" ref={coursRef}>
             <label className="block text-sm font-semibold text-gray-700">Cours <span className="text-red-500">*</span></label>
             <div className="relative">
@@ -350,7 +351,7 @@ const AddAffectationModal = ({
             {errors.coursId && <p className="text-red-500 text-xs">{errors.coursId}</p>}
           </div>
 
-          {/* Professeur avec autocomplétion */}
+          {/* Professeur - uniquement enseignants validés, exclus les admins */}
           <div className="space-y-1" ref={professeurRef}>
             <label className="block text-sm font-semibold text-gray-700">Professeur <span className="text-red-500">*</span></label>
             <div className="relative">
@@ -391,7 +392,7 @@ const AddAffectationModal = ({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {/* Mention avec autocomplétion */}
+            {/* Mention */}
             <div className="space-y-1" ref={mentionRef}>
               <label className="block text-sm font-semibold text-gray-700">Mention <span className="text-red-500">*</span></label>
               <div className="relative">
@@ -433,7 +434,7 @@ const AddAffectationModal = ({
               {errors.mention && <p className="text-red-500 text-xs">{errors.mention}</p>}
             </div>
 
-            {/* Niveau avec autocomplétion */}
+            {/* Niveau */}
             <div className="space-y-1" ref={niveauRef}>
               <label className="block text-sm font-semibold text-gray-700">Niveau <span className="text-red-500">*</span></label>
               <div className="relative">
