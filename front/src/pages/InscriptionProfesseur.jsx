@@ -5,7 +5,7 @@ import {
   Eye, EyeOff, Mail, Lock, User, Phone, FileText, 
   CheckCircle, ArrowLeft, ArrowRight, UserCheck, 
   Shield, Sparkles, Building, Calendar, Award,
-  Users 
+  Users, IdCard   // ✅ Ajout de l'icône IdCard pour le numéro IM
 } from 'lucide-react';
 import api from './../services/api';
 import AOS from 'aos';
@@ -51,8 +51,8 @@ const InscriptionProfesseur = () => {
   const [formData, setFormData] = useState({
     title: 'Pr',
     firstName: '',
-    lastName: '',
-    imNumber: '',
+    // ❌ lastName supprimé
+    imNumber: '',          // ✅ Le numéro IM remplace le nom
     email: '',
     phone: '',
     password: '',
@@ -64,7 +64,6 @@ const InscriptionProfesseur = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // ===== INITIALISATION AOS =====
   useEffect(() => {
     AOS.init({
       duration: 800,
@@ -84,7 +83,7 @@ const InscriptionProfesseur = () => {
   const validateName = (value) => {
     if (!value) return '';
     if (!/^[a-zA-ZÀ-ÿ\s-]+$/.test(value)) {
-      return 'Le nom ne doit contenir que des lettres';
+      return 'Le prénom ne doit contenir que des lettres';
     }
     return '';
   };
@@ -113,7 +112,11 @@ const InscriptionProfesseur = () => {
     const newErrors = {};
     
     if (!formData.firstName.trim()) newErrors.firstName = 'Le prénom est requis';
-    if (!formData.lastName.trim()) newErrors.lastName = 'Le nom est requis';
+    if (!formData.imNumber.trim()) newErrors.imNumber = 'Le numéro IM est requis';
+    else {
+      const imError = validateImNumber(formData.imNumber);
+      if (imError) newErrors.imNumber = imError;
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -121,11 +124,6 @@ const InscriptionProfesseur = () => {
 
   const validateStep2 = () => {
     const newErrors = {};
-    
-    if (!formData.imNumber.trim()) newErrors.imNumber = 'Le numéro IM est requis';
-    else if (formData.imNumber.replace(/\D/g, '').length !== 6) {
-      newErrors.imNumber = '6 chiffres requis';
-    }
     
     if (!formData.email.trim()) newErrors.email = 'L\'email est requis';
     else if (!/^[^\s@]+@([^\s@.,]+\.)+[^\s@.,]{2,}$/.test(formData.email)) {
@@ -163,7 +161,7 @@ const InscriptionProfesseur = () => {
     if (name === 'title') {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
-    else if (name === 'firstName' || name === 'lastName') {
+    else if (name === 'firstName') {
       const filteredValue = value.replace(/[^a-zA-ZÀ-ÿ\s-]/g, '');
       setFormData(prev => ({ ...prev, [name]: filteredValue }));
       const nameError = validateName(filteredValue);
@@ -245,7 +243,7 @@ const InscriptionProfesseur = () => {
       const data = {
         title: formData.title,
         firstName: formData.firstName,
-        lastName: formData.lastName,
+        lastName: '', // ✅ Le nom est vide car remplacé par IM
         imNumber: formData.imNumber,
         email: formData.email,
         phone: formData.phone,
@@ -273,7 +271,7 @@ const InscriptionProfesseur = () => {
   };
 
   const steps = [
-    { id: 1, label: 'Identité', icon: User, description: 'Vos informations personnelles' },
+    { id: 1, label: 'Identité', icon: User, description: 'Prénom et numéro IM' },
     { id: 2, label: 'Contact', icon: Mail, description: 'Email et téléphone' },
     { id: 3, label: 'Sécurité', icon: Shield, description: 'Mot de passe sécurisé' },
   ];
@@ -342,8 +340,6 @@ const InscriptionProfesseur = () => {
           
           <div className="relative z-10 text-center text-white p-8">
             <div className="flex items-center justify-center gap-4 mb-6">
-
-           
             </div>
 
             <h2 className="text-3xl font-bold text-white mb-2">
@@ -352,8 +348,6 @@ const InscriptionProfesseur = () => {
             <p className="text-white/80 text-sm max-w-sm mx-auto">
               Remplissez ce formulaire pour créer votre compte académique
             </p>
-
-
           </div>
         </div>
 
@@ -412,10 +406,9 @@ const InscriptionProfesseur = () => {
             <div className={`space-y-4 ${step !== 1 ? 'hidden' : ''}`}>
               <div data-aos="fade-up" data-aos-delay="400">
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Prénom
+                  Nom et prénom
                 </label>
                 <div className="relative flex">
-                  {/* Select Title - Sans icône */}
                   <select 
                     name="title"
                     value={formData.title}
@@ -429,7 +422,7 @@ const InscriptionProfesseur = () => {
                   </select>
                   <input
                     name="firstName"
-                    placeholder="Votre grade et nom"
+                    placeholder="Votre Nom et prénom"
                     value={formData.firstName}
                     onChange={handleChange}
                     className={`w-full px-4 py-3 bg-gray-50/80 border border-gray-200 rounded-r-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition-all text-gray-800 placeholder-gray-400 text-sm ${errors.firstName ? 'border-red-300 focus:ring-red-400' : ''}`}
@@ -438,18 +431,25 @@ const InscriptionProfesseur = () => {
                 {errors.firstName && <p className="text-red-500 text-xs mt-1.5">{errors.firstName}</p>}
               </div>
 
+              {/* ✅ Champ Numéro IM (remplace "Nom") avec icône IdCard */}
               <div data-aos="fade-up" data-aos-delay="500">
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Nom
+                  Numéro IM
                 </label>
                 <Input
-                  name="lastName"
-                  placeholder="Votre Prénom"
-                  value={formData.lastName}
+                  name="imNumber"
+                  placeholder="ex: 123456"
+                  value={formData.imNumber}
                   onChange={handleChange}
-                  icon={User}
-                  error={errors.lastName}
+                  icon={IdCard}          // ✅ Icône carte
+                  error={errors.imNumber}
+                  maxLength={6}
                 />
+                {formData.imNumber && !errors.imNumber && formData.imNumber.length === 6 && (
+                  <p className="text-green-500 text-xs mt-1 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" /> Numéro valide
+                  </p>
+                )}
               </div>
 
               <div className="pt-4 flex justify-end" data-aos="fade-up" data-aos-delay="600">
@@ -466,27 +466,9 @@ const InscriptionProfesseur = () => {
 
             {/* STEP 2: Contact */}
             <div className={`space-y-4 ${step !== 2 ? 'hidden' : ''}`}>
-              <div data-aos="fade-up" data-aos-delay="400">
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Numéro IM
-                </label>
-                <Input
-                  name="imNumber"
-                  placeholder="123456"
-                  value={formData.imNumber}
-                  onChange={handleChange}
-                  icon={FileText}
-                  error={errors.imNumber}
-                  maxLength={6}
-                />
-                {formData.imNumber && !errors.imNumber && formData.imNumber.length === 6 && (
-                  <p className="text-green-500 text-xs mt-1 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> Numéro valide
-                  </p>
-                )}
-              </div>
+              {/* ❌ Suppression du champ IM (déjà déplacé à l'étape 1) */}
 
-              <div data-aos="fade-up" data-aos-delay="500">
+              <div data-aos="fade-up" data-aos-delay="400">
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                   Email
                 </label>
@@ -501,7 +483,7 @@ const InscriptionProfesseur = () => {
                 />
               </div>
 
-              <div data-aos="fade-up" data-aos-delay="600">
+              <div data-aos="fade-up" data-aos-delay="500">
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                   Téléphone
                 </label>
@@ -521,7 +503,7 @@ const InscriptionProfesseur = () => {
                 )}
               </div>
 
-              <div className="pt-4 flex justify-between" data-aos="fade-up" data-aos-delay="700">
+              <div className="pt-4 flex justify-between" data-aos="fade-up" data-aos-delay="600">
                 <Button
                   type="button"
                   onClick={handlePrevStep}
