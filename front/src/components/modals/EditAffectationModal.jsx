@@ -26,7 +26,6 @@ const EditAffectationModal = ({
   const [niveauxList, setNiveauxList] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
 
-  // États pour la recherche de cours
   const [coursSearch, setCoursSearch] = useState('');
   const [isCoursDropdownOpen, setIsCoursDropdownOpen] = useState(false);
   const coursRef = useRef(null);
@@ -34,17 +33,28 @@ const EditAffectationModal = ({
   const loadData = async () => {
     setLoadingData(true);
     try {
-      const [cours, professeurs, mentions, niveaux] = await Promise.all([
+      const [cours, enseignantsValides, mentions, niveaux] = await Promise.all([
         api.cours.getAll(),
-        api.affectation.getProfesseurs(),
+        api.enseignant.getValides(), // ✅ Utiliser les enseignants validés
         api.affectation.getMentions(),
         api.affectation.getNiveaux()
       ]);
       
       setCoursList(Array.isArray(cours) ? cours : []);
       
-      const profsValides = Array.isArray(professeurs) 
-        ? professeurs.filter(p => p && p.nom && p.nom.trim() !== '')
+      // ✅ Filtrer : uniquement les enseignants validés, avec nom non vide, et exclure les admins
+      const profsValides = Array.isArray(enseignantsValides) 
+        ? enseignantsValides
+            .filter(p => p && p.nom && p.nom.trim() !== '')
+            .filter(p => {
+              // Exclure les administrateurs
+              if (p.role && p.role.toUpperCase() === 'ADMIN') return false;
+              if (p.estAdmin === true) return false;
+              if (p.isAdmin === true) return false;
+              if (p.email && p.email.toLowerCase().includes('admin')) return false;
+              if (p.nom && p.nom.toLowerCase().includes('admin')) return false;
+              return true;
+            })
         : [];
       setProfesseursList(profsValides);
       
@@ -97,7 +107,6 @@ const EditAffectationModal = ({
     }
   }, [isOpen]);
 
-  // Fermer le dropdown quand on clique ailleurs
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (coursRef.current && !coursRef.current.contains(event.target)) {
@@ -108,7 +117,6 @@ const EditAffectationModal = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filtrer les cours selon la recherche
   const filteredCours = useMemo(() => {
     if (!Array.isArray(coursList) || coursList.length === 0) return [];
     if (!coursSearch.trim()) return coursList;
@@ -140,7 +148,6 @@ const EditAffectationModal = ({
       hasConflict = true;
     }
 
-    // Verifier si le cours selectionne est deja affecte dans la meme mention ET niveau
     if (formData.coursId && formData.mention && formData.niveau) {
       const coursId = parseInt(formData.coursId);
       const mention = formData.mention;
@@ -192,7 +199,6 @@ const EditAffectationModal = ({
     const selectedCours = coursList.find(c => c.id === parseInt(formData.coursId));
     const selectedProfesseur = professeursList.find(p => p.id === parseInt(formData.professeurId));
 
-    // 🔴 Envoyer les IDs pour changer le cours et le professeur
     const dataToSave = {
       coursId: parseInt(formData.coursId),
       professeurId: parseInt(formData.professeurId),
@@ -329,7 +335,7 @@ const EditAffectationModal = ({
             {errors.coursId && <p className="text-red-500 text-xs">{errors.coursId}</p>}
           </div>
 
-          {/* Professeur - Select */}
+          {/* Professeur - Select (uniquement enseignants validés, exclus les admins) */}
           <div className="space-y-1">
             <label className="block text-sm font-semibold text-gray-700">Professeur <span className="text-red-500">*</span></label>
             <select
