@@ -1,7 +1,7 @@
 // src/components/AffectationPage.jsx
 import React, { useState, useEffect } from 'react';
 import { Search, MoreVertical, Edit, Trash2, Plus, User, X, AlertCircle, CheckCircle } from 'lucide-react';
-import api from '../services/api';
+import api, { API_URL } from '../services/api';
 import SkeletonCard from './ui/SkeletonCard';
 import AddAffectationModal from './modals/AddAffectationModal';
 import EditAffectationModal from './modals/EditAffectationModal';
@@ -17,6 +17,7 @@ const AffectationPage = () => {
   const [editingMention, setEditingMention] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const [imageErrors, setImageErrors] = useState({});
   
   const [coursList, setCoursList] = useState([]);
   const [professeursList, setProfesseursList] = useState([]);
@@ -25,6 +26,29 @@ const AffectationPage = () => {
   
   const [allAffectations, setAllAffectations] = useState([]);
   const [groupedAffectations, setGroupedAffectations] = useState({});
+
+  // ✅ Fonction pour construire l'URL complète de la photo
+  const getFullPhotoUrl = (photoUrl) => {
+    if (!photoUrl) return null;
+    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
+      return photoUrl;
+    }
+    if (photoUrl.startsWith('/')) {
+      return `${API_URL}${photoUrl}`;
+    }
+    return `${API_URL}/${photoUrl}`;
+  };
+
+  // ✅ Fonction pour normaliser un nom
+  const normalizeName = (name) => {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  };
 
   const showNotification = (message, type) => {
     setNotification({ show: true, message, type });
@@ -35,29 +59,112 @@ const AffectationPage = () => {
     try {
       setLoading(true);
       
-      const [cours, professeurs, mentions, niveaux, affectationsData] = await Promise.all([
+      const [cours, professeursAvecPhotos, mentions, niveaux, affectationsData] = await Promise.all([
         api.cours.getAll(),
-        api.affectation.getProfesseurs(),
+        api.enseignant.getValides(),
         api.affectation.getMentions(),
         api.affectation.getNiveaux(),
         api.affectation.getAll()
       ]);
       
       setCoursList(Array.isArray(cours) ? cours : []);
-      setProfesseursList(Array.isArray(professeurs) ? professeurs : []);
+      
+      // ✅ Créer une carte des professeurs avec les photos
+      const professeursMap = {};
+      if (Array.isArray(professeursAvecPhotos)) {
+        professeursAvecPhotos.forEach(prof => {
+          const nom = prof.nom || '';
+          const nomNormalized = normalizeName(nom);
+          const photoUrl = prof.photoUrl || prof.photo || null;
+          
+          professeursMap[nomNormalized] = {
+            id: prof.id,
+            nom: prof.nom,
+            photoUrl: photoUrl
+          };
+          
+          professeursMap[`id_${prof.id}`] = {
+            id: prof.id,
+            nom: prof.nom,
+            photoUrl: photoUrl
+          };
+          
+          professeursMap[nom] = {
+            id: prof.id,
+            nom: prof.nom,
+            photoUrl: photoUrl
+          };
+          
+          const sansPrefix = nom.replace(/^(pr|dr|mme|m|prof|professeur)\s+/i, '').trim();
+          if (sansPrefix && sansPrefix !== nom) {
+            const sansPrefixNormalized = normalizeName(sansPrefix);
+            professeursMap[sansPrefixNormalized] = {
+              id: prof.id,
+              nom: prof.nom,
+              photoUrl: photoUrl
+            };
+            professeursMap[sansPrefix] = {
+              id: prof.id,
+              nom: prof.nom,
+              photoUrl: photoUrl
+            };
+          }
+        });
+      }
+      
+      setProfesseursList(Array.isArray(professeursAvecPhotos) ? professeursAvecPhotos : []);
       setMentionsList(Array.isArray(mentions) ? mentions : []);
       setNiveauxList(Array.isArray(niveaux) ? niveaux : []);
       
-      const formattedAffectations = Array.isArray(affectationsData) ? affectationsData.map(item => ({
-        id: item.id,
-        code: item.code || '',
-        name: item.name || '',
-        professor: item.professor || '',
-        mention: item.mention || '',
-        niveau: item.niveau || '',
-        coursId: item.coursId || item.id,
-        professeurId: item.professeurId || ''
-      })) : [];
+      const formattedAffectations = Array.isArray(affectationsData) ? affectationsData.map(item => {
+        const professorName = item.professor || item.professeurNom || '';
+        const professorId = item.professeurId || item.professorId || null;
+        
+        const normalizedProfessorName = normalizeName(professorName);
+        const professorNameWithoutPrefix = professorName
+          .replace(/^(pr|dr|mme|m|prof|professeur)\s+/i, '')
+          .trim();
+        const normalizedWithoutPrefix = normalizeName(professorNameWithoutPrefix);
+        
+        let professorPhoto = null;
+        
+        if (professeursMap[normalizedProfessorName]) {
+          professorPhoto = professeursMap[normalizedProfessorName].photoUrl;
+        } else if (professeursMap[normalizedWithoutPrefix]) {
+          professorPhoto = professeursMap[normalizedWithoutPrefix].photoUrl;
+        } else if (professeursMap[professorName]) {
+          professorPhoto = professeursMap[professorName].photoUrl;
+        } else if (professeursMap[professorNameWithoutPrefix]) {
+          professorPhoto = professeursMap[professorNameWithoutPrefix].photoUrl;
+        } else if (professorId && professeursMap[`id_${professorId}`]) {
+          professorPhoto = professeursMap[`id_${professorId}`].photoUrl;
+        } else {
+          const matchingKeys = Object.keys(professeursMap).filter(key => {
+            if (key.startsWith('id_')) return false;
+            return key.includes(normalizedProfessorName) || 
+                   normalizedProfessorName.includes(key) ||
+                   key.includes(normalizedWithoutPrefix) ||
+                   normalizedWithoutPrefix.includes(key);
+          });
+          
+          if (matchingKeys.length > 0) {
+            const bestMatch = matchingKeys.sort((a, b) => a.length - b.length)[0];
+            professorPhoto = professeursMap[bestMatch].photoUrl;
+          }
+        }
+        
+        return {
+          id: item.id,
+          code: item.code || '',
+          name: item.name || '',
+          professor: professorName,
+          professorPhoto: professorPhoto,
+          mention: item.mention || '',
+          niveau: item.niveau || '',
+          coursId: item.coursId || item.id,
+          professeurId: professorId || item.professeurId || ''
+        };
+      }) : [];
       
       setAllAffectations(formattedAffectations);
       
@@ -84,7 +191,6 @@ const AffectationPage = () => {
     loadAllData();
   }, []);
 
-  // Fermer le menu quand on clique ailleurs
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (openMenuId !== null) {
@@ -186,7 +292,10 @@ const AffectationPage = () => {
     }
   };
 
-  // Filtrer les affectations
+  const handleImageError = (courseId) => {
+    setImageErrors(prev => ({ ...prev, [courseId]: true }));
+  };
+
   const getFilteredAffectations = () => {
     let filtered = [...allAffectations];
     
@@ -258,9 +367,7 @@ const AffectationPage = () => {
         </div>
       )}
 
-      {/* ❌ HEADER SUPPRIMÉ - Barre de recherche et filtres directement visibles */}
-
-      {/* Search and Filters - Directement en haut */}
+      {/* Search and Filters */}
       <div className="flex flex-col md:flex-row gap-4 mb-10">
         <div className="w-full md:w-[50%] relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -323,76 +430,85 @@ const AffectationPage = () => {
                   <span className="text-sm text-gray-500">{courses.length} cours</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {courses.map((course) => (
-                    <div 
-                      key={course.id} 
-                      className="bg-white p-5 border border-gray-100 relative group transition-all rounded-2xl shadow-sm hover:shadow-md"
-                    >
-                      {/* Code et Nom du cours avec couleur #FFDE7D */}
-                      <div className="mb-4">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-mono text-xs font-bold tracking-wider text-blue-500 bg-blue-50 px-2 py-0.5 rounded">
-                            {course.code || 'N/A'}
+                  {courses.map((course) => {
+                    const fullPhotoUrl = getFullPhotoUrl(course.professorPhoto);
+                    const hasImage = course.professorPhoto && !imageErrors[course.id];
+                    
+                    return (
+                      <div 
+                        key={course.id} 
+                        className="bg-white p-5 border border-gray-100 relative group transition-all rounded-2xl shadow-sm hover:shadow-md flex flex-col"
+                      >
+                        {/* Photo de profil en haut */}
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 flex-shrink-0 rounded-full overflow-hidden bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">
+                            {hasImage ? (
+                              <img 
+                                alt={course.professor} 
+                                className="w-full h-full object-cover" 
+                                src={fullPhotoUrl}
+                                onError={() => handleImageError(course.id)}
+                              />
+                            ) : (
+                              <span>{course.professor?.charAt(0)?.toUpperCase() || 'P'}</span>
+                            )}
+                          </div>
+                          <span className="text-sm font-medium text-gray-700 truncate">
+                            {course.professor || 'Professeur'}
                           </span>
                         </div>
-                        {/* 🔴 Couleur #FFDE7D pour le titre du cours */}
-                        <h3 className="text-lg font-semibold mt-1 line-clamp-2" style={{ color: '#06202B' }}>
+
+                        {/* Cours en gras (sans couleur spécifique) */}
+                        <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-2">
                           {course.name}
                         </h3>
-                      </div>
-                      
-                      {/* Professeur */}
-                      <div className="mb-6">
-                        <p className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">Assigné à</p>
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                            <User className="w-4 h-4 text-gray-500" />
-                          </div>
-                          <span className="text-sm font-medium text-gray-700 line-clamp-1">{course.professor}</span>
+
+                        {/* Code du cours (sans couleur spécifique) */}
+                        <span className="font-mono text-xs text-gray-500 mb-3">
+                          {course.code || 'N/A'}
+                        </span>
+
+                        {/* Mention et Niveau */}
+                        <div className="flex gap-2 mt-auto pt-3 border-t border-gray-200">
+                          <span className="px-3 py-1 text-xs font-medium border border-gray-300 rounded-full text-gray-600">
+                            {course.mention || 'Sans mention'}
+                          </span>
+                          <span className="px-3 py-1 text-xs font-medium border border-gray-300 rounded-full text-gray-600">
+                            {course.niveau || 'Sans niveau'}
+                          </span>
+                        </div>
+                        
+                        {/* Bouton paramètre (3 points) */}
+                        <div className="absolute bottom-4 right-4">
+                          <button 
+                            onClick={(e) => handleMenuToggle(course.id, e)}
+                            className="text-gray-400 hover:text-blue-500 transition-colors p-1 rounded-lg hover:bg-gray-100"
+                          >
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+
+                          {openMenuId === course.id && (
+                            <div className="absolute bottom-8 right-0 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 min-w-[140px]">
+                              <button 
+                                onClick={(e) => handleOpenEditModal(course, e)}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
+                              >
+                                <Edit className="w-4 h-4" />
+                                Modifier
+                              </button>
+                              <button 
+                                onClick={(e) => handleDelete(course.id, course.name, e)}
+                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Supprimer
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      
-                      {/* Mention et Niveau */}
-                      <div className="flex gap-2">
-                        <span className="px-2 py-0.5 text-[10px] font-bold border border-gray-200 rounded-full text-gray-600 line-clamp-1">
-                          {course.mention}
-                        </span>
-                        <span className="px-2 py-0.5 text-[10px] font-bold border border-gray-200 rounded-full text-gray-600">
-                          {course.niveau}
-                        </span>
-                      </div>
-                      
-                      {/* Bouton paramètre (3 points) */}
-                      <div className="absolute bottom-4 right-4">
-                        <button 
-                          onClick={(e) => handleMenuToggle(course.id, e)}
-                          className="text-gray-400 hover:text-blue-500 transition-colors p-1 rounded-lg hover:bg-gray-100"
-                        >
-                          <MoreVertical className="w-5 h-5" />
-                        </button>
-
-                        {/* Menu déroulant */}
-                        {openMenuId === course.id && (
-                          <div className="absolute bottom-8 right-0 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 min-w-[140px]">
-                            <button 
-                              onClick={(e) => handleOpenEditModal(course, e)}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
-                            >
-                              <Edit className="w-4 h-4" />
-                              Modifier
-                            </button>
-                            <button 
-                              onClick={(e) => handleDelete(course.id, course.name, e)}
-                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Supprimer
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             );
@@ -400,7 +516,7 @@ const AffectationPage = () => {
         </div>
       )}
 
-      {/* ✅ Bouton "+" flottant en bas à droite - Ouvre AddAffectationModal */}
+      {/* Bouton "+" flottant */}
       <button 
         onClick={() => setShowAddModal(true)}
         className="fixed bottom-8 right-8 w-14 h-14 bg-sky-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 hover:bg-sky-700 transition-all z-40"
@@ -441,6 +557,12 @@ const AffectationPage = () => {
         }
         .animate-slideDown {
           animation: slideDown 0.3s ease-out;
+        }
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
       `}</style>
     </div>
