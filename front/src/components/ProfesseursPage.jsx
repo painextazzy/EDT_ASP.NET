@@ -1,7 +1,7 @@
 // src/components/ProfesseursPage.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, MoreVertical, Trash2, Mail, QrCode, User, X, AlertCircle, CheckCircle } from 'lucide-react';
-import api from '../services/api';
+import api, { API_URL } from '../services/api';
 
 const ProfesseursPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -18,13 +18,56 @@ const ProfesseursPage = () => {
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
   };
 
-  // Charger uniquement les enseignants validés
+  // ✅ Fonction pour construire l'URL complète de la photo
+  const getFullPhotoUrl = (photoUrl) => {
+    if (!photoUrl) return null;
+    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
+      return photoUrl;
+    }
+    if (photoUrl.startsWith('/')) {
+      return `${API_URL}${photoUrl}`;
+    }
+    return `${API_URL}/${photoUrl}`;
+  };
+
+  // ✅ Charger uniquement les enseignants validés (exclure les admins)
   const loadProfesseurs = async () => {
     try {
       setLoading(true);
       const data = await api.enseignant.getValides();
-      console.log("Professeurs chargés:", data);
-      setProfesseurs(Array.isArray(data) ? data : []);
+      console.log("Données brutes:", data);
+      
+      let enseignants = Array.isArray(data) ? data : [];
+      
+      // ✅ Filtrer pour exclure les admins
+      // Méthode 1: Si les données ont un champ 'role'
+      enseignants = enseignants.filter(prof => {
+        // Exclure si le rôle est ADMIN
+        if (prof.role) {
+          return prof.role.toUpperCase() !== 'ADMIN';
+        }
+        // Si le champ 'estAdmin' existe
+        if (prof.estAdmin !== undefined) {
+          return prof.estAdmin !== true;
+        }
+        // Si le champ 'type' existe
+        if (prof.type) {
+          return prof.type.toUpperCase() !== 'ADMIN';
+        }
+        // Si le champ 'isAdmin' existe
+        if (prof.isAdmin !== undefined) {
+          return prof.isAdmin !== true;
+        }
+        // Si on a un champ 'email' qui contient 'admin'
+        if (prof.email) {
+          return !prof.email.toLowerCase().includes('admin');
+        }
+        // Sinon, garder par défaut
+        return true;
+      });
+      
+      console.log("Enseignants filtrés:", enseignants);
+      setProfesseurs(enseignants);
     } catch (error) {
       console.error("Erreur chargement:", error);
       showNotification("Erreur lors du chargement des professeurs", 'error');
@@ -76,7 +119,7 @@ const ProfesseursPage = () => {
     setImageErrors(prev => ({ ...prev, [professeurId]: true }));
   };
 
-  // Filtrer les professeurs
+  // Filtrer les professeurs par recherche
   const filteredProfesseurs = professeurs.filter(prof => 
     prof.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     prof.im?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -110,8 +153,6 @@ const ProfesseursPage = () => {
 
       {/* Header */}
       <header className="mb-8">
-       
-
         {/* Barre de recherche */}
         <div className="relative max-w-2xl mt-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -141,69 +182,74 @@ const ProfesseursPage = () => {
               </div>
             ))
           ) : (
-            filteredProfesseurs.map((professeur) => (
-              <article 
-                key={professeur.id} 
-                className="bg-white flex items-center p-4 rounded-xl shadow-md hover:shadow-lg transition-shadow gap-4 relative"
-              >
-                {/* Avatar - Utilisation directe du champ photo_url de la base */}
-                <div className="w-12 h-12 flex-shrink-0 rounded-full overflow-hidden bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-lg">
-                  {professeur.photoUrl && !imageErrors[professeur.id] ? (
-                    <img 
-                      alt={professeur.nom} 
-                      className="w-full h-full object-cover" 
-                      src={professeur.photoUrl}
-                      onError={() => handleImageError(professeur.id)}
-                    />
-                  ) : (
-                    <span>{professeur.nom?.charAt(0) || 'P'}</span>
-                  )}
-                </div>
+            filteredProfesseurs.map((professeur) => {
+              const fullPhotoUrl = getFullPhotoUrl(professeur.photoUrl);
+              const hasImage = professeur.photoUrl && !imageErrors[professeur.id];
+              
+              return (
+                <article 
+                  key={professeur.id} 
+                  className="bg-white flex items-center p-4 rounded-xl shadow-md hover:shadow-lg transition-shadow gap-4 relative"
+                >
+                  {/* Avatar avec photo du professeur */}
+                  <div className="w-12 h-12 flex-shrink-0 rounded-full overflow-hidden bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-lg">
+                    {hasImage ? (
+                      <img 
+                        alt={professeur.nom} 
+                        className="w-full h-full object-cover" 
+                        src={fullPhotoUrl}
+                        onError={() => handleImageError(professeur.id)}
+                      />
+                    ) : (
+                      <span>{professeur.nom?.charAt(0)?.toUpperCase() || 'P'}</span>
+                    )}
+                  </div>
 
-                {/* Informations */}
-                <div className="flex-grow min-w-0">
-                  <h3 className="font-bold text-sm text-gray-800 truncate">{professeur.nom}</h3>
-                  <div className="flex flex-col gap-0.5 mt-1 text-[10px] text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <QrCode className="w-3 h-3" />
-                      <span className="truncate">{professeur.im}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Mail className="w-3 h-3" />
-                      <span className="truncate">{professeur.email || "Aucun email"}</span>
+                  {/* Informations */}
+                  <div className="flex-grow min-w-0">
+                    <h3 className="font-bold text-sm text-gray-800 truncate">{professeur.nom}</h3>
+                    <div className="flex flex-col gap-0.5 mt-1 text-[10px] text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <QrCode className="w-3 h-3" />
+                        <span className="truncate">{professeur.im}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Mail className="w-3 h-3" />
+                        <span className="truncate">{professeur.email || "Aucun email"}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Menu à trois points */}
-                <div className="relative">
-                  <button 
-                    onClick={(e) => toggleMenu(professeur.id, e)}
-                    className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
-                    aria-label="Options"
-                    title="Options"
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-
-                  {/* Menu contextuel avec uniquement Supprimer */}
-                  {openMenuId === professeur.id && (
-                    <div 
-                      ref={menuRef}
-                      className="absolute top-10 right-0 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 min-w-[140px]"
+                  {/* Menu à trois points */}
+                  <div className="relative">
+                    <button 
+                      onClick={(e) => toggleMenu(professeur.id, e)}
+                      className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                      aria-label="Options"
+                      title="Options"
                     >
-                      <button 
-                        onClick={() => handleDeleteProfessor(professeur.id, professeur.nom)}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {/* Menu contextuel avec uniquement Supprimer */}
+                    {openMenuId === professeur.id && (
+                      <div 
+                        ref={menuRef}
+                        className="absolute top-10 right-0 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 min-w-[140px]"
                       >
-                        <Trash2 className="w-4 h-4" />
-                        Supprimer
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </article>
-            ))
+                        <button 
+                          onClick={() => handleDeleteProfessor(professeur.id, professeur.nom)}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Supprimer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </article>
+              );
+            })
           )}
         </div>
 
