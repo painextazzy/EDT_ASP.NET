@@ -7,7 +7,7 @@ using back.Data;
 using back.Services;
 using back.Hubs;
 using EFCore.BulkExtensions;
-using back.Models;  // ✅ Ajouter ce using pour FileUploadOptions
+using back.Models;
 
 // Charger les variables d'environnement
 Env.Load();
@@ -29,10 +29,10 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ========== BASE DE DONNÉES (via DatabaseConfig) ==========
+
 builder.Services.AddDatabase();
 
-// ========== 📸 CONFIGURATION UPLOAD PHOTOS ==========
+
 // ✅ DOIT être AVANT builder.Build() et AVANT l'appel à app.Build()
 builder.Services.Configure<FileUploadOptions>(
     builder.Configuration.GetSection("FileUpload")
@@ -72,8 +72,11 @@ builder.Services.AddAuthentication(options =>
             var authorization = context.Request.Headers["Authorization"].ToString();
             if (!string.IsNullOrEmpty(authorization) && authorization.StartsWith("Bearer "))
             {
-                context.Token = authorization.Substring("Bearer ".Length).Trim();
-                Console.WriteLine($"✅ Token reçu: {context.Token.Substring(0, 30)}...");
+                var token = authorization.Substring("Bearer ".Length).Trim();
+                // ✅ Nettoyage
+                token = token.Replace("\"", "").Replace("\r", "").Replace("\n", "").Trim();
+                context.Token = token;
+                Console.WriteLine($"✅ Token reçu et nettoyé: {token.Substring(0, Math.Min(30, token.Length))}...");
             }
             return Task.CompletedTask;
         },
@@ -102,6 +105,8 @@ builder.Services.AddScoped<IDatabaseBackupService, DatabaseBackupService>();
 builder.Services.AddScoped<PlanningService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddHttpClient<ResendEmailService>();
+builder.Services.AddScoped<IEmailService, ResendEmailService>();
 
 // ========== SIGNALR ==========
 builder.Services.AddSignalR(options =>

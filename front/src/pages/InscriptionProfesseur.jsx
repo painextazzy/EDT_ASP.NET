@@ -431,7 +431,7 @@ const InscriptionProfesseur = () => {
                 {errors.firstName && <p className="text-red-500 text-xs mt-1.5">{errors.firstName}</p>}
               </div>
 
-              {/* ✅ Champ Numéro IM (remplace "Nom") avec icône IdCard */}
+             
               <div data-aos="fade-up" data-aos-delay="500">
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                   Numéro IM
@@ -441,7 +441,7 @@ const InscriptionProfesseur = () => {
                   placeholder="ex: 123456"
                   value={formData.imNumber}
                   onChange={handleChange}
-                  icon={IdCard}          // ✅ Icône carte
+                  icon={IdCard}         
                   error={errors.imNumber}
                   maxLength={6}
                 />

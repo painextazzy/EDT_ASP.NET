@@ -4,15 +4,29 @@ const API_URL = import.meta.env.VITE_API_URL;
 const TOKEN_KEY = 'jwt_token';
 const USER_KEY = 'user_data';
 
+// ========== NETTOYAGE DU TOKEN ==========
+const cleanToken = (token) => {
+  if (!token) return null;
+  return token.trim().replace(/^"|"$/g, '').replace(/\s/g, '');
+};
+
 // ========== GESTION DU TOKEN ==========
-export const getToken = () => localStorage.getItem(TOKEN_KEY);
+export const getToken = () => {
+  const token = localStorage.getItem(TOKEN_KEY);
+  return token ? cleanToken(token) : null;
+};
+
 export const setToken = (token) => {
-  if (token && validateTokenFormat(token)) {
-    localStorage.setItem(TOKEN_KEY, token);
+  if (!token) return;
+  const cleaned = cleanToken(token);
+  if (cleaned && validateTokenFormat(cleaned)) {
+    localStorage.setItem(TOKEN_KEY, cleaned);
+    console.log('✅ Token stocké (longueur:', cleaned.length, ')');
   } else {
     console.warn('⚠️ Token invalide, non stocké');
   }
 };
+
 export const removeToken = () => localStorage.removeItem(TOKEN_KEY);
 
 // ========== VALIDATION DU TOKEN ==========
@@ -70,7 +84,7 @@ export const apiClient = async (endpoint, options = {}) => {
     ...options,
   };
 
-  const token = getToken();
+  const token = getToken(); // ← token déjà nettoyé
   
   if (token && !endpoint.includes('/login')) {
     if (validateTokenFormat(token)) {
@@ -133,16 +147,14 @@ export const authApi = {
       }
 
       const token = data.data.token;
-      
       if (!validateTokenFormat(token)) {
         console.error('❌ Token reçu invalide');
         throw new Error('Token invalide');
       }
       
-      console.log('✅ Token valide, longueur:', token.length);
-      
-      localStorage.setItem(TOKEN_KEY, token);
-      
+      // ✅ Stockage via setToken (nettoyage automatique)
+      setToken(token);
+
       const userData = {
         id: data.data.userId,
         email: data.data.email,
@@ -152,7 +164,7 @@ export const authApi = {
         photoUrl: data.data.photoUrl || null
       };
       
-      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+      setUser(userData);
       
       console.log('👤 Utilisateur connecté:', userData.nom);
       console.log('👤 Rôle:', userData.role);
@@ -257,13 +269,13 @@ export const authApi = {
     window.location.href = '/login';
   },
 
-  // ✅ EXPOSER TOUTES LES FONCTIONS
+  // EXPOSER TOUTES LES FONCTIONS
   getToken,
   getUser,
-  setUser,      // ✅ AJOUTÉ
-  removeUser,   // ✅ AJOUTÉ
-  setToken,     // ✅ AJOUTÉ
-  removeToken,  // ✅ AJOUTÉ
+  setUser,      
+  removeUser,   
+  setToken,     
+  removeToken,  
 };
 
 export default authApi;

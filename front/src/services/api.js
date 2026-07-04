@@ -555,6 +555,38 @@ export const profilApi = {
   }
 };
 
+// ========== SERVICE EMAIL ==========
+// src/services/api.js
+export const emailApi = {
+  sendTestEmail: async (toEmail, subject, htmlContent) => {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) throw new Error('Non authentifié');
+
+    const response = await fetch(`${API_URL}/api/Email/send-test`, {  // ✅ URL correcte
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ toEmail, subject, htmlContent })
+    });
+
+    if (!response.ok) {
+      let errorMsg = 'Erreur lors de l\'envoi';
+      try {
+        const errorData = await response.json();
+        errorMsg = errorData.message || errorMsg;
+      } catch {
+        // Si la réponse n'est pas JSON
+        const text = await response.text();
+        if (text) errorMsg = text;
+      }
+      throw new Error(errorMsg);
+    }
+    return await response.json();
+  }
+};
+
 const api = {
   inscription: inscriptionApi,
   cours: coursApi,
@@ -570,6 +602,7 @@ const api = {
   planningSalle: planningSalleApi,  // ← NOUVEA
   dashboard: dashboardApi,  // ← NOUVEAU
   profil : profilApi,  
+  email: emailApi  // ← NOUVEAU
 };
 
 export default api;
