@@ -105,8 +105,7 @@ builder.Services.AddScoped<IDatabaseBackupService, DatabaseBackupService>();
 builder.Services.AddScoped<PlanningService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddHttpClient<ResendEmailService>();
-builder.Services.AddScoped<IEmailService, ResendEmailService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
 // ========== SIGNALR ==========
 builder.Services.AddSignalR(options =>
