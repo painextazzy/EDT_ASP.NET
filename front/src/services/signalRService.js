@@ -24,15 +24,76 @@ const connection = new signalR.HubConnectionBuilder()
 
 // Gestion des événements de connexion
 connection.onclose((error) => {
-    console.error('🔴 SignalR fermé:', error?.message || 'Erreur inconnue');
+    console.error(' SignalR fermé:', error?.message || 'Erreur inconnue');
 });
 
 connection.onreconnecting((error) => {
-    console.warn('🔄 Reconnexion SignalR...', error?.message || '');
+    console.warn(' Reconnexion SignalR...', error?.message || '');
 });
 
 connection.onreconnected((connectionId) => {
-    console.log('✅ SignalR reconnecté, ID:', connectionId);
+    console.log(' SignalR reconnecté, ID:', connectionId);
 });
 
+// Démarrer la connexion automatiquement ?
+// On peut le faire ici, mais mieux vaut le faire à l'initialisation de l'app.
+// Exportons une fonction de démarrage.
+
+let started = false;
+
+export const startConnection = async () => {
+    if (started) return;
+    try {
+        await connection.start();
+        started = true;
+        console.log('SignalR connecté');
+    } catch (err) {
+        console.error(' Erreur démarrage SignalR:', err);
+        throw err;
+    }
+};
+
+// Fonctions pour s'abonner aux événements
+export const onDemandesCountUpdated = (callback) => {
+    connection.on('DemandesCountUpdated', callback);
+    // Retourner une fonction de désabonnement
+    return () => {
+        connection.off('DemandesCountUpdated', callback);
+    };
+};
+
+export const onSallesUpdated = (callback) => {
+    connection.on('SallesUpdated', callback);
+    return () => {
+        connection.off('SallesUpdated', callback);
+    };
+};
+
+export const onError = (callback) => {
+    connection.on('OnError', callback);
+    return () => {
+        connection.off('OnError', callback);
+    };
+};
+
+// Fonctions pour invoquer des méthodes du hub
+export const refreshDemandesCount = async () => {
+    try {
+        await connection.invoke('RefreshDemandesCount');
+    } catch (err) {
+        console.error(' Erreur refreshDemandesCount:', err);
+        throw err;
+    }
+};
+
+export const refreshSalles = async () => {
+    try {
+        await connection.invoke('RefreshSalles');
+    } catch (err) {
+        console.error(' Erreur refreshSalles:', err);
+        throw err;
+    }
+};
+
+// Exposer la connexion si besoin
 export default connection;

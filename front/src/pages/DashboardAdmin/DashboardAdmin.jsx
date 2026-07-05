@@ -3,7 +3,8 @@ import React, { useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import SidebarAdmin from "../../components/SidebarAdmin";
 import NavbarAdmin from "../../components/NavbarAdmin";
-import { SidebarProvider, useSidebar } from "../../components/SidebarContext";
+import { SidebarProvider, useSidebar } from "../../context/SidebarContext";
+import { DemandesProvider } from "../../context/DemandesContext"; // ✅ Ajout
 import AffectationPage from "../../components/AffectationPage";
 import CoursAffectationsInterface from "../../components/CoursAffectationsInterface";
 import Salle from "../../components/Salle";
@@ -18,7 +19,7 @@ import DeleguePage from "../../components/DeleguePage";
 const DashboardContent = () => {
   const { isSidebarOpen } = useSidebar();
   const [isMobile, setIsMobile] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(240); // 240px = w-60
+  const [sidebarWidth, setSidebarWidth] = useState(240);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -29,7 +30,6 @@ const DashboardContent = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Observer la largeur de la sidebar via un MutationObserver
   useEffect(() => {
     const sidebar = document.querySelector('aside');
     if (!sidebar) return;
@@ -43,7 +43,6 @@ const DashboardContent = () => {
     return () => observer.disconnect();
   }, []);
 
-  // Calculer la marge en fonction de la largeur réelle de la sidebar
   const getMarginLeft = () => {
     if (isMobile && !isSidebarOpen) return 'ml-0';
     return `ml-[${sidebarWidth}px]`;
@@ -64,7 +63,7 @@ const DashboardContent = () => {
             <Route path="/cours" element={<CoursAffectationsInterface />} />
             <Route path="/affectation" element={<AffectationPage />} />
             <Route path="/salles" element={<Salle />} />
-            <Route path="/demandes" element={<Demandes />} />
+           
             <Route path="/professeurs" element={<ProfesseursDemandesToggle />} />
             <Route path="/planning" element={<PlanningPage />} />
             <Route path="/sauvegarde" element={<Sauvegarde />} />
@@ -80,7 +79,9 @@ const DashboardContent = () => {
 const DashboardAdmin = () => {
   return (
     <SidebarProvider>
-      <DashboardContent />
+      <DemandesProvider>   {/* ✅ Le provider englobe tout le dashboard admin */}
+        <DashboardContent />
+      </DemandesProvider>
     </SidebarProvider>
   );
 };

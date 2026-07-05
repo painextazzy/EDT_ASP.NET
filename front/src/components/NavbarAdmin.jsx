@@ -1,6 +1,6 @@
 // src/components/NavbarAdmin.jsx
 import React, { useState, useRef, useEffect } from "react";
-import { useSidebar } from './SidebarContext';
+import { useSidebar } from '../context/SidebarContext';
 import { Settings, LogOut, Bell, User, ChevronDown } from 'lucide-react';
 import SettingsModal from '../components/modals/SettingsModal';
 import { authApi } from '../services/auth';

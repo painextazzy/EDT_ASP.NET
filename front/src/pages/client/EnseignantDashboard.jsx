@@ -10,7 +10,7 @@ import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { authApi } from '../../services/auth';
 import NavbarAdmin from '../../components/NavbarAdmin';
-import { SidebarProvider, useSidebar } from '../../components/SidebarContext';
+import { SidebarProvider, useSidebar } from '../../context/SidebarContext';
 
 // ===== COMPOSANT CONTENU =====
 const EnseignantContent = () => {

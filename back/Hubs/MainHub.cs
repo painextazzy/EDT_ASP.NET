@@ -18,20 +18,47 @@ namespace back.Hubs
 
         public override async Task OnConnectedAsync()
         {
-            _logger.LogInformation($"✅ Client connecté: {Context.ConnectionId}");
+            _logger.LogInformation($" Client connecté: {Context.ConnectionId}");
 
-            // 🔔 Envoyer l'état initial des salles
             await SendSalleStatus();
+
+            await SendDemandesCount();
 
             await base.OnConnectedAsync();
         }
 
-        // ========== ENVOYER L'ÉTAT DES SALLES ==========
+        public async Task SendDemandesCount()
+        {
+            try
+            {
+
+                var count = await _context.Enseignants
+                    .Include(e => e.Utilisateur)
+                    .CountAsync(e => e.Utilisateur != null && !e.Utilisateur.EstValide);
+
+                _logger.LogInformation($"📊 Demandes en attente: {count}");
+
+                // Envoyer à tous les clients connectés
+                await Clients.All.SendAsync("DemandesCountUpdated", count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Erreur SendDemandesCount");
+            }
+        }
+
+        //  RAFRAÎCHIR LE COMPTEUR DE DEMANDES 
+        public async Task RefreshDemandesCount()
+        {
+            _logger.LogInformation(" RefreshDemandesCount appelé");
+            await SendDemandesCount();
+        }
+        // ENVOYER L'ÉTAT DES SALLES 
         public async Task SendSalleStatus()
         {
             try
             {
-                _logger.LogInformation("🔄 Début SendSalleStatus");
+                _logger.LogInformation("Début SendSalleStatus");
 
                 var maintenant = DateTime.UtcNow;
                 var today = DateTime.UtcNow.Date;
@@ -49,7 +76,7 @@ namespace back.Hubs
                     .Where(p => p.DateDebut.ToUniversalTime().Date == today && p.Statut == "Actif")
                     .ToListAsync();
 
-                _logger.LogInformation($"📅 {planningsToday.Count} plannings actifs aujourd'hui");
+                _logger.LogInformation($" {planningsToday.Count} plannings actifs aujourd'hui");
 
                 var result = new List<object>();
 
@@ -79,22 +106,22 @@ namespace back.Hubs
 
                 _logger.LogInformation($"📤 Envoi de {result.Count} salles aux clients");
 
-                // 🔔 Envoyer à TOUS les clients
+                // Envoyer à TOUS les clients
                 await Clients.All.SendAsync("SallesUpdated", result);
 
-                _logger.LogInformation("✅ SallesUpdated envoyé avec succès");
+                _logger.LogInformation(" SallesUpdated envoyé avec succès");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Erreur SendSalleStatus");
+                _logger.LogError(ex, " Erreur SendSalleStatus");
                 await Clients.Caller.SendAsync("OnError", new { message = ex.Message });
             }
         }
 
-        // ========== RAFRAÎCHIR ==========
+        //RAFRAÎCHIR LES SALLES 
         public async Task RefreshSalles()
         {
-            _logger.LogInformation("🔄 RefreshSalles appelé");
+            _logger.LogInformation(" RefreshSalles appelé");
             await SendSalleStatus();
         }
     }

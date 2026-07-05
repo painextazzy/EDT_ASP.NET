@@ -1,7 +1,8 @@
 // src/components/SidebarAdmin.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useContext } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useSidebar } from './SidebarContext';
+import { useSidebar } from '../context/SidebarContext';
+import { DemandesContext } from '../context/DemandesContext';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -20,20 +21,23 @@ import {
 const SidebarAdmin = () => {
   const { isSidebarOpen, closeSidebar, isCollapsed, toggleCollapse } = useSidebar();
   const location = useLocation();
+  const { count } = useContext(DemandesContext);
 
+  // ✅ Menu sans "Demandes", badge sur "Professeurs"
   const menuItems = [
     { label: 'Tableau de bord', icon: LayoutDashboard, path: '/admin' },
     { label: 'Planning', icon: CalendarDays, path: '/admin/planning' },
     { label: 'Cours & Affectation', icon: School, path: '/admin/cours' },
-    { label: 'Professeurs', icon: Users, path: '/admin/professeurs' },
+    { label: 'Professeurs', icon: Users, path: '/admin/professeurs' }, // ✅ Badge ici
+    // { label: 'Demandes', icon: UserCheck, path: '/admin/demandes' }, // ❌ Supprimé
     { label: 'Salles', icon: DoorOpen, path: '/admin/salles' },
     { label: 'Niveau & Parcours', icon: Layers, path: '/admin/niveaux-parcours' },
-
     { label: 'Délégués', icon: UserCheck, path: '/admin/delegues' },
     { label: 'Historiques cours annulés', icon: History, path: '/admin/cours-annules' },
     { label: 'Sauvegarde', icon: CloudUpload, path: '/admin/sauvegarde' }
-
   ];
+
+  const badge = count > 0 ? count : null;
 
   return (
     <div className="relative">
@@ -45,7 +49,7 @@ const SidebarAdmin = () => {
         />
       )}
 
-      {/* Sidebar - Fond gris avec sélection bleue */}
+      {/* Sidebar */}
       <aside className={`
         h-screen flex flex-col fixed left-0 top-0 z-50
         bg-gray-100 border-r border-gray-200
@@ -54,7 +58,7 @@ const SidebarAdmin = () => {
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         
-        {/* Header avec logo */}
+        {/* ✅ Header avec logo conservé */}
         <div className={`
           px-4 py-6 border-b border-gray-200
           flex items-center justify-between
@@ -70,7 +74,6 @@ const SidebarAdmin = () => {
             )}
           </div>
           
-          {/* Bouton toggle collapse */}
           <button
             onClick={toggleCollapse}
             className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-200 transition-all duration-200"
@@ -81,13 +84,14 @@ const SidebarAdmin = () => {
           </button>
         </div>
 
-        {/* Navigation principale */}
+        {/* Navigation */}
         <nav className="flex-1 px-3 py-6 overflow-y-auto custom-scrollbar">
           <div className="space-y-1">
             {menuItems.map((item) => {
               const isActive = location.pathname === item.path;
               const Icon = item.icon;
-              
+              const isProfesseurs = item.label === 'Professeurs';
+
               return (
                 <NavLink
                   key={item.label}
@@ -105,11 +109,20 @@ const SidebarAdmin = () => {
                   title={isCollapsed ? item.label : ''}
                 >
                   <Icon className={`w-5 h-5 transition-all duration-200 ${isActive ? 'text-white' : 'group-hover:text-gray-800'}`} />
+                  
                   {!isCollapsed && (
-                    <span className={`text-sm font-medium transition-all duration-200 ${isActive ? 'text-white' : 'group-hover:text-gray-900'}`}>
-                      {item.label}
-                    </span>
+                    <>
+                      <span className={`text-sm font-medium transition-all duration-200 ${isActive ? 'text-white' : 'group-hover:text-gray-900'}`}>
+                        {item.label}
+                      </span>
+                      {isProfesseurs && badge && (
+                        <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                          {badge}
+                        </span>
+                      )}
+                    </>
                   )}
+                  
                   {isActive && !isCollapsed && (
                     <div className="ml-auto w-1.5 h-8 bg-white/50 rounded-full" />
                   )}
@@ -122,7 +135,7 @@ const SidebarAdmin = () => {
           </div>
         </nav>
 
-        {/* Version info en bas */}
+        {/* Version info */}
         {!isCollapsed && (
           <div className="px-6 py-4 border-t border-gray-200">
             <div className="text-center">
@@ -141,27 +154,17 @@ const SidebarAdmin = () => {
       </aside>
 
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #e5e7eb; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.7; transform: scale(1.05); }
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #e5e7eb;
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #9ca3af;
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #6b7280;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.2s ease-out;
-        }
+        .animate-pulse { animation: pulse 2s ease-in-out infinite; }
       `}</style>
     </div>
   );

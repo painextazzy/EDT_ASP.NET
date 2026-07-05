@@ -3,7 +3,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import SidebarAdmin from './SidebarAdmin';
 import NavbarAdmin from './NavbarAdmin';
-import { SidebarProvider, useSidebar } from './SidebarContext';
+import { SidebarProvider, useSidebar } from '../context/SidebarContext';
 
 const LayoutContent = () => {
   const { isSidebarOpen, isCollapsed } = useSidebar();

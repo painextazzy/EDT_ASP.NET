@@ -5,13 +5,13 @@ import {
   Eye, EyeOff, Mail, Lock, User, Phone, FileText, 
   CheckCircle, ArrowLeft, ArrowRight, UserCheck, 
   Shield, Sparkles, Building, Calendar, Award,
-  Users, IdCard   // ✅ Ajout de l'icône IdCard pour le numéro IM
+  Users, IdCard   
 } from 'lucide-react';
 import api from './../services/api';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 
-// ===== COMPOSANTS SHADCN STYLE =====
+// COMPOSANTS SHADCN STYLE 
 const Button = ({ children, type = 'button', disabled, className = '', variant = 'primary', ...props }) => {
   const variants = {
     primary: 'bg-blue-500 text-white hover:bg-blue-600 shadow-md hover:shadow-lg',
@@ -44,14 +44,13 @@ const Input = ({ className = '', icon: Icon, error, ...props }) => (
   </div>
 );
 
-// ===== PAGE INSCRIPTION =====
+//PAGE INSCRIPTION 
 const InscriptionProfesseur = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     title: 'Pr',
     firstName: '',
-    // ❌ lastName supprimé
     imNumber: '',          // ✅ Le numéro IM remplace le nom
     email: '',
     phone: '',
@@ -252,7 +251,7 @@ const InscriptionProfesseur = () => {
       
       await api.inscription.inscrireProfesseur(data);
       
-      showNotification('Félicitations ! Votre compte a été créé avec succès.', 'success');
+      showNotification('Félicitations ! une email sera vous envoyer quand votre compte sera activé.', 'success');
       
       setTimeout(() => {
         navigate('/login');
