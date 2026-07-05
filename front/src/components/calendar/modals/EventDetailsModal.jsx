@@ -1,10 +1,10 @@
 // src/components/calendar/modals/EventDetailsModal.jsx
 import React from 'react';
-import { X, Calendar, Clock, MapPin, Tag, Users, Edit, Trash2 } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Tag, Users, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-const EventDetailsModal = ({ isOpen, onClose, onEdit, onDelete, event }) => {
+const EventDetailsModal = ({ isOpen, onClose, onEdit, onDelete, onCancel, event }) => {
   if (!isOpen || !event) return null;
 
   return (
@@ -51,12 +51,28 @@ const EventDetailsModal = ({ isOpen, onClose, onEdit, onDelete, event }) => {
               </div>
             </div>
           )}
+
+          {(event.statut === 'Annule' || event.motifAnnulation || event.cancellationMotif) && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
+              <div className="flex items-center gap-2 text-rose-700">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm font-semibold">Cours annulé</span>
+              </div>
+              <p className="mt-2 text-sm text-rose-800">
+                {(event.motifAnnulation || event.cancellationMotif || '').trim() || 'Aucun motif n’a été renseigné.'}
+              </p>
+            </div>
+          )}
         </div>
         
         <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
           <button onClick={onEdit} className="px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2">
             <Edit className="w-4 h-4" />
             Modifier
+          </button>
+          <button onClick={onCancel} className="px-4 py-2 text-sm font-semibold text-amber-600 hover:bg-amber-50 rounded-lg transition-colors flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">event_busy</span>
+            Annuler
           </button>
           <button onClick={onDelete} className="px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2">
             <Trash2 className="w-4 h-4" />
