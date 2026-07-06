@@ -1,10 +1,11 @@
-// Controllers/ValidationController.cs
-using Microsoft.AspNetCore.Authorization;  // ✅ Pour [Authorize]
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;        // ✅ Ajout pour SignalR
 using back.Data;
 using back.Dtos;
-using back.Models;  // ✅ Pour les modèles si nécessaire
+using back.Models;
+using back.Hubs;                           // ✅ Ajout pour MainHub
 
 namespace back.Controllers
 {
@@ -14,12 +15,35 @@ namespace back.Controllers
     public class ValidationController : ControllerBase
     {
         private readonly AppDbContext _context;
-        private readonly ILogger<ValidationController> _logger;  // ✅ Pour les logs
+        private readonly ILogger<ValidationController> _logger;
+        private readonly IHubContext<MainHub> _hubContext;  // ✅ Injection de SignalR
 
-        public ValidationController(AppDbContext context, ILogger<ValidationController> logger)
+        public ValidationController(
+            AppDbContext context,
+            ILogger<ValidationController> logger,
+            IHubContext<MainHub> hubContext)                 // ✅ Constructeur mis à jour
         {
             _context = context;
             _logger = logger;
+            _hubContext = hubContext;
+        }
+
+        // ========== MÉTHODE POUR ENVOYER LE COMPTEUR ==========
+        private async Task NotifyDemandesCountAsync()
+        {
+            try
+            {
+                var count = await _context.Enseignants
+                    .Include(e => e.Utilisateur)
+                    .CountAsync(e => e.Utilisateur != null && !e.Utilisateur.EstValide);
+
+                await _hubContext.Clients.All.SendAsync("DemandesCountUpdated", count);
+                _logger.LogInformation($"📊 Nouveau compteur envoyé: {count}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Erreur lors de l'envoi du compteur SignalR");
+            }
         }
 
         // ========== LISTER LES ENSEIGNANTS À VALIDER ==========
@@ -94,6 +118,9 @@ namespace back.Controllers
                 enseignant.Utilisateur.EstValide = true;
                 await _context.SaveChangesAsync();
 
+                // ✅ Notification SignalR (mise à jour du compteur)
+                await NotifyDemandesCountAsync();
+
                 _logger.LogInformation($"Enseignant validé: {enseignant.Nom} (ID: {id})");
 
                 return Ok(new
@@ -158,6 +185,9 @@ namespace back.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+
+                // ✅ Notification SignalR (mise à jour du compteur)
+                await NotifyDemandesCountAsync();
 
                 _logger.LogInformation($"Enseignant refusé: {nom} (ID: {id}, Email: {email})");
 
@@ -297,6 +327,9 @@ namespace back.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+
+                // ✅ Notification SignalR (mise à jour du compteur)
+                await NotifyDemandesCountAsync();
 
                 _logger.LogInformation($"Validation en masse: {enseignants.Count} enseignants validés");
 

@@ -23,13 +23,11 @@ const SidebarAdmin = () => {
   const location = useLocation();
   const { count } = useContext(DemandesContext);
 
-  // ✅ Menu sans "Demandes", badge sur "Professeurs"
   const menuItems = [
     { label: 'Tableau de bord', icon: LayoutDashboard, path: '/admin' },
     { label: 'Planning', icon: CalendarDays, path: '/admin/planning' },
     { label: 'Cours & Affectation', icon: School, path: '/admin/cours' },
-    { label: 'Professeurs', icon: Users, path: '/admin/professeurs' }, // ✅ Badge ici
-    // { label: 'Demandes', icon: UserCheck, path: '/admin/demandes' }, // ❌ Supprimé
+    { label: 'Professeurs', icon: Users, path: '/admin/professeurs' }, // Badge sur l'icône
     { label: 'Salles', icon: DoorOpen, path: '/admin/salles' },
     { label: 'Niveau & Parcours', icon: Layers, path: '/admin/niveaux-parcours' },
     { label: 'Délégués', icon: UserCheck, path: '/admin/delegues' },
@@ -49,7 +47,6 @@ const SidebarAdmin = () => {
         />
       )}
 
-      {/* Sidebar */}
       <aside className={`
         h-screen flex flex-col fixed left-0 top-0 z-50
         bg-gray-100 border-r border-gray-200
@@ -58,7 +55,7 @@ const SidebarAdmin = () => {
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         
-        {/* ✅ Header avec logo conservé */}
+        {/* Header avec logo */}
         <div className={`
           px-4 py-6 border-b border-gray-200
           flex items-center justify-between
@@ -73,7 +70,6 @@ const SidebarAdmin = () => {
               </div>
             )}
           </div>
-          
           <button
             onClick={toggleCollapse}
             className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-200 transition-all duration-200"
@@ -99,7 +95,7 @@ const SidebarAdmin = () => {
                   onClick={closeSidebar}
                   className={`
                     flex items-center gap-3 px-3 py-2.5 rounded-xl
-                    transition-all duration-200 group
+                    transition-all duration-200 group relative
                     ${isCollapsed ? 'justify-center' : ''}
                     ${isActive 
                       ? 'bg-sky-500 text-white shadow-md' 
@@ -108,26 +104,23 @@ const SidebarAdmin = () => {
                   `}
                   title={isCollapsed ? item.label : ''}
                 >
-                  <Icon className={`w-5 h-5 transition-all duration-200 ${isActive ? 'text-white' : 'group-hover:text-gray-800'}`} />
-                  
-                  {!isCollapsed && (
-                    <>
-                      <span className={`text-sm font-medium transition-all duration-200 ${isActive ? 'text-white' : 'group-hover:text-gray-900'}`}>
-                        {item.label}
+                  {/* Icône avec badge */}
+                  <div className="relative flex-shrink-0">
+                    <Icon className={`w-5 h-5 transition-all duration-200 ${isActive ? 'text-white' : 'group-hover:text-gray-800'}`} />
+                    {isProfesseurs && badge && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center animate-pulse shadow-sm">
+                        {badge}
                       </span>
-                      {isProfesseurs && badge && (
-                        <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                          {badge}
-                        </span>
-                      )}
-                    </>
+                    )}
+                  </div>
+
+                  {!isCollapsed && (
+                    <span className={`text-sm font-medium transition-all duration-200 ${isActive ? 'text-white' : 'group-hover:text-gray-900'}`}>
+                      {item.label}
+                    </span>
                   )}
-                  
                   {isActive && !isCollapsed && (
                     <div className="ml-auto w-1.5 h-8 bg-white/50 rounded-full" />
-                  )}
-                  {isActive && isCollapsed && (
-                    <div className="absolute left-0 w-1 h-8 bg-blue-500 rounded-r-full" />
                   )}
                 </NavLink>
               );
@@ -162,7 +155,7 @@ const SidebarAdmin = () => {
         .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
         @keyframes pulse {
           0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.7; transform: scale(1.05); }
+          50% { opacity: 0.7; transform: scale(1.1); }
         }
         .animate-pulse { animation: pulse 2s ease-in-out infinite; }
       `}</style>

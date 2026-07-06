@@ -1,10 +1,12 @@
 // src/components/NavbarAdmin.jsx
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useContext } from "react";
 import { useSidebar } from '../context/SidebarContext';
-import { Settings, LogOut, Bell, User, ChevronDown } from 'lucide-react';
+import { Settings, LogOut, Bell, User, ChevronDown, AlertCircle } from 'lucide-react';
 import SettingsModal from '../components/modals/SettingsModal';
 import { authApi } from '../services/auth';
-import { API_URL } from '../services/api'; // ✅ Importer API_URL
+import { API_URL } from '../services/api';
+import { DemandesContext } from '../context/DemandesContext';
+import { Link } from 'react-router-dom';
 
 const NavbarAdmin = ({
   userSettings = {},
@@ -12,15 +14,18 @@ const NavbarAdmin = ({
   onSaveSettings,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [photoKey, setPhotoKey] = useState(Date.now());
   const [imageError, setImageError] = useState(false);
   const dropdownRef = useRef(null);
+  const notificationRef = useRef(null);
   const { toggleSidebar, isSidebarOpen } = useSidebar();
 
-  // ✅ Fonction pour construire l'URL complète de la photo avec API_URL
+  const { count } = useContext(DemandesContext);
+
   const getFullPhotoUrl = (photoUrl) => {
     if (!photoUrl) return null;
     if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
@@ -101,10 +106,14 @@ const NavbarAdmin = ({
     };
   }, []);
 
+  // Gestion des clics en dehors des menus
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -115,6 +124,12 @@ const NavbarAdmin = ({
 
   const toggleDropdown = () => {
     setShowDropdown(!showDropdown);
+    if (showNotifications) setShowNotifications(false);
+  };
+
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+    if (showDropdown) setShowDropdown(false);
   };
 
   const handleOpenSettings = () => {
@@ -219,11 +234,55 @@ const NavbarAdmin = ({
         </div>
 
         <div className="flex items-center space-x-3">
-          <button className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+          {/* Bouton Notification avec bulle */}
+          <div className="relative" ref={notificationRef}>
+            <button
+              onClick={toggleNotifications}
+              className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors relative"
+              aria-label="Notifications"
+            >
+              <Bell className="w-5 h-5" />
+              {count > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse shadow-sm">
+                  {count > 9 ? '9+' : count}
+                </span>
+              )}
+            </button>
 
+            {/* Menu déroulant des notifications */}
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50 animate-fadeIn">
+                <div className="px-4 py-2 border-b border-gray-100">
+                  <span className="text-sm font-semibold text-gray-700">Notifications</span>
+                </div>
+                <div className="max-h-60 overflow-y-auto">
+                  {count > 0 ? (
+                    <div className="px-4 py-3 hover:bg-gray-50 transition-colors flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-800">
+                          <span className="font-semibold">{count}</span> demande{count > 1 ? 's' : ''} en attente de validation.
+                        </p>
+                        <Link
+                          to="/admin/professeurs"
+                          onClick={() => setShowNotifications(false)}
+                          className="text-xs text-blue-600 hover:underline font-medium"
+                        >
+                          Voir toutes les demandes
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="px-4 py-6 text-center text-sm text-gray-500">
+                      Aucune nouvelle notification
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Menu profil */}
           <div className="relative" ref={dropdownRef}>
             <div
               className="flex items-center space-x-2 pl-3 border-l border-gray-300 cursor-pointer hover:bg-gray-200 p-1 rounded-lg transition-colors"
@@ -311,6 +370,11 @@ const NavbarAdmin = ({
           to { opacity: 1; transform: translateY(0); }
         }
         .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+        }
+        .animate-pulse { animation: pulse 2s ease-in-out infinite; }
       `}</style>
     </>
   );
