@@ -6,15 +6,13 @@ import {
   startOfWeek,
   endOfWeek,
   isSameDay,
-  addDays,
-  setHours,
-  setMinutes,
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Check, X } from 'lucide-react';
+import { Check, X, Calendar, Clock, MapPin, Users } from 'lucide-react';
+import api from '../../services/api';
+import { authApi } from '../../services/auth';
 
 // ----- Modals internes -----
-
 const CancelModal = ({ isOpen, event, onConfirm, onClose }) => {
   const [reason, setReason] = useState('');
 
@@ -102,15 +100,13 @@ const CompleteModal = ({ isOpen, event, onConfirm, onClose }) => {
           <p className="text-sm text-slate-600 mb-1">
             Vous allez marquer comme terminé : <span className="font-semibold text-slate-800">{event.title}</span>
           </p>
-       
         </div>
-     
         <div className="flex gap-3 justify-end">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition">
             Retour
           </button>
           <button onClick={handleConfirm} className="px-4 py-2 text-sm font-medium text-white bg-green-500 hover:bg-green-600 rounded-lg transition shadow-sm">
-            terminer le cours
+            Confirmer
           </button>
         </div>
       </div>
@@ -118,146 +114,51 @@ const CompleteModal = ({ isOpen, event, onConfirm, onClose }) => {
   );
 };
 
-// ----- Données mockées -----
-
-const createEventDate = (dayOffset, hours, minutes = 0, baseDate = new Date()) => {
-  const startOfWeekDate = startOfWeek(baseDate, { weekStartsOn: 1 });
-  const date = addDays(startOfWeekDate, dayOffset);
-  return setMinutes(setHours(date, hours), minutes);
-};
-
-const generateMockEvents = (baseDate = new Date()) => [
-  {
-    id: 1,
-    title: 'Machine Learning Fondamentaux',
-    start: createEventDate(0, 9, 0, baseDate),
-    end: createEventDate(0, 11, 0, baseDate),
-    salle: 'Amphi Turing',
-    type: 'Cours',
-    color: 'emerald',
-    classe: 'L3 DA2I',
-  },
-  {
-    id: 2,
-    title: 'TD Algorithmique',
-    start: createEventDate(0, 14, 0, baseDate),
-    end: createEventDate(0, 16, 0, baseDate),
-    salle: 'Salle TD 203',
-    type: 'Cours',
-    color: 'blue',
-    classe: 'L2 ICM',
-  },
-  {
-    id: 3,
-    title: 'Deep Learning & Architectures',
-    start: createEventDate(1, 10, 0, baseDate),
-    end: createEventDate(1, 13, 0, baseDate),
-    salle: 'Lab 10B',
-    type: 'Cours',
-    color: 'purple',
-    classe: 'M1 Management',
-  },
-  {
-    id: 4,
-    title: 'Éthique et IA',
-    start: createEventDate(1, 15, 0, baseDate),
-    end: createEventDate(1, 17, 0, baseDate),
-    salle: 'Salle 402',
-    type: 'Cours',
-    color: 'red',
-    classe: 'L3 DA2I',
-  },
-  {
-    id: 5,
-    title: 'Traitement du Langage Naturel',
-    start: createEventDate(2, 8, 30, baseDate),
-    end: createEventDate(2, 11, 30, baseDate),
-    salle: 'Salle 205',
-    type: 'Cours',
-    color: 'yellow',
-    classe: 'L1 AES',
-  },
-  {
-    id: 6,
-    title: 'Soutenance Projet',
-    start: createEventDate(2, 14, 0, baseDate),
-    end: createEventDate(2, 17, 0, baseDate),
-    salle: 'Amphi Principal',
-    type: 'Soutenance',
-    color: 'red',
-    classe: 'M2 Finance',
-  },
-  {
-    id: 7,
-    title: 'Robotique Cognitive',
-    start: createEventDate(3, 14, 0, baseDate),
-    end: createEventDate(3, 17, 0, baseDate),
-    salle: 'Atelier Nord',
-    type: 'Cours',
-    color: 'teal',
-    classe: 'L3 DA2I',
-  },
-  {
-    id: 8,
-    title: 'Examen Base de Données',
-    start: createEventDate(3, 9, 0, baseDate),
-    end: createEventDate(3, 12, 0, baseDate),
-    salle: 'Amphi A101',
-    type: 'Examen',
-    color: 'red',
-    classe: 'L2 ICM',
-  },
-  {
-    id: 9,
-    title: 'Infrastructures Big Data',
-    start: createEventDate(4, 9, 0, baseDate),
-    end: createEventDate(4, 12, 0, baseDate),
-    salle: 'Cloud Center',
-    type: 'Cours',
-    color: 'gray',
-    classe: 'M1 Management',
-  },
-  {
-    id: 10,
-    title: 'Séminaire IA & Société',
-    start: createEventDate(4, 14, 0, baseDate),
-    end: createEventDate(4, 17, 0, baseDate),
-    salle: 'Auditorium Principal',
-    type: 'Conférence',
-    color: 'purple',
-    classe: 'Toutes classes',
-  },
-];
-
 // ----- Composant principal -----
-
-const BigCalendar = ({ events: externalEvents = null, currentDate: externalDate }) => {
+const BigCalendar = ({
+  events: externalEvents = [],
+  currentDate: externalDate,
+  view: externalView = 'week',
+  selectedDate: externalSelectedDate,
+  loading = false,
+  onEventUpdate,
+}) => {
   const currentDate = externalDate || new Date();
+  const view = externalView || 'week';
+  const selectedDate = externalSelectedDate || currentDate;
 
-  const [events, setEvents] = useState(() => {
-    if (externalEvents && externalEvents.length > 0) return externalEvents;
-    return generateMockEvents(currentDate);
-  });
-
+  const [events, setEvents] = useState([]);
   const [hoveredEventId, setHoveredEventId] = useState(null);
   const [cancelModal, setCancelModal] = useState({ isOpen: false, event: null });
   const [completeModal, setCompleteModal] = useState({ isOpen: false, event: null });
+  const [updating, setUpdating] = useState(false);
 
+  // Mettre à jour les événements quand la prop externe change
   useEffect(() => {
-    if (externalEvents && externalEvents.length > 0) setEvents(externalEvents);
+    if (externalEvents && externalEvents.length > 0) {
+      setEvents(externalEvents);
+    } else {
+      setEvents([]);
+    }
   }, [externalEvents]);
 
-  const weekDays = eachDayOfInterval({
-    start: startOfWeek(currentDate, { weekStartsOn: 1 }),
-    end: endOfWeek(currentDate, { weekStartsOn: 1 }),
-  }).slice(0, 5);
+  // Déterminer les jours à afficher selon la vue
+  const getDisplayDays = () => {
+    if (view === 'day') {
+      return [selectedDate];
+    } else {
+      return eachDayOfInterval({
+        start: startOfWeek(currentDate, { weekStartsOn: 1 }),
+        end: endOfWeek(currentDate, { weekStartsOn: 1 }),
+      }).slice(0, 5);
+    }
+  };
 
+  const weekDays = getDisplayDays();
   const hours = Array.from({ length: 12 }, (_, i) => i + 7);
 
-  const filteredEvents = events; // pas de filtre actif
-
   const getEventsForDay = (day) =>
-    filteredEvents.filter((e) => isSameDay(new Date(e.start), day));
+    events.filter((e) => isSameDay(new Date(e.start), day));
 
   const getEventTop = (startDate) => {
     const d = new Date(startDate);
@@ -281,18 +182,57 @@ const BigCalendar = ({ events: externalEvents = null, currentDate: externalDate 
     indigo: { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-800', time: 'text-indigo-600' },
   };
 
-  const handleComplete = (event, comment) => {
-    console.log(`Cours "${event.title}" terminé. Commentaire : ${comment || 'Aucun'}`);
-    alert(`Cours "${event.title}" marqué comme terminé !`);
-    setCompleteModal({ isOpen: false, event: null });
-    setHoveredEventId(null);
+  const handleComplete = async (event, comment) => {
+    try {
+      setUpdating(true);
+      console.log(`Cours "${event.title}" terminé. Commentaire : ${comment || 'Aucun'}`);
+      
+      // Appel API pour marquer le cours comme terminé
+      const user = authApi.getUser();
+      if (user && user.id) {
+        await api.planning.update(event.id, {
+          statut: 'TERMINE',
+          commentaire: comment || '',
+        });
+      }
+      
+      alert(`Cours "${event.title}" marqué comme terminé !`);
+      setCompleteModal({ isOpen: false, event: null });
+      setHoveredEventId(null);
+      
+      // Notifier le parent pour rafraîchir les données
+      if (onEventUpdate) onEventUpdate();
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour:', error);
+      alert('Erreur lors de la mise à jour du cours');
+    } finally {
+      setUpdating(false);
+    }
   };
 
-  const handleCancel = (event, reason) => {
-    console.log(`Annulation de "${event.title}" : ${reason}`);
-    setEvents(events.filter((e) => e.id !== event.id));
-    setCancelModal({ isOpen: false, event: null });
-    setHoveredEventId(null);
+  const handleCancel = async (event, reason) => {
+    try {
+      setUpdating(true);
+      console.log(`Annulation de "${event.title}" : ${reason}`);
+      
+      // Appel API pour annuler le cours
+      const user = authApi.getUser();
+      if (user && user.id) {
+        await api.planning.cancel(event.id, reason);
+      }
+      
+      setEvents(events.filter((e) => e.id !== event.id));
+      setCancelModal({ isOpen: false, event: null });
+      setHoveredEventId(null);
+      
+      // Notifier le parent pour rafraîchir les données
+      if (onEventUpdate) onEventUpdate();
+    } catch (error) {
+      console.error('Erreur lors de l\'annulation:', error);
+      alert('Erreur lors de l\'annulation du cours');
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const openCancelModal = (event) => setCancelModal({ isOpen: true, event });
@@ -300,13 +240,51 @@ const BigCalendar = ({ events: externalEvents = null, currentDate: externalDate 
   const closeCancelModal = () => setCancelModal({ isOpen: false, event: null });
   const closeCompleteModal = () => setCompleteModal({ isOpen: false, event: null });
 
+  // Afficher un état de chargement
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-500 text-sm">Chargement des cours...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Afficher un message si aucun événement
+  if (!events || events.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500 text-sm font-medium">Aucun cours programmé</p>
+          <p className="text-slate-400 text-xs mt-1">Votre emploi du temps est vide</p>
+        </div>
+      </div>
+    );
+  }
+
+  const gridColsClass = view === 'day'
+    ? 'grid-cols-[50px_1fr] sm:grid-cols-[80px_1fr]'
+    : 'grid-cols-[50px_repeat(5,1fr)] sm:grid-cols-[80px_repeat(5,1fr)]';
+
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
+      {updating && (
+        <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-30">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-xs text-slate-500">Mise à jour...</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-auto no-scrollbar relative">
         {/* En-tête jours */}
-        <div className="grid grid-cols-[50px_1fr_1fr_1fr_1fr_1fr] sm:grid-cols-[80px_repeat(5,1fr)] border-b border-outline-variant bg-slate-50/30 sticky top-0 z-10 min-w-[600px] sm:min-w-0">
+        <div className={`grid ${gridColsClass} border-b border-outline-variant bg-slate-50/30 sticky top-0 z-10 min-w-[600px] sm:min-w-0`}>
           <div className="p-2 sm:p-3 flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase border-r border-outline-variant">
-            <span className="hidden sm:inline">GMT+02</span>
+            <span className="hidden sm:inline">heures</span>
             <span className="sm:hidden">GMT</span>
           </div>
           {weekDays.map((day, idx) => {
@@ -330,7 +308,7 @@ const BigCalendar = ({ events: externalEvents = null, currentDate: externalDate 
         {/* Corps */}
         <div className="overflow-x-auto">
           <div className="relative min-w-[600px] sm:min-w-0">
-            <div className="grid grid-cols-[50px_1fr_1fr_1fr_1fr_1fr] sm:grid-cols-[80px_repeat(5,1fr)]">
+            <div className={`grid ${gridColsClass}`}>
               <div className="border-r border-outline-variant bg-slate-50/20">
                 {hours.map((h, i) => (
                   <div key={i} className="h-[50px] sm:h-[60px] flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-slate-400">
@@ -395,7 +373,7 @@ const BigCalendar = ({ events: externalEvents = null, currentDate: externalDate 
                             </span>
                             <div className="flex items-center gap-0.5 sm:gap-1 mt-0.5 sm:mt-1 flex-wrap">
                               <span className="text-[7px] sm:text-[8px] px-1 sm:px-1.5 py-0.5 bg-white/50 rounded text-gray-500 truncate max-w-[40px] sm:max-w-none">
-                                {event.classe}
+                                {event.classe || 'N/A'}
                               </span>
                               {(event.type === 'Examen' || event.type === 'Soutenance') && (
                                 <span className="text-[6px] sm:text-[8px] px-1 sm:px-1.5 py-0.5 bg-red-100 text-red-600 rounded truncate">

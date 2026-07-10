@@ -1,39 +1,205 @@
 // src/components/EnseignantDashboard.jsx
-import React, { useState } from 'react';
-import { format, addWeeks, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
+import React, { useState, useEffect } from 'react';
+import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, isToday } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   ChevronLeft,
   ChevronRight,
-  Bell,
-  User,
-  Settings,
-  LogOut,
   Check,
   Printer,
   ChevronDown,
-  Menu,
+  Loader2,
+  Calendar,
+  Clock,
+  MapPin,
+  Users,
 } from 'lucide-react';
+import Navbar from './Navbar';
 import BigCalendar from '../../components/ui/BigCalendar';
 import MiniCalendar from '../../components/ui/MiniCalendar';
+import api from '../../services/api';
+import { authApi } from '../../services/auth';
 
 const EnseignantDashboard = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [view, setView] = useState('week');
+  const [events, setEvents] = useState([]);
+  const [todayEvents, setTodayEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
+  const [enseignantInfo, setEnseignantInfo] = useState(null);
 
-  // Données fictives pour la sidebar
-  const todayCourses = [
-    { time: '09:00 - 11:00', title: 'Machine Learning Fondamentaux', room: 'Amphi Turing' },
-    { time: '11:00 - 13:00', title: 'Deep Learning & Architectures', room: 'Lab 10B' },
-    { time: '14:00 - 16:00', title: 'Éthique et IA', room: 'Salle 402' },
-  ];
+  // Fonction pour obtenir la couleur selon le type
+  const getColorForType = (type) => {
+    const colorMap = {
+      'Cours': 'emerald',
+      'Examen': 'red',
+      'Soutenance': 'red',
+      'TD': 'blue',
+      'TP': 'purple',
+      'Conférence': 'purple',
+      'Atelier': 'yellow',
+      'Réunion': 'blue',
+    };
+    return colorMap[type] || 'gray';
+  };
 
-  const completedCourses = [
-    "Introduction à l'IA",
-    'Algorithmique Avancée',
-    'Mathématiques Discrètes',
-  ];
+  // Récupérer les données de l'enseignant
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // 1. Récupérer l'utilisateur connecté
+        const user = authApi.getUser();
+        if (!user || !user.id) {
+          setError('Utilisateur non connecté. Veuillez vous reconnecter.');
+          setLoading(false);
+          return;
+        }
+        setUserInfo(user);
+
+        // 2. Récupérer l'enseignant associé à l'utilisateur via l'API
+        // Nous utilisons l'API existante - getValides ou nous devons créer un endpoint
+        // Pour l'instant, nous allons récupérer tous les enseignants et filtrer
+        const enseignantsResponse = await api.enseignant.getValides();
+        let enseignant = null;
+
+        if (enseignantsResponse && enseignantsResponse.success) {
+          // Chercher l'enseignant avec l'id_utilisateur correspondant
+          const enseignants = enseignantsResponse.data || enseignantsResponse;
+          enseignant = enseignants.find(e => e.id_utilisateur === user.id);
+        }
+
+        // Si l'enseignant n'est pas trouvé, essayer un autre moyen
+        if (!enseignant) {
+          // Option: utiliser un endpoint dédié si disponible
+          // Pour l'instant, on simule avec les données de l'utilisateur
+          enseignant = {
+            id: user.id,
+            nom: user.nom || 'Enseignant',
+            prenom: user.prenom || '',
+            id_utilisateur: user.id
+          };
+        }
+
+        setEnseignantInfo(enseignant);
+        const enseignantId = enseignant.id;
+
+        // 3. Récupérer les affectations (enseignements) de l'enseignant
+        const affectationsResponse = await api.affectation.getAll();
+        let affectations = [];
+
+        if (affectationsResponse && affectationsResponse.success) {
+          const allAffectations = affectationsResponse.data || affectationsResponse;
+          affectations = allAffectations.filter(a => a.id_enseignant === enseignantId);
+        }
+
+        // 4. Récupérer les plannings pour chaque affectation
+        const allPlannings = [];
+
+        for (const affectation of affectations) {
+          try {
+            const planningResponse = await api.planning.getByEnseignement(affectation.id);
+            if (planningResponse && planningResponse.success) {
+              const plannings = planningResponse.data || planningResponse;
+              // Ajouter les informations de l'affectation aux plannings
+              const enrichedPlannings = plannings.map(p => ({
+                ...p,
+                matiere_libelle: affectation.matiere_libelle || affectation.libelle || 'Cours',
+                niveau_libelle: affectation.niveau_libelle || affectation.niveau || '',
+                parcours_libelle: affectation.parcours_libelle || affectation.parcours || '',
+              }));
+              allPlannings.push(...enrichedPlannings);
+            }
+          } catch (e) {
+            console.warn(`Aucun planning pour l'affectation ${affectation.id}`, e);
+          }
+        }
+
+        // 5. Récupérer les salles pour chaque planning
+        const planningsWithSalles = [];
+        for (const planning of allPlannings) {
+          try {
+            const sallesResponse = await api.planning.getSallesByPlanning(planning.id);
+            let salles = [];
+            if (sallesResponse && sallesResponse.success) {
+              salles = sallesResponse.data || sallesResponse;
+            }
+            const salleNoms = salles.map(s => s.nom_salle || s.nom || 'Salle').join(', ');
+            planningsWithSalles.push({
+              ...planning,
+              salle_nom: salleNoms || planning.salle || '',
+            });
+          } catch (e) {
+            // Si pas de salles, garder le planning sans salle
+            planningsWithSalles.push(planning);
+          }
+        }
+
+        // 6. Transformer les données pour le calendrier
+        const formattedEvents = planningsWithSalles
+          .filter(p => p.statut === 'Actif' || p.statut === 'ACTIF')
+          .map((planning) => ({
+            id: planning.id,
+            title: planning.matiere_libelle || planning.titre || 'Cours',
+            start: new Date(planning.date_debut || planning.dateDebut),
+            end: new Date(planning.date_fin || planning.dateFin),
+            salle: planning.salle_nom || planning.salle || '',
+            type: planning.type_evenement || planning.type || 'Cours',
+            color: getColorForType(planning.type_evenement || planning.type || 'Cours'),
+            classe: planning.niveau_libelle || planning.classe || '',
+            description: planning.motif_annulation || planning.description || '',
+            enseignementId: planning.id_enseignement,
+            statut: planning.statut,
+          }));
+
+        setEvents(formattedEvents);
+
+        // Filtrer les cours d'aujourd'hui
+        const today = new Date();
+        const todayEventsFiltered = formattedEvents.filter((event) =>
+          isToday(new Date(event.start))
+        );
+        setTodayEvents(todayEventsFiltered);
+
+      } catch (err) {
+        console.error('❌ Erreur chargement des données:', err);
+        setError(err.message || 'Erreur lors du chargement des données');
+        setEvents([]);
+        setTodayEvents([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Formater les cours d'aujourd'hui pour la sidebar
+  const formatTodayCourses = () => {
+    if (todayEvents.length === 0) {
+      return [{ time: 'Aucun cours', title: "Aucun cours prévu aujourd'hui", room: '' }];
+    }
+    
+    return todayEvents.map((event) => ({
+      time: `${format(new Date(event.start), 'HH:mm')} - ${format(new Date(event.end), 'HH:mm')}`,
+      title: event.title,
+      room: event.salle || 'Salle non définie',
+    }));
+  };
+
+  const todayCourses = formatTodayCourses();
+
+  // Générer la liste des cours terminés
+  const completedCourses = events
+    .filter((event) => new Date(event.end) < new Date())
+    .slice(0, 5)
+    .map((event) => event.title);
 
   const handleDateChange = (date) => {
     setCurrentDate(date);
@@ -41,6 +207,11 @@ const EnseignantDashboard = () => {
   };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  const handleEventUpdate = () => {
+    // Rafraîchir les données après une mise à jour
+    window.location.reload();
+  };
 
   const SidebarContent = () => (
     <>
@@ -77,55 +248,125 @@ const EnseignantDashboard = () => {
 
       <div className="bg-sky-50 rounded-2xl p-4 md:p-6 shadow-lg relative overflow-hidden">
         <div className="relative z-10">
-          <h3 className="font-bold text-lg mb-3 md:mb-4 text-slate-800">Cours d'aujourd'hui</h3>
-          <div className="space-y-3 md:space-y-4">
-            {todayCourses.map((course, idx) => (
-              <div
-                key={idx}
-                className={
-                  idx < todayCourses.length - 1
-                    ? 'border-b border-white/20 pb-2 md:pb-3'
-                    : 'pb-1'
-                }
-              >
-                <p className="text-[10px] opacity-80 mb-0.5 text-slate-600">{course.time}</p>
-                <h4 className="font-semibold text-sm text-slate-800">{course.title}</h4>
-                <p className="text-[10px] opacity-70 text-slate-600">{course.room}</p>
-              </div>
-            ))}
-          </div>
+          <h3 className="font-bold text-lg mb-3 md:mb-4 text-slate-800">
+            Cours d'aujourd'hui
+            <span className="ml-2 text-sm font-normal text-slate-500">
+              ({todayEvents.length})
+            </span>
+          </h3>
+          {todayEvents.length === 0 ? (
+            <div className="text-center py-4">
+              <Calendar className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-sm text-slate-500">Aucun cours aujourd'hui</p>
+            </div>
+          ) : (
+            <div className="space-y-3 md:space-y-4">
+              {todayCourses.map((course, idx) => (
+                <div
+                  key={idx}
+                  className={
+                    idx < todayCourses.length - 1
+                      ? 'border-b border-white/20 pb-2 md:pb-3'
+                      : 'pb-1'
+                  }
+                >
+                  <p className="text-[10px] opacity-80 mb-0.5 text-slate-600 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {course.time}
+                  </p>
+                  <h4 className="font-semibold text-sm text-slate-800">{course.title}</h4>
+                  {course.room && (
+                    <p className="text-[10px] opacity-70 text-slate-600 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {course.room}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-outline-variant">
         <div className="flex items-center justify-between mb-3 md:mb-4">
-          <h3 className="font-bold text-slate-800 text-sm md:text-base">Liste cours terminés</h3>
+          <h3 className="font-bold text-slate-800 text-sm md:text-base">
+            Cours terminés
+            <span className="ml-2 text-sm font-normal text-slate-500">
+              ({completedCourses.length})
+            </span>
+          </h3>
           <ChevronDown className="w-4 h-4 text-slate-400" />
         </div>
-        <div className="space-y-2 md:space-y-3">
-          {completedCourses.map((course, idx) => (
-            <label key={idx} className="flex items-center gap-3 cursor-pointer group">
-              <div className="w-4 h-4 rounded border-2 border-green-500 bg-green-500 flex items-center justify-center">
-                <Check className="w-3 h-3 text-white" />
-              </div>
-              <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
-                {course}
-              </span>
-            </label>
-          ))}
-        </div>
+        {completedCourses.length === 0 ? (
+          <div className="text-center py-2">
+            <p className="text-sm text-slate-500">Aucun cours terminé</p>
+          </div>
+        ) : (
+          <div className="space-y-2 md:space-y-3">
+            {completedCourses.map((course, idx) => (
+              <label key={idx} className="flex items-center gap-3 cursor-pointer group">
+                <div className="w-4 h-4 rounded border-2 border-green-500 bg-green-500 flex items-center justify-center">
+                  <Check className="w-3 h-3 text-white" />
+                </div>
+                <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors truncate">
+                  {course}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white font-body flex flex-col">
+        <Navbar toggleSidebar={toggleSidebar} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-12 h-12 text-sky-500 animate-spin" />
+            <p className="text-slate-500 text-sm">Chargement de votre emploi du temps...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white font-body flex flex-col">
+        <Navbar toggleSidebar={toggleSidebar} />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="flex flex-col items-center gap-4 max-w-md text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-slate-800">Erreur de chargement</h3>
+            <p className="text-slate-500 text-sm">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition"
+            >
+              Réessayer
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-zinc-50 font-body flex flex-col">
+    <div className="min-h-screen bg-white font-body flex flex-col">
       <Navbar toggleSidebar={toggleSidebar} />
 
-      <main className="flex-1 flex gap-4 md:gap-8 p-3 md:p-8 overflow-hidden bg-zinc-50 relative">
+      <main className="flex-1 flex gap-4 md:gap-8 p-3 md:p-8 overflow-hidden bg-white relative">
         <aside
           className={`
-            fixed inset-0 z-40 w-72 md:w-[300px] bg-zinc-50 p-4 md:p-0 md:static md:bg-transparent
+            fixed inset-0 z-40 w-72 md:w-[300px] bg-white p-4 md:p-0 md:static md:bg-transparent
             transform transition-transform duration-300 ease-in-out
             ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
             flex flex-col gap-4 md:gap-6 overflow-y-auto no-scrollbar shrink-0
@@ -141,6 +382,37 @@ const EnseignantDashboard = () => {
         </aside>
 
         <section className="flex-1 flex flex-col gap-4 md:gap-6 overflow-hidden min-w-0">
+          <div className="md:hidden bg-white rounded-2xl p-4 shadow-sm border border-outline-variant">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-slate-800 text-sm">
+                {format(currentDate, 'MMMM yyyy', { locale: fr })
+                  .charAt(0)
+                  .toUpperCase() +
+                  format(currentDate, 'MMMM yyyy', { locale: fr }).slice(1)}
+              </h3>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
+                  className="p-1 text-slate-400 hover:bg-slate-50 rounded"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
+                  className="p-1 text-slate-400 hover:bg-slate-50 rounded"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <MiniCalendar
+              currentDate={currentDate}
+              onDateChange={handleDateChange}
+              selectedDate={selectedDate}
+              compact={true}
+            />
+          </div>
+
           <div className="flex items-center justify-between shrink-0 flex-wrap gap-2 md:gap-4">
             <div className="flex items-center gap-2 md:gap-4">
               <button
@@ -150,8 +422,10 @@ const EnseignantDashboard = () => {
                 <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-slate-500" />
               </button>
               <h2 className="text-sm md:text-2xl font-bold text-slate-800 truncate max-w-[180px] md:max-w-none">
-                {format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'dd MMM', { locale: fr })} -{' '}
-                {format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'dd MMM yyyy', { locale: fr })}
+                {view === 'day'
+                  ? format(selectedDate, 'dd MMM yyyy', { locale: fr })
+                  : `${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'dd MMM', { locale: fr })} - ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'dd MMM yyyy', { locale: fr })}`
+                }
               </h2>
               <button
                 onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
@@ -162,10 +436,24 @@ const EnseignantDashboard = () => {
             </div>
             <div className="flex gap-2 md:gap-4">
               <div className="flex items-center gap-1 md:gap-2 p-1 bg-white rounded-xl shadow-sm border border-outline-variant">
-                <button className="px-2 md:px-4 py-1 text-[10px] md:text-xs font-semibold text-slate-400 hover:text-slate-600">
+                <button
+                  className={`px-2 md:px-4 py-1 text-[10px] md:text-xs font-semibold rounded-lg transition-colors ${
+                    view === 'day'
+                      ? 'bg-slate-50 text-slate-800 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                  onClick={() => setView('day')}
+                >
                   Jours
                 </button>
-                <button className="px-2 md:px-4 py-1 text-[10px] md:text-xs font-bold bg-slate-50 text-slate-800 rounded-lg shadow-sm">
+                <button
+                  className={`px-2 md:px-4 py-1 text-[10px] md:text-xs font-semibold rounded-lg transition-colors ${
+                    view === 'week'
+                      ? 'bg-slate-50 text-slate-800 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                  onClick={() => setView('week')}
+                >
                   Semaine
                 </button>
               </div>
@@ -178,6 +466,10 @@ const EnseignantDashboard = () => {
               onDateChange={setSelectedDate}
               currentDate={currentDate}
               onDateChangeParent={setCurrentDate}
+              view={view}
+              events={events}
+              loading={loading}
+              onEventUpdate={handleEventUpdate}
             />
           </div>
         </section>
@@ -197,55 +489,6 @@ const EnseignantDashboard = () => {
         .bg-sky-50 { background-color: #f0f9ff; }
       `}</style>
     </div>
-  );
-};
-
-const Navbar = ({ toggleSidebar }) => {
-  return (
-    <nav className="border-b border-outline-variant px-3 md:px-8 py-3 md:py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm bg-white shadow-md">
-      <div className="flex items-center gap-2 md:gap-4">
-        <button
-          onClick={toggleSidebar}
-          className="p-1.5 md:hidden text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-        <span
-          className="text-xl md:text-2xl font-bold text-sky-500"
-          style={{ fontFamily: 'Poppins, sans-serif' }}
-        >
-          Calendar.
-        </span>
-      </div>
-      <div className="flex items-center gap-3 md:gap-6">
-        <button className="relative p-1.5 md:p-2 text-slate-600 hover:bg-slate-50 rounded-full transition-colors">
-          <Bell className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="absolute top-1 right-1 md:top-2 md:right-2 w-1.5 h-1.5 md:w-2 md:h-2 bg-red-500 rounded-full border-2 border-white"></span>
-        </button>
-        <div className="relative group">
-          <button className="flex items-center gap-1 md:gap-2 p-1 hover:bg-slate-50 rounded-full transition-colors">
-            <img
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDU0mRT3tjM2y3_fDnluuwFO_8Z6EBlhR1UtByUdj1p8e50aE05cwUwQxKYSHZ9Bxb2eVRuxP1cBIpdtkaBWTlBqBMShW-vqtbTN1Ca9KDUTHf08m2TTsZ2pmtQOf16i8Q1kg-55JN8atBJ2x640x_IUUt2_0AjxRt4H_HmZ-6pvE6X1cLrMVTtTNWXeufwmo7UHzB3zS7C9QTW0ft2-HT0LiYxyWJFRucTK7CK1aa-qBHvDXGyI_c"
-              className="w-6 h-6 md:w-8 md:h-8 rounded-full border border-outline-variant"
-              alt="User profile"
-            />
-            <ChevronDown className="w-3 h-3 md:w-4 md:h-4 text-slate-400" />
-          </button>
-          <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-outline-variant py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-            <a href="#" className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-              <User className="w-4 h-4" /> Mon Profil
-            </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-              <Settings className="w-4 h-4" /> Paramètres
-            </a>
-            <div className="my-1 border-t border-outline-variant" />
-            <a href="#" className="flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-              <LogOut className="w-4 h-4" /> Déconnexion
-            </a>
-          </div>
-        </div>
-      </div>
-    </nav>
   );
 };
 
