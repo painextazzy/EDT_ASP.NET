@@ -1,618 +1,251 @@
-// src/pages/client/EnseignantDashboard.jsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  Bell, User, LogOut, Home, FileText, AlertCircle,
-  Calendar as CalendarIcon, XCircle, CheckCircle, Clock,
-  ChevronLeft, ChevronRight, Trash2, Eye
-} from 'lucide-react';
-import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
+// src/components/EnseignantDashboard.jsx
+import React, { useState } from 'react';
+import { format, addWeeks, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { authApi } from '../../services/auth';
-import NavbarAdmin from '../../components/NavbarAdmin';
-import { SidebarProvider, useSidebar } from '../../context/SidebarContext';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Bell,
+  User,
+  Settings,
+  LogOut,
+  Check,
+  Printer,
+  ChevronDown,
+  Menu,
+} from 'lucide-react';
+import BigCalendar from '../../components/ui/BigCalendar';
+import MiniCalendar from '../../components/ui/MiniCalendar';
 
-// ===== COMPOSANT CONTENU =====
-const EnseignantContent = () => {
-  const navigate = useNavigate();
-  const { isSidebarOpen } = useSidebar();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+const EnseignantDashboard = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [courses, setCourses] = useState([]);
-  const [selectedCourse, setSelectedCourse] = useState(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [notification, setNotification] = useState(null);
-  const [viewMode, setViewMode] = useState('week'); // 'week' | 'day'
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // ✅ Charger les cours de l'enseignant
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        if (!authApi.isAuthenticated()) {
-          navigate('/login');
-          return;
-        }
+  // Données fictives pour la sidebar
+  const todayCourses = [
+    { time: '09:00 - 11:00', title: 'Machine Learning Fondamentaux', room: 'Amphi Turing' },
+    { time: '11:00 - 13:00', title: 'Deep Learning & Architectures', room: 'Lab 10B' },
+    { time: '14:00 - 16:00', title: 'Éthique et IA', room: 'Salle 402' },
+  ];
 
-        const userData = authApi.getUser();
-        if (userData?.role !== 'ENSEIGNANT') {
-          navigate('/login');
-          return;
-        }
+  const completedCourses = [
+    "Introduction à l'IA",
+    'Algorithmique Avancée',
+    'Mathématiques Discrètes',
+  ];
 
-        setUser(userData);
-        loadCourses();
-      } catch (error) {
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [navigate]);
-
-  // ✅ Chargement des cours (simulé)
-  const loadCourses = async () => {
-    try {
-      // Simuler des cours (à remplacer par votre API)
-      const today = new Date();
-      const demoCourses = [
-        {
-          id: 1,
-          title: 'Advanced Calculus II',
-          day: 0, // 0 = lundi
-          start: 9,
-          end: 11,
-          room: 'Salle 101',
-          professor: 'Dr. Martin',
-          status: 'confirmed',
-          students: 12,
-          color: 'purple'
-        },
-        {
-          id: 2,
-          title: 'Meeting Call',
-          day: 0,
-          start: 12,
-          end: 14,
-          room: 'Salle 203',
-          professor: 'Dr. Bernard',
-          status: 'confirmed',
-          students: 8,
-          color: 'blue'
-        },
-        {
-          id: 3,
-          title: 'Berangkat Ke Bali',
-          day: 2,
-          start: 11,
-          end: 14,
-          room: 'Salle 305',
-          professor: 'Dr. Dubois',
-          status: 'cancelled',
-          students: 15,
-          color: 'green'
-        },
-        {
-          id: 4,
-          title: 'Sharing Technical',
-          day: 3,
-          start: 9,
-          end: 11,
-          room: 'Salle 102',
-          professor: 'Dr. Petit',
-          status: 'confirmed',
-          students: 10,
-          color: 'cyan'
-        },
-        {
-          id: 5,
-          title: 'App Design',
-          day: 4,
-          start: 11,
-          end: 13,
-          room: 'Salle 204',
-          professor: 'Dr. Moreau',
-          status: 'confirmed',
-          students: 6,
-          color: 'pink'
-        }
-      ];
-      setCourses(demoCourses);
-    } catch (error) {
-      console.error('Erreur chargement cours:', error);
-      showNotification('Erreur lors du chargement des cours', 'error');
-    }
+  const handleDateChange = (date) => {
+    setCurrentDate(date);
+    setSelectedDate(date);
   };
 
-  // ✅ Notification
-  const showNotification = (message, type = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 4000);
-  };
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  // ✅ Annuler un cours
-  const handleCancelCourse = async () => {
-    if (!selectedCourse) return;
+  const SidebarContent = () => (
+    <>
+      <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-outline-variant">
+        <div className="flex items-center justify-between mb-4 md:mb-6">
+          <h3 className="font-bold text-slate-800 text-sm md:text-base">
+            {format(currentDate, 'MMMM yyyy', { locale: fr })
+              .charAt(0)
+              .toUpperCase() +
+              format(currentDate, 'MMMM yyyy', { locale: fr }).slice(1)}
+          </h3>
+          <div className="flex gap-1 md:gap-2">
+            <button
+              onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
+              className="p-1 text-slate-400 hover:bg-slate-50 rounded"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
+              className="p-1 text-slate-400 hover:bg-slate-50 rounded"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <MiniCalendar
+          currentDate={currentDate}
+          onDateChange={handleDateChange}
+          selectedDate={selectedDate}
+          compact={true}
+        />
+      </div>
 
-    try {
-      // Simuler l'annulation (à remplacer par votre API)
-      setCourses(courses.map(c => 
-        c.id === selectedCourse.id 
-          ? { ...c, status: 'cancelled' } 
-          : c
-      ));
-      
-      showNotification(`✅ Cours "${selectedCourse.title}" annulé avec succès`, 'success');
-      setShowConfirmModal(false);
-      setSelectedCourse(null);
-    } catch (error) {
-      showNotification('❌ Erreur lors de l\'annulation', 'error');
-    }
-  };
-
-  // ✅ Ouvrir le modal de confirmation
-  const openCancelModal = (course) => {
-    if (course.status === 'cancelled') {
-      showNotification('Ce cours est déjà annulé', 'error');
-      return;
-    }
-    setSelectedCourse(course);
-    setShowConfirmModal(true);
-  };
-
-  // ✅ Navigation dans le calendrier
-  const getWeekDays = () => {
-    const start = startOfWeek(currentDate, { weekStartsOn: 1 });
-    return Array.from({ length: 5 }, (_, i) => addDays(start, i));
-  };
-
-  const weekDays = getWeekDays();
-  const weekDayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
-
-  const prevWeek = () => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() - 7);
-    setCurrentDate(newDate);
-  };
-
-  const nextWeek = () => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() + 7);
-    setCurrentDate(newDate);
-  };
-
-  const goToday = () => {
-    setCurrentDate(new Date());
-  };
-
-  // ✅ Couleurs des cours
-  const getColorClasses = (color, status) => {
-    if (status === 'cancelled') {
-      return 'bg-gray-100 border-gray-400 text-gray-500';
-    }
-    const colors = {
-      purple: 'bg-purple-50 border-purple-500 text-purple-900',
-      blue: 'bg-blue-50 border-blue-500 text-blue-900',
-      green: 'bg-green-50 border-green-500 text-green-900',
-      cyan: 'bg-cyan-50 border-cyan-500 text-cyan-900',
-      pink: 'bg-pink-50 border-pink-500 text-pink-900',
-      orange: 'bg-orange-50 border-orange-500 text-orange-900',
-      red: 'bg-red-50 border-red-500 text-red-900'
-    };
-    return colors[color] || colors.blue;
-  };
-
-  // ✅ Filtrer les cours du jour
-  const getCoursesForDay = (dayIndex) => {
-    return courses.filter(c => c.day === dayIndex && c.status !== 'cancelled');
-  };
-
-  const getCancelledCoursesForDay = (dayIndex) => {
-    return courses.filter(c => c.day === dayIndex && c.status === 'cancelled');
-  };
-
-  // ✅ Heures
-  const hours = Array.from({ length: 12 }, (_, i) => i + 7); // 7h à 18h
-
-  const handleLogout = () => {
-    authApi.logout();
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f7f9ff]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#005bbf] mx-auto"></div>
-          <p className="mt-4 text-[#414754]">Chargement de votre planning...</p>
+      <div className="bg-sky-50 rounded-2xl p-4 md:p-6 shadow-lg relative overflow-hidden">
+        <div className="relative z-10">
+          <h3 className="font-bold text-lg mb-3 md:mb-4 text-slate-800">Cours d'aujourd'hui</h3>
+          <div className="space-y-3 md:space-y-4">
+            {todayCourses.map((course, idx) => (
+              <div
+                key={idx}
+                className={
+                  idx < todayCourses.length - 1
+                    ? 'border-b border-white/20 pb-2 md:pb-3'
+                    : 'pb-1'
+                }
+              >
+                <p className="text-[10px] opacity-80 mb-0.5 text-slate-600">{course.time}</p>
+                <h4 className="font-semibold text-sm text-slate-800">{course.title}</h4>
+                <p className="text-[10px] opacity-70 text-slate-600">{course.room}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-    );
-  }
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f7f9ff]">
-        <div className="bg-white p-8 rounded-xl shadow-md max-w-md text-center">
-          <AlertCircle className="w-12 h-12 text-[#ba1a1a] mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-[#181c20]">Erreur</h2>
-          <p className="text-[#414754] mt-2">{error}</p>
-          <button 
-            onClick={() => navigate('/login')}
-            className="mt-4 px-6 py-2 bg-[#005bbf] text-white rounded-lg hover:bg-[#004a9f] transition-colors"
-          >
-            Retour à la connexion
-          </button>
+      <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-outline-variant">
+        <div className="flex items-center justify-between mb-3 md:mb-4">
+          <h3 className="font-bold text-slate-800 text-sm md:text-base">Liste cours terminés</h3>
+          <ChevronDown className="w-4 h-4 text-slate-400" />
+        </div>
+        <div className="space-y-2 md:space-y-3">
+          {completedCourses.map((course, idx) => (
+            <label key={idx} className="flex items-center gap-3 cursor-pointer group">
+              <div className="w-4 h-4 rounded border-2 border-green-500 bg-green-500 flex items-center justify-center">
+                <Check className="w-3 h-3 text-white" />
+              </div>
+              <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
+                {course}
+              </span>
+            </label>
+          ))}
         </div>
       </div>
-    );
-  }
-
-  const userSettings = {
-    nom: user?.email?.split('@')[0] || 'Enseignant',
-    email: user?.email || 'enseignant@example.com',
-    avatar: user?.avatar || null,
-  };
-
-  // ✅ Compter les cours
-  const totalCourses = courses.filter(c => c.status === 'confirmed').length;
-  const cancelledCourses = courses.filter(c => c.status === 'cancelled').length;
-  const todayCourses = courses.filter(c => {
-    const todayIndex = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
-    return c.day === todayIndex && c.status === 'confirmed';
-  });
+    </>
+  );
 
   return (
-    <div className="min-h-screen bg-[#f7f9ff] text-[#181c20]">
-      {/* Notification */}
-      {notification && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg transition-all ${
-          notification.type === 'success' 
-            ? 'bg-green-50 border border-green-200 text-green-800' 
-            : 'bg-red-50 border border-red-200 text-red-800'
-        }`}>
-          {notification.message}
-        </div>
-      )}
+    <div className="min-h-screen bg-zinc-50 font-body flex flex-col">
+      <Navbar toggleSidebar={toggleSidebar} />
 
-      {/* Navbar */}
-      <NavbarAdmin 
-        userSettings={userSettings}
-        onLogout={handleLogout}
-      />
+      <main className="flex-1 flex gap-4 md:gap-8 p-3 md:p-8 overflow-hidden bg-zinc-50 relative">
+        <aside
+          className={`
+            fixed inset-0 z-40 w-72 md:w-[300px] bg-zinc-50 p-4 md:p-0 md:static md:bg-transparent
+            transform transition-transform duration-300 ease-in-out
+            ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+            flex flex-col gap-4 md:gap-6 overflow-y-auto no-scrollbar shrink-0
+          `}
+        >
+          {isSidebarOpen && (
+            <div
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm md:hidden z-[-1]"
+              onClick={toggleSidebar}
+            />
+          )}
+          <SidebarContent />
+        </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto">
-        {/* En-tête */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-[#181c20]">
-              📚 Mon Planning
-            </h1>
-            <p className="text-[#414754] text-sm mt-1">
-              Gérez vos cours et annulations
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-[#ebeef4] rounded-lg p-1">
-              <button 
-                onClick={() => setViewMode('week')}
-                className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all ${
-                  viewMode === 'week' ? 'bg-white shadow-sm' : 'hover:bg-white hover:shadow-sm'
-                }`}
+        <section className="flex-1 flex flex-col gap-4 md:gap-6 overflow-hidden min-w-0">
+          <div className="flex items-center justify-between shrink-0 flex-wrap gap-2 md:gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
+              <button
+                onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
+                className="p-1.5 md:p-2 bg-white rounded-xl shadow-sm border border-outline-variant hover:bg-slate-50"
               >
-                Semaine
+                <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-slate-500" />
               </button>
-              <button 
-                onClick={() => setViewMode('day')}
-                className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all ${
-                  viewMode === 'day' ? 'bg-white shadow-sm' : 'hover:bg-white hover:shadow-sm'
-                }`}
+              <h2 className="text-sm md:text-2xl font-bold text-slate-800 truncate max-w-[180px] md:max-w-none">
+                {format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'dd MMM', { locale: fr })} -{' '}
+                {format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'dd MMM yyyy', { locale: fr })}
+              </h2>
+              <button
+                onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
+                className="p-1.5 md:p-2 bg-white rounded-xl shadow-sm border border-outline-variant hover:bg-slate-50"
               >
-                Jour
+                <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-slate-500" />
               </button>
             </div>
-            <button 
-              onClick={goToday}
-              className="px-4 py-2 bg-[#005bbf] text-white rounded-lg hover:bg-[#004a9f] transition-colors text-sm font-bold"
-            >
-              Aujourd'hui
-            </button>
-          </div>
-        </div>
-
-        {/* Statistiques rapides */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-xl shadow-[0px_4px_20px_rgba(0,0,0,0.04)]">
-            <p className="text-sm text-[#414754]">Total cours</p>
-            <p className="text-2xl font-bold text-[#005bbf]">{totalCourses}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl shadow-[0px_4px_20px_rgba(0,0,0,0.04)]">
-            <p className="text-sm text-[#414754]">Cours aujourd'hui</p>
-            <p className="text-2xl font-bold text-[#005bbf]">{todayCourses.length}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl shadow-[0px_4px_20px_rgba(0,0,0,0.04)]">
-            <p className="text-sm text-[#414754]">Annulés</p>
-            <p className="text-2xl font-bold text-[#ba1a1a]">{cancelledCourses}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl shadow-[0px_4px_20px_rgba(0,0,0,0.04)]">
-            <p className="text-sm text-[#414754]">Étudiants total</p>
-            <p className="text-2xl font-bold text-[#005bbf]">
-              {courses.filter(c => c.status === 'confirmed').reduce((sum, c) => sum + (c.students || 0), 0)}
-            </p>
-          </div>
-        </div>
-
-        {/* Navigation semaine */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={prevWeek}
-              className="p-2 hover:bg-[#ebeef4] rounded-lg transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <span className="font-semibold text-[#181c20]">
-              {format(weekDays[0], 'd MMM', { locale: fr })} - {format(weekDays[4], 'd MMM yyyy', { locale: fr })}
-            </span>
-            <button 
-              onClick={nextWeek}
-              className="p-2 hover:bg-[#ebeef4] rounded-lg transition-colors"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-          <span className="text-sm text-[#414754]">
-            Semaine {format(currentDate, 'w', { locale: fr })}
-          </span>
-        </div>
-
-        {/* Grille des cours */}
-        <div className="bg-white rounded-2xl shadow-[0px_4px_20px_rgba(0,0,0,0.04)] overflow-hidden border border-[#c1c6d6]">
-          {/* En-tête des jours */}
-          <div className="grid grid-cols-6 border-b border-[#c1c6d6]">
-            <div className="p-3 bg-[#f1f4fa] w-16"></div>
-            {weekDays.map((day, index) => {
-              const dayCourses = getCoursesForDay(index);
-              const cancelledDayCourses = getCancelledCoursesForDay(index);
-              const isTodayDate = isToday(day);
-              return (
-                <div 
-                  key={index} 
-                  className={`p-3 text-center ${isTodayDate ? 'bg-[#f1f4fa]/50' : ''}`}
-                >
-                  <p className="text-xs font-bold text-[#727785] uppercase">
-                    {weekDayNames[index]}
-                  </p>
-                  <p className={`text-lg font-bold ${isTodayDate ? 'text-[#005bbf]' : ''}`}>
-                    {format(day, 'd')}
-                  </p>
-                  <div className="flex justify-center gap-1 mt-1">
-                    {dayCourses.length > 0 && (
-                      <span className="text-xs text-green-600">● {dayCourses.length}</span>
-                    )}
-                    {cancelledDayCourses.length > 0 && (
-                      <span className="text-xs text-red-500">✕ {cancelledDayCourses.length}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Corps avec les heures */}
-          <div className="relative overflow-x-auto" style={{ maxHeight: '500px' }}>
-            <div className="flex min-w-[700px]">
-              {/* Colonne des heures */}
-              <div className="w-16 flex-shrink-0 bg-[#f1f4fa] border-r border-[#c1c6d6] sticky left-0 z-10">
-                {hours.map((hour) => (
-                  <div 
-                    key={hour} 
-                    className="h-20 flex items-center justify-center text-xs text-[#727785] border-b border-[#c1c6d6]"
-                  >
-                    {hour}:00
-                  </div>
-                ))}
-              </div>
-
-              {/* Colonnes des jours */}
-              <div className="flex-1 grid grid-cols-5 relative">
-                {weekDays.map((day, dayIndex) => (
-                  <div key={dayIndex} className="relative">
-                    {hours.map((hour) => (
-                      <div 
-                        key={hour} 
-                        className={`h-20 border-b border-[#edf2f7] ${
-                          dayIndex < 4 ? 'border-r border-[#edf2f7]' : ''
-                        } ${isToday(day) ? 'bg-[#f7f9ff]' : ''}`}
-                      />
-                    ))}
-
-                    {/* Afficher les cours */}
-                    {courses
-                      .filter(c => c.day === dayIndex)
-                      .map((course) => {
-                        const isCancelled = course.status === 'cancelled';
-                        const top = (course.start - 7) * 80;
-                        const height = (course.end - course.start) * 80;
-                        const colorClass = getColorClasses(course.color, course.status);
-                        
-                        return (
-                          <div
-                            key={course.id}
-                            className={`absolute ${colorClass} border-l-4 p-2 rounded-lg shadow-sm m-1 transition-all ${
-                              !isCancelled ? 'hover:scale-105 hover:shadow-md cursor-pointer' : 'opacity-60'
-                            }`}
-                            style={{
-                              top: `${top}px`,
-                              left: '4px',
-                              right: '4px',
-                              height: `${height}px`,
-                              zIndex: isCancelled ? 5 : 10,
-                            }}
-                            onClick={() => !isCancelled && openCancelModal(course)}
-                          >
-                            <div className="flex flex-col h-full justify-between">
-                              <div>
-                                <p className={`font-bold text-xs leading-tight ${isCancelled ? 'line-through' : ''}`}>
-                                  {course.title}
-                                </p>
-                                <p className="text-[10px] opacity-75">
-                                  {course.start}h - {course.end}h
-                                </p>
-                                <p className="text-[10px] opacity-50">{course.room}</p>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                {!isCancelled ? (
-                                  <span className="text-[10px] font-medium text-green-600 flex items-center gap-1">
-                                    <CheckCircle className="w-3 h-3" />
-                                    {course.students || 0} étudiants
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] font-medium text-red-500 flex items-center gap-1">
-                                    <XCircle className="w-3 h-3" />
-                                    Annulé
-                                  </span>
-                                )}
-                                {!isCancelled && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openCancelModal(course);
-                                    }}
-                                    className="p-1 hover:bg-red-100 rounded-lg transition-colors"
-                                    title="Annuler ce cours"
-                                  >
-                                    <Trash2 className="w-3 h-3 text-red-500" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                ))}
+            <div className="flex gap-2 md:gap-4">
+              <div className="flex items-center gap-1 md:gap-2 p-1 bg-white rounded-xl shadow-sm border border-outline-variant">
+                <button className="px-2 md:px-4 py-1 text-[10px] md:text-xs font-semibold text-slate-400 hover:text-slate-600">
+                  Jours
+                </button>
+                <button className="px-2 md:px-4 py-1 text-[10px] md:text-xs font-bold bg-slate-50 text-slate-800 rounded-lg shadow-sm">
+                  Semaine
+                </button>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Footer info */}
-        <div className="mt-4 text-sm text-[#727785] flex items-center gap-4">
-          <span className="flex items-center gap-1">
-            <CheckCircle className="w-4 h-4 text-green-500" /> Confirmé
-          </span>
-          <span className="flex items-center gap-1">
-            <XCircle className="w-4 h-4 text-red-500" /> Annulé
-          </span>
-          <span className="flex items-center gap-1">
-            <Trash2 className="w-4 h-4 text-red-400" /> Cliquer pour annuler
-          </span>
-        </div>
+          <div className="flex-1 bg-white rounded-2xl md:rounded-3xl shadow-sm border border-outline-variant overflow-hidden min-h-[500px]">
+            <BigCalendar
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+              currentDate={currentDate}
+              onDateChangeParent={setCurrentDate}
+            />
+          </div>
+        </section>
       </main>
 
-      {/* ✅ Modal de confirmation d'annulation */}
-      {showConfirmModal && selectedCourse && (
-        <>
-          <div 
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
-            onClick={() => setShowConfirmModal(false)}
-          />
-          <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-fadeIn">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                  <Trash2 className="w-6 h-6 text-red-600" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-[#181c20]">Annuler le cours</h3>
-                  <p className="text-[#414754] text-sm mt-1">
-                    Êtes-vous sûr de vouloir annuler ce cours ?
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                <p className="font-bold text-[#181c20]">{selectedCourse.title}</p>
-                <p className="text-sm text-[#414754]">
-                  {selectedCourse.start}h - {selectedCourse.end}h • {selectedCourse.room}
-                </p>
-                <p className="text-sm text-[#414754]">
-                  {selectedCourse.students || 0} étudiants
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => setShowConfirmModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Annuler
-                </button>
-                <button 
-                  onClick={handleCancelCourse}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Confirmer l'annulation
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 md:hidden bg-[#f7f9ff] shadow-[0_-4px_20px_rgba(0,0,0,0.05)] flex justify-around items-center p-3 z-40">
-        <button className="flex flex-col items-center space-y-1 text-[#005bbf]">
-          <Home className="w-5 h-5" />
-          <span className="text-[10px] font-bold">Accueil</span>
-        </button>
-        <button className="flex flex-col items-center space-y-1 text-[#414754]">
-          <CalendarIcon className="w-5 h-5" />
-          <span className="text-[10px]">Planning</span>
-        </button>
-        <button className="flex flex-col items-center space-y-1 text-[#414754]">
-          <User className="w-5 h-5" />
-          <span className="text-[10px]">Profil</span>
-        </button>
-        <button 
-          onClick={handleLogout}
-          className="flex flex-col items-center space-y-1 text-[#ba1a1a]"
-        >
-          <LogOut className="w-5 h-5" />
-          <span className="text-[10px]">Déconnexion</span>
-        </button>
-      </nav>
+      <button className="fixed bottom-4 right-4 md:bottom-10 md:right-10 bg-slate-600 text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 border border-slate-700 w-12 h-12 md:w-14 md:h-14 shadow-2xl rounded-full group">
+        <Printer className="w-5 h-5 md:w-6 md:h-6" />
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all shadow-xl pointer-events-none whitespace-nowrap">
+          Imprimer
+        </div>
+      </button>
 
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: scale(0.95) translateY(-10px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.2s ease-out;
-        }
-        .bg-background {
-          background-color: #f7f9ff;
-        }
-        .text-on-surface {
-          color: #181c20;
-        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .border-outline-variant { border-color: #e2e8f0; }
+        .bg-sky-50 { background-color: #f0f9ff; }
       `}</style>
     </div>
   );
 };
 
-// ===== COMPOSANT PRINCIPAL =====
-const EnseignantDashboard = () => {
+const Navbar = ({ toggleSidebar }) => {
   return (
-    <SidebarProvider>
-      <EnseignantContent />
-    </SidebarProvider>
+    <nav className="border-b border-outline-variant px-3 md:px-8 py-3 md:py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm bg-white shadow-md">
+      <div className="flex items-center gap-2 md:gap-4">
+        <button
+          onClick={toggleSidebar}
+          className="p-1.5 md:hidden text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <span
+          className="text-xl md:text-2xl font-bold text-sky-500"
+          style={{ fontFamily: 'Poppins, sans-serif' }}
+        >
+          Calendar.
+        </span>
+      </div>
+      <div className="flex items-center gap-3 md:gap-6">
+        <button className="relative p-1.5 md:p-2 text-slate-600 hover:bg-slate-50 rounded-full transition-colors">
+          <Bell className="w-4 h-4 md:w-5 md:h-5" />
+          <span className="absolute top-1 right-1 md:top-2 md:right-2 w-1.5 h-1.5 md:w-2 md:h-2 bg-red-500 rounded-full border-2 border-white"></span>
+        </button>
+        <div className="relative group">
+          <button className="flex items-center gap-1 md:gap-2 p-1 hover:bg-slate-50 rounded-full transition-colors">
+            <img
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDU0mRT3tjM2y3_fDnluuwFO_8Z6EBlhR1UtByUdj1p8e50aE05cwUwQxKYSHZ9Bxb2eVRuxP1cBIpdtkaBWTlBqBMShW-vqtbTN1Ca9KDUTHf08m2TTsZ2pmtQOf16i8Q1kg-55JN8atBJ2x640x_IUUt2_0AjxRt4H_HmZ-6pvE6X1cLrMVTtTNWXeufwmo7UHzB3zS7C9QTW0ft2-HT0LiYxyWJFRucTK7CK1aa-qBHvDXGyI_c"
+              className="w-6 h-6 md:w-8 md:h-8 rounded-full border border-outline-variant"
+              alt="User profile"
+            />
+            <ChevronDown className="w-3 h-3 md:w-4 md:h-4 text-slate-400" />
+          </button>
+          <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-outline-variant py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+            <a href="#" className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+              <User className="w-4 h-4" /> Mon Profil
+            </a>
+            <a href="#" className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+              <Settings className="w-4 h-4" /> Paramètres
+            </a>
+            <div className="my-1 border-t border-outline-variant" />
+            <a href="#" className="flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+              <LogOut className="w-4 h-4" /> Déconnexion
+            </a>
+          </div>
+        </div>
+      </div>
+    </nav>
   );
 };
 
