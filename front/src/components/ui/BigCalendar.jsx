@@ -8,11 +8,11 @@ import {
   isSameDay,
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Check, X, Calendar, Clock, MapPin, Users } from 'lucide-react';
+import { Check, X, Calendar } from 'lucide-react';
 import api from '../../services/api';
 import { authApi } from '../../services/auth';
 
-// ----- Modals internes -----
+// ----- Modals internes (inchangés) -----
 const CancelModal = ({ isOpen, event, onConfirm, onClose }) => {
   const [reason, setReason] = useState('');
 
@@ -135,8 +135,14 @@ const BigCalendar = ({
 
   // Mettre à jour les événements quand la prop externe change
   useEffect(() => {
+    console.log('📅 BigCalendar received events:', externalEvents);
     if (externalEvents && externalEvents.length > 0) {
-      setEvents(externalEvents);
+      // Vérifier que les événements ont les propriétés nécessaires
+      const validEvents = externalEvents.filter(e => e.start && e.end);
+      if (validEvents.length !== externalEvents.length) {
+        console.warn('⚠️ Certains événements n\'ont pas de date de début ou de fin');
+      }
+      setEvents(validEvents);
     } else {
       setEvents([]);
     }
@@ -157,8 +163,12 @@ const BigCalendar = ({
   const weekDays = getDisplayDays();
   const hours = Array.from({ length: 12 }, (_, i) => i + 7);
 
-  const getEventsForDay = (day) =>
-    events.filter((e) => isSameDay(new Date(e.start), day));
+  const getEventsForDay = (day) => {
+    return events.filter((e) => {
+      const eventDate = new Date(e.start);
+      return isSameDay(eventDate, day);
+    });
+  };
 
   const getEventTop = (startDate) => {
     const d = new Date(startDate);
@@ -185,11 +195,11 @@ const BigCalendar = ({
   const handleComplete = async (event, comment) => {
     try {
       setUpdating(true);
-      console.log(`Cours "${event.title}" terminé. Commentaire : ${comment || 'Aucun'}`);
+      console.log(`✅ Terminer: "${event.title}" - Commentaire: ${comment || 'Aucun'}`);
       
-      // Appel API pour marquer le cours comme terminé
       const user = authApi.getUser();
       if (user && user.id) {
+        // Appel API pour marquer le cours comme terminé
         await api.planning.update(event.id, {
           statut: 'TERMINE',
           commentaire: comment || '',
@@ -200,10 +210,9 @@ const BigCalendar = ({
       setCompleteModal({ isOpen: false, event: null });
       setHoveredEventId(null);
       
-      // Notifier le parent pour rafraîchir les données
       if (onEventUpdate) onEventUpdate();
     } catch (error) {
-      console.error('Erreur lors de la mise à jour:', error);
+      console.error('❌ Erreur mise à jour:', error);
       alert('Erreur lors de la mise à jour du cours');
     } finally {
       setUpdating(false);
@@ -213,22 +222,21 @@ const BigCalendar = ({
   const handleCancel = async (event, reason) => {
     try {
       setUpdating(true);
-      console.log(`Annulation de "${event.title}" : ${reason}`);
+      console.log(`❌ Annulation: "${event.title}" - Motif: ${reason}`);
       
-      // Appel API pour annuler le cours
       const user = authApi.getUser();
       if (user && user.id) {
         await api.planning.cancel(event.id, reason);
       }
       
+      // Retirer l'événement localement
       setEvents(events.filter((e) => e.id !== event.id));
       setCancelModal({ isOpen: false, event: null });
       setHoveredEventId(null);
       
-      // Notifier le parent pour rafraîchir les données
       if (onEventUpdate) onEventUpdate();
     } catch (error) {
-      console.error('Erreur lors de l\'annulation:', error);
+      console.error('❌ Erreur annulation:', error);
       alert('Erreur lors de l\'annulation du cours');
     } finally {
       setUpdating(false);
@@ -240,7 +248,7 @@ const BigCalendar = ({
   const closeCancelModal = () => setCancelModal({ isOpen: false, event: null });
   const closeCompleteModal = () => setCompleteModal({ isOpen: false, event: null });
 
-  // Afficher un état de chargement
+  // États de chargement et vide
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -252,7 +260,6 @@ const BigCalendar = ({
     );
   }
 
-  // Afficher un message si aucun événement
   if (!events || events.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -270,7 +277,7 @@ const BigCalendar = ({
     : 'grid-cols-[50px_repeat(5,1fr)] sm:grid-cols-[80px_repeat(5,1fr)]';
 
   return (
-    <div className="flex flex-col h-full bg-white overflow-hidden">
+    <div className="flex flex-col h-full bg-white overflow-hidden relative">
       {updating && (
         <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-30">
           <div className="flex flex-col items-center gap-2">
@@ -309,6 +316,7 @@ const BigCalendar = ({
         <div className="overflow-x-auto">
           <div className="relative min-w-[600px] sm:min-w-0">
             <div className={`grid ${gridColsClass}`}>
+              {/* Colonne des heures */}
               <div className="border-r border-outline-variant bg-slate-50/20">
                 {hours.map((h, i) => (
                   <div key={i} className="h-[50px] sm:h-[60px] flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-slate-400">
@@ -317,13 +325,17 @@ const BigCalendar = ({
                 ))}
               </div>
 
+              {/* Jours */}
               {weekDays.map((day, dayIdx) => {
                 const dayEvents = getEventsForDay(day);
                 return (
                   <div key={dayIdx} className="relative border-r border-outline-variant min-h-[600px] sm:min-h-[720px] bg-white">
+                    {/* Lignes de fond */}
                     {hours.map((_, i) => (
                       <div key={i} className="h-[50px] sm:h-[60px] border-b border-slate-50" />
                     ))}
+
+                    {/* Événements */}
                     {dayEvents.map((event) => {
                       const style = eventColors[event.color] || eventColors.gray;
                       const top = getEventTop(event.start);

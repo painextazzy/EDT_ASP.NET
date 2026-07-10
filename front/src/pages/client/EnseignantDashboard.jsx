@@ -1,6 +1,6 @@
 // src/components/EnseignantDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, isToday } from 'date-fns';
+import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, isToday, isSameWeek } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   ChevronLeft,
@@ -12,7 +12,6 @@ import {
   Calendar,
   Clock,
   MapPin,
-  Users,
 } from 'lucide-react';
 import Navbar from './Navbar';
 import BigCalendar from '../../components/ui/BigCalendar';
@@ -29,8 +28,6 @@ const EnseignantDashboard = () => {
   const [todayEvents, setTodayEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [userInfo, setUserInfo] = useState(null);
-  const [enseignantInfo, setEnseignantInfo] = useState(null);
 
   // Fonction pour obtenir la couleur selon le type
   const getColorForType = (type) => {
@@ -47,128 +44,100 @@ const EnseignantDashboard = () => {
     return colorMap[type] || 'gray';
   };
 
-  // Récupérer les données de l'enseignant
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // 1. Récupérer l'utilisateur connecté
+        // 1. Utilisateur connecté
         const user = authApi.getUser();
         if (!user || !user.id) {
-          setError('Utilisateur non connecté. Veuillez vous reconnecter.');
+          setError('Utilisateur non connecté');
           setLoading(false);
           return;
         }
-        setUserInfo(user);
 
-        // 2. Récupérer l'enseignant associé à l'utilisateur via l'API
-        // Nous utilisons l'API existante - getValides ou nous devons créer un endpoint
-        // Pour l'instant, nous allons récupérer tous les enseignants et filtrer
+        // 2. Récupérer l'enseignant associé
         const enseignantsResponse = await api.enseignant.getValides();
-        let enseignant = null;
-
-        if (enseignantsResponse && enseignantsResponse.success) {
-          // Chercher l'enseignant avec l'id_utilisateur correspondant
-          const enseignants = enseignantsResponse.data || enseignantsResponse;
-          enseignant = enseignants.find(e => e.id_utilisateur === user.id);
+        let enseignants = [];
+        if (Array.isArray(enseignantsResponse)) {
+          enseignants = enseignantsResponse;
+        } else if (enseignantsResponse?.success) {
+          enseignants = enseignantsResponse.data || [];
         }
 
-        // Si l'enseignant n'est pas trouvé, essayer un autre moyen
+        const enseignant = enseignants.find(e => e.id_utilisateur === user.id || e.email === user.email);
         if (!enseignant) {
-          // Option: utiliser un endpoint dédié si disponible
-          // Pour l'instant, on simule avec les données de l'utilisateur
-          enseignant = {
-            id: user.id,
-            nom: user.nom || 'Enseignant',
-            prenom: user.prenom || '',
-            id_utilisateur: user.id
-          };
+          setError('Aucun enseignant associé à cet utilisateur');
+          setLoading(false);
+          return;
         }
 
-        setEnseignantInfo(enseignant);
         const enseignantId = enseignant.id;
 
-        // 3. Récupérer les affectations (enseignements) de l'enseignant
-        const affectationsResponse = await api.affectation.getAll();
-        let affectations = [];
+        // 3. Récupérer les plannings de l'enseignant
+        const response = await api.planning.getByEnseignant(enseignantId);
 
-        if (affectationsResponse && affectationsResponse.success) {
-          const allAffectations = affectationsResponse.data || affectationsResponse;
-          affectations = allAffectations.filter(a => a.id_enseignant === enseignantId);
+        let plannings = [];
+        if (response?.success && Array.isArray(response.data)) {
+          plannings = response.data;
+        } else if (Array.isArray(response)) {
+          plannings = response;
         }
 
-        // 4. Récupérer les plannings pour chaque affectation
-        const allPlannings = [];
+        console.log('📚 Plannings reçus :', plannings);
 
-        for (const affectation of affectations) {
-          try {
-            const planningResponse = await api.planning.getByEnseignement(affectation.id);
-            if (planningResponse && planningResponse.success) {
-              const plannings = planningResponse.data || planningResponse;
-              // Ajouter les informations de l'affectation aux plannings
-              const enrichedPlannings = plannings.map(p => ({
-                ...p,
-                matiere_libelle: affectation.matiere_libelle || affectation.libelle || 'Cours',
-                niveau_libelle: affectation.niveau_libelle || affectation.niveau || '',
-                parcours_libelle: affectation.parcours_libelle || affectation.parcours || '',
-              }));
-              allPlannings.push(...enrichedPlannings);
-            }
-          } catch (e) {
-            console.warn(`Aucun planning pour l'affectation ${affectation.id}`, e);
-          }
-        }
+        // 4. Transformer en événements (avec conversion UTC)
+        const formattedEvents = plannings
+          .filter(p => p.dateDebut && p.dateFin && p.statut === 'Actif')
+          .map(p => {
+            // Ajout de 'Z' pour forcer l'interprétation UTC
+            const start = new Date(p.dateDebut + 'Z');
+            const end = new Date(p.dateFin + 'Z');
+            if (isNaN(start) || isNaN(end)) return null;
 
-        // 5. Récupérer les salles pour chaque planning
-        const planningsWithSalles = [];
-        for (const planning of allPlannings) {
-          try {
-            const sallesResponse = await api.planning.getSallesByPlanning(planning.id);
-            let salles = [];
-            if (sallesResponse && sallesResponse.success) {
-              salles = sallesResponse.data || sallesResponse;
-            }
-            const salleNoms = salles.map(s => s.nom_salle || s.nom || 'Salle').join(', ');
-            planningsWithSalles.push({
-              ...planning,
-              salle_nom: salleNoms || planning.salle || '',
-            });
-          } catch (e) {
-            // Si pas de salles, garder le planning sans salle
-            planningsWithSalles.push(planning);
-          }
-        }
+            const coursNom = p.enseignement?.cours?.nom || p.coursNom || 'Cours';
+            const niveauLibelle = p.enseignement?.niveau?.libelle || '';
+            const salles = p.salles?.map(s => s.nom).join(', ') || '';
 
-        // 6. Transformer les données pour le calendrier
-        const formattedEvents = planningsWithSalles
-          .filter(p => p.statut === 'Actif' || p.statut === 'ACTIF')
-          .map((planning) => ({
-            id: planning.id,
-            title: planning.matiere_libelle || planning.titre || 'Cours',
-            start: new Date(planning.date_debut || planning.dateDebut),
-            end: new Date(planning.date_fin || planning.dateFin),
-            salle: planning.salle_nom || planning.salle || '',
-            type: planning.type_evenement || planning.type || 'Cours',
-            color: getColorForType(planning.type_evenement || planning.type || 'Cours'),
-            classe: planning.niveau_libelle || planning.classe || '',
-            description: planning.motif_annulation || planning.description || '',
-            enseignementId: planning.id_enseignement,
-            statut: planning.statut,
-          }));
+            return {
+              id: p.id,
+              title: coursNom,
+              start,
+              end,
+              salle: salles,
+              type: p.typeEvenement || 'Cours',
+              color: getColorForType(p.typeEvenement || 'Cours'),
+              classe: niveauLibelle,
+              description: p.motifAnnulation || '',
+            };
+          })
+          .filter(e => e !== null);
 
+        console.log('📊 Événements formatés :', formattedEvents);
         setEvents(formattedEvents);
 
-        // Filtrer les cours d'aujourd'hui
+        // 5. Si des événements existent et que la semaine courante n'en contient aucun,
+        //    positionner le calendrier sur la semaine du premier événement.
+        if (formattedEvents.length > 0) {
+          const hasEventInCurrentWeek = formattedEvents.some(e =>
+            isSameWeek(e.start, currentDate, { weekStartsOn: 1 })
+          );
+          if (!hasEventInCurrentWeek) {
+            const firstEventDate = formattedEvents[0].start;
+            setCurrentDate(firstEventDate);
+            setSelectedDate(firstEventDate);
+          }
+        }
+
+        // 6. Filtrer les cours d'aujourd'hui
         const today = new Date();
-        const todayEventsFiltered = formattedEvents.filter((event) =>
-          isToday(new Date(event.start))
-        );
+        const todayEventsFiltered = formattedEvents.filter(e => isToday(e.start));
         setTodayEvents(todayEventsFiltered);
 
       } catch (err) {
-        console.error('❌ Erreur chargement des données:', err);
+        console.error('❌ Erreur chargement :', err);
         setError(err.message || 'Erreur lors du chargement des données');
         setEvents([]);
         setTodayEvents([]);
@@ -185,9 +154,8 @@ const EnseignantDashboard = () => {
     if (todayEvents.length === 0) {
       return [{ time: 'Aucun cours', title: "Aucun cours prévu aujourd'hui", room: '' }];
     }
-    
     return todayEvents.map((event) => ({
-      time: `${format(new Date(event.start), 'HH:mm')} - ${format(new Date(event.end), 'HH:mm')}`,
+      time: `${format(event.start, 'HH:mm')} - ${format(event.end, 'HH:mm')}`,
       title: event.title,
       room: event.salle || 'Salle non définie',
     }));
@@ -195,7 +163,7 @@ const EnseignantDashboard = () => {
 
   const todayCourses = formatTodayCourses();
 
-  // Générer la liste des cours terminés
+  // Générer la liste des cours terminés (exemple statique ou dynamique)
   const completedCourses = events
     .filter((event) => new Date(event.end) < new Date())
     .slice(0, 5)
@@ -209,7 +177,6 @@ const EnseignantDashboard = () => {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   const handleEventUpdate = () => {
-    // Rafraîchir les données après une mise à jour
     window.location.reload();
   };
 
@@ -264,11 +231,7 @@ const EnseignantDashboard = () => {
               {todayCourses.map((course, idx) => (
                 <div
                   key={idx}
-                  className={
-                    idx < todayCourses.length - 1
-                      ? 'border-b border-white/20 pb-2 md:pb-3'
-                      : 'pb-1'
-                  }
+                  className={idx < todayCourses.length - 1 ? 'border-b border-white/20 pb-2 md:pb-3' : 'pb-1'}
                 >
                   <p className="text-[10px] opacity-80 mb-0.5 text-slate-600 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
@@ -325,10 +288,8 @@ const EnseignantDashboard = () => {
       <div className="min-h-screen bg-white font-body flex flex-col">
         <Navbar toggleSidebar={toggleSidebar} />
         <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="w-12 h-12 text-sky-500 animate-spin" />
-            <p className="text-slate-500 text-sm">Chargement de votre emploi du temps...</p>
-          </div>
+          <Loader2 className="w-12 h-12 text-sky-500 animate-spin" />
+          <p className="text-slate-500 text-sm">Chargement de votre emploi du temps...</p>
         </div>
       </div>
     );
