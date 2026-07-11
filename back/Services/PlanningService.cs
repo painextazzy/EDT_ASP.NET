@@ -1,4 +1,4 @@
-// Services/PlanningService.cs
+// back/Services/PlanningService.cs
 using Microsoft.EntityFrameworkCore;
 using back.Data;
 using back.Models;
@@ -202,6 +202,69 @@ namespace back.Services
             }).Cast<object>().ToList();
         }
 
+        // ✅ NOUVELLE MÉTHODE : Récupérer les plannings d'un enseignant
+        public async Task<List<object>> GetPlanningsByEnseignantAsync(int enseignantId)
+        {
+            var plannings = await _context.Plannings
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Enseignant)
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Cours)
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Niveau)
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Parcours)
+                .Include(p => p.PlanningSalles)
+                    .ThenInclude(ps => ps.Salle)
+                .Where(p => p.Enseignement.IdEnseignant == enseignantId && p.Statut == "Actif")
+                .OrderBy(p => p.DateDebut)
+                .ToListAsync();
+
+            return plannings.Select(p => new
+            {
+                id = p.Id,
+                idEnseignement = p.IdEnseignement,
+                typeEvenement = p.TypeEvenement,
+                statut = p.Statut,
+                dateDebut = p.DateDebut,
+                dateFin = p.DateFin,
+                motifAnnulation = p.MotifAnnulation,
+                enseignement = new
+                {
+                    id = p.Enseignement.Id,
+                    enseignant = new
+                    {
+                        id = p.Enseignement.Enseignant.Id,
+                        nom = p.Enseignement.Enseignant.Nom,
+                        im = p.Enseignement.Enseignant.Im
+                    },
+                    cours = new
+                    {
+                        id = p.Enseignement.Cours.Id,
+                        code = p.Enseignement.Cours.Code,
+                        nom = p.Enseignement.Cours.Nom
+                    },
+                    niveau = new
+                    {
+                        id = p.Enseignement.Niveau.Id,
+                        libelle = p.Enseignement.Niveau.Libelle
+                    },
+                    parcours = new
+                    {
+                        id = p.Enseignement.Parcours.Id,
+                        libelle = p.Enseignement.Parcours.Libelle
+                    }
+                },
+                salles = p.PlanningSalles.Select(ps => new
+                {
+                    id = ps.Salle.Id,
+                    nom = ps.Salle.Numero,
+                    batiment = ps.Salle.Batiment,
+                    etage = ps.Salle.Etage
+                }).ToList()
+            }).Cast<object>().ToList();
+        }
+
         public async Task<Planning> CreateAsync(PlanningDto dto)
         {
             var enseignement = await _context.Enseignements
@@ -259,11 +322,6 @@ namespace back.Services
             var (isValid, message) = await CheckConflictsAsync(dto, id);
             if (!isValid)
                 throw new Exception(message);
-
-            // Sauvegarder l'ancien état pour les notifications
-            var oldDebut = planning.DateDebut;
-            var oldFin = planning.DateFin;
-            var oldSalles = planning.PlanningSalles.Select(ps => ps.IdSalle).ToList();
 
             planning.IdEnseignement = dto.IdEnseignement;
             planning.TypeEvenement = dto.TypeEvenement;

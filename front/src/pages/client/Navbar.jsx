@@ -1,6 +1,6 @@
 // src/components/Navbar.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { UserRoundCog, LogOut, ChevronDown, Menu } from 'lucide-react';
+import { UserRoundCog, LogOut, ChevronDown, Menu, Bell } from 'lucide-react';
 import { authApi } from '../../services/auth';
 import { API_URL } from '../../services/api';
 import SettingsModal from '../../components/modals/SettingsModal';
@@ -12,6 +12,7 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
   const [loading, setLoading] = useState(true);
   const [photoKey, setPhotoKey] = useState(Date.now());
   const [imageError, setImageError] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
   const dropdownRef = useRef(null);
 
   const getFullPhotoUrl = (photoUrl) => {
@@ -76,7 +77,7 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
     };
 
     window.addEventListener('storage', handleStorageChange);
-    
+
     const handleUserUpdate = () => {
       const currentUser = authApi.getUser();
       if (currentUser) {
@@ -85,12 +86,19 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
         setImageError(false);
       }
     };
-    
+
     window.addEventListener('userUpdated', handleUserUpdate);
+
+    // Écouter les nouvelles notifications (ex: nouvel emploi du temps)
+    const handleNewPlanning = () => {
+      setNotificationCount((prev) => prev + 1);
+    };
+    window.addEventListener('newPlanning', handleNewPlanning);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('userUpdated', handleUserUpdate);
+      window.removeEventListener('newPlanning', handleNewPlanning);
     };
   }, []);
 
@@ -101,9 +109,9 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
         setShowDropdown(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
@@ -121,7 +129,7 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
     try {
       const newNom = updatedData.nom || user?.nom || 'Utilisateur';
       const newPhoto = updatedData.photoUrl || user?.photoUrl || null;
-      
+
       const updatedUser = { ...user, nom: newNom, photoUrl: newPhoto };
       setUser(updatedUser);
       setPhotoKey(Date.now());
@@ -153,6 +161,12 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
     parent.appendChild(fallback);
   };
 
+  // Réinitialiser les notifications au clic sur la cloche (optionnel)
+  const handleNotificationClick = () => {
+    setNotificationCount(0);
+    // Ici vous pouvez ouvrir un panneau de notifications si souhaité
+  };
+
   const userEmail = user?.email || 'utilisateur@example.com';
   const userNom = user?.nom || userEmail?.split('@')[0] || 'Utilisateur';
   const userPhoto = user?.photoUrl || null;
@@ -168,7 +182,7 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
 
   const getAvatarColor = () => {
     const colors = [
-      'bg-blue-500', 'bg-green-500', 'bg-purple-500', 
+      'bg-blue-500', 'bg-green-500', 'bg-purple-500',
       'bg-pink-500', 'bg-indigo-500', 'bg-teal-500',
       'bg-orange-500', 'bg-red-500', 'bg-cyan-500'
     ];
@@ -181,12 +195,12 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
 
   if (loading) {
     return (
-      <nav className="border-b border-outline-variant px-3 md:px-8 py-3 md:py-4 flex items-center justify-between bg-white shadow-sm">
+      <nav className="border-b border-outline-variant px-3 md:px-6 py-2 md:py-3 flex items-center justify-between bg-white shadow-sm">
         <div className="flex items-center gap-2 md:gap-4">
           <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
-          <div className="h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-5 w-24 bg-gray-200 rounded animate-pulse"></div>
         </div>
-        <div className="flex items-center gap-3 md:gap-6">
+        <div className="flex items-center gap-3 md:gap-5">
           <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
         </div>
       </nav>
@@ -195,7 +209,7 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
 
   return (
     <>
-      <nav className="border-b border-outline-variant px-3 md:px-8 py-3 md:py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm bg-white shadow-md">
+      <nav className="border-b border-outline-variant px-3 md:px-6 py-2 md:py-3 flex items-center justify-between sticky top-0 z-50 shadow-sm bg-white shadow-md">
         <div className="flex items-center gap-2 md:gap-4">
           <button
             onClick={toggleSidebar}
@@ -212,7 +226,21 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
           </span>
         </div>
 
-        <div className="flex items-center gap-3 md:gap-6">
+        <div className="flex items-center gap-3 md:gap-5">
+          {/* Icône de notification avec badge */}
+          <button
+            onClick={handleNotificationClick}
+            className="relative p-1.5 text-slate-600 hover:bg-slate-50 rounded-full transition-colors"
+            aria-label="Notifications"
+          >
+            <Bell className="w-5 h-5 md:w-5 md:h-5" />
+            {notificationCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-red-500 rounded-full shadow-sm">
+                {notificationCount > 9 ? '9+' : notificationCount}
+              </span>
+            )}
+          </button>
+
           {/* Menu profil */}
           <div className="relative" ref={dropdownRef}>
             <button
@@ -222,10 +250,10 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
             >
               <div className="w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden border border-outline-variant flex items-center justify-center shadow-sm flex-shrink-0 bg-slate-100">
                 {userPhoto && !imageError ? (
-                  <img 
+                  <img
                     key={`avatar-${photoKey}`}
                     src={fullPhotoUrl}
-                    alt="Avatar" 
+                    alt="Avatar"
                     className="w-full h-full object-cover"
                     onError={handleImageError}
                   />
@@ -235,7 +263,7 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
                   </div>
                 )}
               </div>
-              <ChevronDown 
+              <ChevronDown
                 className={`w-3 h-3 md:w-4 md:h-4 text-slate-400 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
               />
             </button>
@@ -246,10 +274,10 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
                 <div className="px-4 py-3 border-b border-outline-variant flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full overflow-hidden border border-outline-variant flex items-center justify-center shadow-sm flex-shrink-0 bg-slate-100">
                     {userPhoto && !imageError ? (
-                      <img 
+                      <img
                         key={`dropdown-${photoKey}`}
                         src={fullPhotoUrl}
-                        alt="Avatar" 
+                        alt="Avatar"
                         className="w-full h-full object-cover"
                         onError={handleImageError}
                       />

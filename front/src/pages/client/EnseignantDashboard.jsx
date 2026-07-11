@@ -29,7 +29,6 @@ const EnseignantDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fonction pour obtenir la couleur selon le type
   const getColorForType = (type) => {
     const colorMap = {
       'Cours': 'emerald',
@@ -58,7 +57,7 @@ const EnseignantDashboard = () => {
           return;
         }
 
-        // 2. Récupérer l'enseignant associé
+        // 2. Enseignant associé
         const enseignantsResponse = await api.enseignant.getValides();
         let enseignants = [];
         if (Array.isArray(enseignantsResponse)) {
@@ -86,15 +85,12 @@ const EnseignantDashboard = () => {
           plannings = response;
         }
 
-        console.log('📚 Plannings reçus :', plannings);
-
-        // 4. Transformer en événements (avec conversion UTC)
+        // 4. Transformer en événements (interprétation locale)
         const formattedEvents = plannings
           .filter(p => p.dateDebut && p.dateFin && p.statut === 'Actif')
           .map(p => {
-            // Ajout de 'Z' pour forcer l'interprétation UTC
-            const start = new Date(p.dateDebut + 'Z');
-            const end = new Date(p.dateFin + 'Z');
+            const start = new Date(p.dateDebut);
+            const end = new Date(p.dateFin);
             if (isNaN(start) || isNaN(end)) return null;
 
             const coursNom = p.enseignement?.cours?.nom || p.coursNom || 'Cours';
@@ -115,11 +111,9 @@ const EnseignantDashboard = () => {
           })
           .filter(e => e !== null);
 
-        console.log('📊 Événements formatés :', formattedEvents);
         setEvents(formattedEvents);
 
-        // 5. Si des événements existent et que la semaine courante n'en contient aucun,
-        //    positionner le calendrier sur la semaine du premier événement.
+        // Positionnement sur la semaine du premier événement si la semaine courante est vide
         if (formattedEvents.length > 0) {
           const hasEventInCurrentWeek = formattedEvents.some(e =>
             isSameWeek(e.start, currentDate, { weekStartsOn: 1 })
@@ -131,14 +125,14 @@ const EnseignantDashboard = () => {
           }
         }
 
-        // 6. Filtrer les cours d'aujourd'hui
+        // Cours d'aujourd'hui
         const today = new Date();
         const todayEventsFiltered = formattedEvents.filter(e => isToday(e.start));
         setTodayEvents(todayEventsFiltered);
 
       } catch (err) {
-        console.error('❌ Erreur chargement :', err);
-        setError(err.message || 'Erreur lors du chargement des données');
+        console.error('❌ Erreur:', err);
+        setError(err.message || 'Erreur de chargement');
         setEvents([]);
         setTodayEvents([]);
       } finally {
@@ -149,7 +143,6 @@ const EnseignantDashboard = () => {
     fetchData();
   }, []);
 
-  // Formater les cours d'aujourd'hui pour la sidebar
   const formatTodayCourses = () => {
     if (todayEvents.length === 0) {
       return [{ time: 'Aucun cours', title: "Aucun cours prévu aujourd'hui", room: '' }];
@@ -163,7 +156,6 @@ const EnseignantDashboard = () => {
 
   const todayCourses = formatTodayCourses();
 
-  // Générer la liste des cours terminés (exemple statique ou dynamique)
   const completedCourses = events
     .filter((event) => new Date(event.end) < new Date())
     .slice(0, 5)

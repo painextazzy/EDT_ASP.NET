@@ -58,18 +58,14 @@ const MiniCalendar = ({
           </div>
         </div>
       )}
-
       <div className="grid grid-cols-7 gap-y-2 text-center text-xs">
         {weekDays.map((d, i) => (
-          <div key={i} className="font-bold text-slate-400">
-            {d}
-          </div>
+          <div key={i} className="font-bold text-slate-400">{d}</div>
         ))}
         {days.map((day, idx) => {
           const isCurrentMonth = isSameMonth(day, displayMonth);
           const selected = isSelected(day);
           const today = isToday(day);
-
           return (
             <button
               key={idx}

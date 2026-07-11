@@ -6,13 +6,13 @@ import {
   startOfWeek,
   endOfWeek,
   isSameDay,
+  isToday,
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Check, X, Calendar } from 'lucide-react';
+import { Check, X, Calendar, MapPin } from 'lucide-react';
 import api from '../../services/api';
 import { authApi } from '../../services/auth';
 
-// ----- Modals internes (inchangés) -----
 const CancelModal = ({ isOpen, event, onConfirm, onClose }) => {
   const [reason, setReason] = useState('');
 
@@ -44,7 +44,7 @@ const CancelModal = ({ isOpen, event, onConfirm, onClose }) => {
             Vous allez annuler : <span className="font-semibold text-slate-800">{event.title}</span>
           </p>
           <p className="text-xs text-slate-500">
-            {format(new Date(event.start), 'EEEE d MMMM yyyy à HH:mm', { locale: fr })} - {format(new Date(event.end), 'HH:mm', { locale: fr })}
+            {format(event.start, 'EEEE d MMMM yyyy à HH:mm', { locale: fr })} - {format(event.end, 'HH:mm', { locale: fr })}
           </p>
         </div>
         <div className="mb-4">
@@ -114,7 +114,6 @@ const CompleteModal = ({ isOpen, event, onConfirm, onClose }) => {
   );
 };
 
-// ----- Composant principal -----
 const BigCalendar = ({
   events: externalEvents = [],
   currentDate: externalDate,
@@ -133,22 +132,14 @@ const BigCalendar = ({
   const [completeModal, setCompleteModal] = useState({ isOpen: false, event: null });
   const [updating, setUpdating] = useState(false);
 
-  // Mettre à jour les événements quand la prop externe change
   useEffect(() => {
-    console.log('📅 BigCalendar received events:', externalEvents);
     if (externalEvents && externalEvents.length > 0) {
-      // Vérifier que les événements ont les propriétés nécessaires
-      const validEvents = externalEvents.filter(e => e.start && e.end);
-      if (validEvents.length !== externalEvents.length) {
-        console.warn('⚠️ Certains événements n\'ont pas de date de début ou de fin');
-      }
-      setEvents(validEvents);
+      setEvents(externalEvents);
     } else {
       setEvents([]);
     }
   }, [externalEvents]);
 
-  // Déterminer les jours à afficher selon la vue
   const getDisplayDays = () => {
     if (view === 'day') {
       return [selectedDate];
@@ -164,16 +155,15 @@ const BigCalendar = ({
   const hours = Array.from({ length: 12 }, (_, i) => i + 7);
 
   const getEventsForDay = (day) => {
-    return events.filter((e) => {
-      const eventDate = new Date(e.start);
-      return isSameDay(eventDate, day);
-    });
+    return events.filter((e) => isSameDay(new Date(e.start), day));
   };
 
   const getEventTop = (startDate) => {
     const d = new Date(startDate);
-    const minutes = d.getHours() * 60 + d.getMinutes() - 7 * 60;
-    return Math.max(minutes, 0);
+    const hours = d.getHours();
+    const minutes = d.getMinutes();
+    const hourOffset = hours - 7;
+    return hourOffset * 60 + (minutes / 60) * 60;
   };
 
   const getEventHeight = (startDate, endDate) => {
@@ -195,21 +185,16 @@ const BigCalendar = ({
   const handleComplete = async (event, comment) => {
     try {
       setUpdating(true);
-      console.log(`✅ Terminer: "${event.title}" - Commentaire: ${comment || 'Aucun'}`);
-      
       const user = authApi.getUser();
       if (user && user.id) {
-        // Appel API pour marquer le cours comme terminé
         await api.planning.update(event.id, {
           statut: 'TERMINE',
           commentaire: comment || '',
         });
       }
-      
       alert(`Cours "${event.title}" marqué comme terminé !`);
       setCompleteModal({ isOpen: false, event: null });
       setHoveredEventId(null);
-      
       if (onEventUpdate) onEventUpdate();
     } catch (error) {
       console.error('❌ Erreur mise à jour:', error);
@@ -222,18 +207,13 @@ const BigCalendar = ({
   const handleCancel = async (event, reason) => {
     try {
       setUpdating(true);
-      console.log(`❌ Annulation: "${event.title}" - Motif: ${reason}`);
-      
       const user = authApi.getUser();
       if (user && user.id) {
         await api.planning.cancel(event.id, reason);
       }
-      
-      // Retirer l'événement localement
       setEvents(events.filter((e) => e.id !== event.id));
       setCancelModal({ isOpen: false, event: null });
       setHoveredEventId(null);
-      
       if (onEventUpdate) onEventUpdate();
     } catch (error) {
       console.error('❌ Erreur annulation:', error);
@@ -248,7 +228,6 @@ const BigCalendar = ({
   const closeCancelModal = () => setCancelModal({ isOpen: false, event: null });
   const closeCompleteModal = () => setCompleteModal({ isOpen: false, event: null });
 
-  // États de chargement et vide
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -288,14 +267,13 @@ const BigCalendar = ({
       )}
 
       <div className="flex-1 overflow-auto no-scrollbar relative">
-        {/* En-tête jours */}
         <div className={`grid ${gridColsClass} border-b border-outline-variant bg-slate-50/30 sticky top-0 z-10 min-w-[600px] sm:min-w-0`}>
           <div className="p-2 sm:p-3 flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase border-r border-outline-variant">
             <span className="hidden sm:inline">heures</span>
             <span className="sm:hidden">GMT</span>
           </div>
           {weekDays.map((day, idx) => {
-            const today = isSameDay(day, new Date());
+            const today = isToday(day);
             return (
               <div
                 key={idx}
@@ -312,11 +290,9 @@ const BigCalendar = ({
           })}
         </div>
 
-        {/* Corps */}
         <div className="overflow-x-auto">
           <div className="relative min-w-[600px] sm:min-w-0">
             <div className={`grid ${gridColsClass}`}>
-              {/* Colonne des heures */}
               <div className="border-r border-outline-variant bg-slate-50/20">
                 {hours.map((h, i) => (
                   <div key={i} className="h-[50px] sm:h-[60px] flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-slate-400">
@@ -325,17 +301,14 @@ const BigCalendar = ({
                 ))}
               </div>
 
-              {/* Jours */}
               {weekDays.map((day, dayIdx) => {
                 const dayEvents = getEventsForDay(day);
                 return (
                   <div key={dayIdx} className="relative border-r border-outline-variant min-h-[600px] sm:min-h-[720px] bg-white">
-                    {/* Lignes de fond */}
                     {hours.map((_, i) => (
                       <div key={i} className="h-[50px] sm:h-[60px] border-b border-slate-50" />
                     ))}
 
-                    {/* Événements */}
                     {dayEvents.map((event) => {
                       const style = eventColors[event.color] || eventColors.gray;
                       const top = getEventTop(event.start);
@@ -381,7 +354,7 @@ const BigCalendar = ({
                           <div className="flex flex-col h-full overflow-hidden">
                             <span className={`${style.text} text-[9px] sm:text-xs font-semibold truncate`}>{event.title}</span>
                             <span className={`${style.time} text-[8px] sm:text-[10px]`}>
-                              {format(new Date(event.start), 'HH:mm')} - {format(new Date(event.end), 'HH:mm')}
+                              {format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}
                             </span>
                             <div className="flex items-center gap-0.5 sm:gap-1 mt-0.5 sm:mt-1 flex-wrap">
                               <span className="text-[7px] sm:text-[8px] px-1 sm:px-1.5 py-0.5 bg-white/50 rounded text-gray-500 truncate max-w-[40px] sm:max-w-none">
@@ -393,6 +366,14 @@ const BigCalendar = ({
                                 </span>
                               )}
                             </div>
+                            {event.salle && (
+                              <div className="flex items-center gap-0.5 mt-0.5">
+                                <MapPin className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
+                                <span className="text-[7px] sm:text-[8px] text-gray-500 truncate">
+                                  {event.salle}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

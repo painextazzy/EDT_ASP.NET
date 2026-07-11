@@ -375,6 +375,9 @@ export const planningApi = {
   // Récupérer les événements d'un enseignement
   getByEnseignement: (id) => 
     apiClient(`/api/Planning/enseignement/${id}`, { method: 'GET' }),
+
+  getByEnseignant: (enseignantId) => 
+    apiClient(`/api/Planning/enseignant/${enseignantId}`, { method: 'GET' }),
   
   // Créer un événement
   create: (data) => 
