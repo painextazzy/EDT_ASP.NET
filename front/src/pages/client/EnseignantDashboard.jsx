@@ -45,94 +45,97 @@ const EnseignantDashboard = () => {
   };
 
   // Chargement des événements (pour marquer les jours dans le mini calendrier et pour la sidebar)
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+ useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const user = authApi.getUser();
-        if (!user || !user.id) {
-          setError('Utilisateur non connecté');
-          setLoading(false);
-          return;
-        }
-
-        const enseignantsResponse = await api.enseignant.getValides();
-        let enseignants = [];
-        if (Array.isArray(enseignantsResponse)) {
-          enseignants = enseignantsResponse;
-        } else if (enseignantsResponse?.success) {
-          enseignants = enseignantsResponse.data || [];
-        }
-
-        const enseignant = enseignants.find(e => e.id_utilisateur === user.id || e.email === user.email);
-        if (!enseignant) {
-          setError('Aucun enseignant associé à cet utilisateur');
-          setLoading(false);
-          return;
-        }
-
-        const enseignantId = enseignant.id;
-
-        const response = await api.planning.getByEnseignant(enseignantId);
-
-        let plannings = [];
-        if (response?.success && Array.isArray(response.data)) {
-          plannings = response.data;
-        } else if (Array.isArray(response)) {
-          plannings = response;
-        }
-
-        const formattedEvents = plannings
-          .filter(p => p.dateDebut && p.dateFin && p.statut === 'Actif')
-          .map(p => {
-            const start = new Date(p.dateDebut + 'Z');
-            const end = new Date(p.dateFin + 'Z');
-            if (isNaN(start) || isNaN(end)) return null;
-
-            const coursNom = p.enseignement?.cours?.nom || p.coursNom || 'Cours';
-            const niveauLibelle = p.enseignement?.niveau?.libelle || '';
-            const salles = p.salles?.map(s => s.nom).join(', ') || '';
-
-            return {
-              id: p.id,
-              title: coursNom,
-              start,
-              end,
-              salle: salles,
-              type: p.typeEvenement || 'Cours',
-              color: getColorForType(p.typeEvenement || 'Cours'),
-              classe: niveauLibelle,
-              description: p.motifAnnulation || '',
-              statut: p.statut,
-            };
-          })
-          .filter(e => e !== null);
-
-        setEvents(formattedEvents);
-
-        const today = new Date();
-        const todayEventsFiltered = formattedEvents.filter(e => {
-          const eventDate = new Date(e.start);
-          return eventDate.getFullYear() === today.getFullYear() &&
-                 eventDate.getMonth() === today.getMonth() &&
-                 eventDate.getDate() === today.getDate();
-        });
-        setTodayEvents(todayEventsFiltered);
-
-      } catch (err) {
-        console.error('❌ Erreur:', err);
-        setError(err.message || 'Erreur de chargement');
-        setEvents([]);
-        setTodayEvents([]);
-      } finally {
+      const user = authApi.getUser();
+      if (!user || !user.id) {
+        setError('Utilisateur non connecté');
         setLoading(false);
+        return;
       }
-    };
 
-    fetchData();
-  }, []);
+      const enseignantsResponse = await api.enseignant.getValides();
+      let enseignants = [];
+      if (Array.isArray(enseignantsResponse)) {
+        enseignants = enseignantsResponse;
+      } else if (enseignantsResponse?.success) {
+        enseignants = enseignantsResponse.data || [];
+      }
+
+      const enseignant = enseignants.find(e => e.id_utilisateur === user.id || e.email === user.email);
+      if (!enseignant) {
+        setError('Aucun enseignant associé à cet utilisateur');
+        setLoading(false);
+        return;
+      }
+
+      const enseignantId = enseignant.id;
+
+      const response = await api.planning.getByEnseignant(enseignantId);
+
+      let plannings = [];
+      if (response?.success && Array.isArray(response.data)) {
+        plannings = response.data;
+      } else if (Array.isArray(response)) {
+        plannings = response;
+      }
+
+      // ✅ Charger TOUS les plannings (pas seulement les actifs)
+      const formattedEvents = plannings
+        .filter(p => p.dateDebut && p.dateFin) // suppression du filtre statut === 'Actif'
+        .map(p => {
+          const start = new Date(p.dateDebut + 'Z');
+          const end = new Date(p.dateFin + 'Z');
+          if (isNaN(start) || isNaN(end)) return null;
+
+          const coursNom = p.enseignement?.cours?.nom || p.coursNom || 'Cours';
+          const niveauLibelle = p.enseignement?.niveau?.libelle || '';
+          const salles = p.salles?.map(s => s.nom).join(', ') || '';
+
+          return {
+            id: p.id,
+            title: coursNom,
+            start,
+            end,
+            salle: salles,
+            type: p.typeEvenement || 'Cours',
+            color: getColorForType(p.typeEvenement || 'Cours'),
+            classe: niveauLibelle,
+            description: p.motifAnnulation || '',
+            statut: p.statut, // ← important pour le filtrage ultérieur
+          };
+        })
+        .filter(e => e !== null);
+
+      setEvents(formattedEvents);
+
+      // ✅ Cours d'aujourd'hui : uniquement les actifs
+      const today = new Date();
+      const todayEventsFiltered = formattedEvents.filter(e => {
+        const eventDate = new Date(e.start);
+        return eventDate.getFullYear() === today.getFullYear() &&
+               eventDate.getMonth() === today.getMonth() &&
+               eventDate.getDate() === today.getDate() &&
+               e.statut === 'Actif'; // ne garder que les actifs pour le jour
+      });
+      setTodayEvents(todayEventsFiltered);
+
+    } catch (err) {
+      console.error('❌ Erreur:', err);
+      setError(err.message || 'Erreur de chargement');
+      setEvents([]);
+      setTodayEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, []);
 
   // Callbacks pour le BigCalendar
   const handleDateChange = (date) => {

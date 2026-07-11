@@ -216,7 +216,7 @@ namespace back.Services
                     .ThenInclude(e => e.Parcours)
                 .Include(p => p.PlanningSalles)
                     .ThenInclude(ps => ps.Salle)
-                .Where(p => p.Enseignement.IdEnseignant == enseignantId && p.Statut == "Actif")
+                .Where(p => p.Enseignement.IdEnseignant == enseignantId)
                 .OrderBy(p => p.DateDebut)
                 .ToListAsync();
 
