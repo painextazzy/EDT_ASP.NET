@@ -35,7 +35,32 @@ namespace back.Controllers
             }
         }
 
-        // ========== CREER ==========
+        [HttpGet("enseignant/{enseignantId}")]
+        public async Task<IActionResult> GetPlanningsByEnseignant(int enseignantId)
+        {
+            try
+            {
+                if (enseignantId <= 0)
+                    return BadRequest(new { message = "L'ID de l'enseignant est requis et doit être positif" });
+
+                var plannings = await _service.GetPlanningsByEnseignantAsync(enseignantId);
+                Console.WriteLine($"📊 Plannings trouvés pour enseignant {enseignantId}: {plannings.Count}");
+                return Ok(new
+                {
+                    success = true,
+                    data = plannings,
+                    count = plannings.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Erreur: {ex.Message}");
+                return StatusCode(500, new { message = $"Erreur lors de la récupération des plannings : {ex.Message}" });
+            }
+        }
+
+        // ========== CRUD ==========
+
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] PlanningDto dto)
         {
@@ -64,7 +89,6 @@ namespace back.Controllers
             }
         }
 
-        // ========== MODIFIER ==========
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] PlanningDto dto)
         {
@@ -105,7 +129,6 @@ namespace back.Controllers
             }
         }
 
-        // ========== SUPPRIMER ==========
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -136,7 +159,8 @@ namespace back.Controllers
             }
         }
 
-        // ========== ANNULER ==========
+        // ========== ACTIONS SPÉCIFIQUES ==========
+
         [HttpPatch("{id}/annuler")]
         public async Task<IActionResult> Annuler(int id, [FromBody] AnnulerPlanningDto dto)
         {
@@ -161,6 +185,23 @@ namespace back.Controllers
                 if (ex.Message.Contains("non trouvé"))
                     return NotFound(new { message = ex.Message });
 
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        // ✅ NOUVEAU : Terminer un cours (statut = "Termine")
+        [HttpPatch("{id}/terminer")]
+        public async Task<IActionResult> Terminer(int id)
+        {
+            try
+            {
+                var planning = await _service.TerminerAsync(id);
+                return Ok(new { message = "Cours terminé avec succès", statut = planning.Statut });
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message.Contains("non trouvé"))
+                    return NotFound(new { message = ex.Message });
                 return BadRequest(new { message = ex.Message });
             }
         }

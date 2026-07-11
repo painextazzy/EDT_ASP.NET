@@ -9,5 +9,6 @@ namespace back.Dtos
         public DateTime DateFin { get; set; }
         public List<int> IdSalles { get; set; } = new List<int>();
         public string? MotifAnnulation { get; set; }
+        public string? Statut { get; set; }
     }
 }

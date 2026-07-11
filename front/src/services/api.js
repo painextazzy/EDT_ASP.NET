@@ -399,6 +399,11 @@ export const planningApi = {
       method: 'PATCH', 
       body: JSON.stringify({ motif: motif }) 
     }),
+    
+      terminer: (id) =>
+    apiClient(`/api/Planning/${id}/terminer`, {
+      method: 'PATCH',
+    }),
   
   // Supprimer un événement
   delete: (id) => 

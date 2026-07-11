@@ -1,81 +1,80 @@
-// src/components/ui/MiniCalendar.jsx
-import React, { useState } from 'react';
-import {
-  format,
-  addMonths,
-  subMonths,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-} from 'date-fns';
+// src/components/calendar/MiniCalendar.jsx
+import React from 'react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek, addMonths, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-const MiniCalendar = ({
-  currentDate = new Date(),
-  onDateChange,
-  selectedDate = new Date(),
-  compact = true,
+const MiniCalendar = ({ 
+  selectedDate, 
+  onDateChange, 
+  markedDates = [],
+  compact = false 
 }) => {
-  const [displayMonth, setDisplayMonth] = useState(currentDate);
+  const monthStart = startOfMonth(selectedDate);
+  const monthEnd = endOfMonth(selectedDate);
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  
+  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  const weekDays = compact ? ['L', 'M', 'M', 'J', 'V', 'S', 'D'] : ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
-  const monthStart = startOfMonth(displayMonth);
-  const monthEnd = endOfMonth(displayMonth);
-  const start = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const end = endOfWeek(monthEnd, { weekStartsOn: 1 });
-  const days = eachDayOfInterval({ start, end });
-
-  const weekDays = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-
-  const handlePrev = () => setDisplayMonth(subMonths(displayMonth, 1));
-  const handleNext = () => setDisplayMonth(addMonths(displayMonth, 1));
-
-  const handleDateClick = (date) => {
-    if (onDateChange) onDateChange(date);
+  const handlePrevMonth = () => {
+    const newDate = subMonths(selectedDate, 1);
+    onDateChange(newDate);
   };
 
-  const isSelected = (date) => isSameDay(date, selectedDate);
-  const isToday = (date) => isSameDay(date, new Date());
+  const handleNextMonth = () => {
+    const newDate = addMonths(selectedDate, 1);
+    onDateChange(newDate);
+  };
+
+  const isMarked = (date) => {
+    return markedDates.some(marked => isSameDay(marked, date));
+  };
 
   return (
-    <div className="w-full">
-      {!compact && (
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-slate-800">
-            {format(displayMonth, 'MMMM yyyy', { locale: fr })}
-          </h3>
-          <div className="flex gap-1">
-            <button onClick={handlePrev} className="p-1 text-slate-400 hover:bg-slate-50 rounded">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button onClick={handleNext} className="p-1 text-slate-400 hover:bg-slate-50 rounded">
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+    <div className={`bg-white rounded-xl ${compact ? 'p-2' : 'p-4'}`}>
+      <div className={`flex items-center justify-between ${compact ? 'mb-2' : 'mb-4'}`}>
+
+        <div className="flex gap-1">
+          <button onClick={handlePrevMonth} className={`rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center ${compact ? 'h-6 w-6' : 'h-7 w-7'}`}>
+            <ChevronLeft className={`${compact ? 'h-3 w-3' : 'h-4 w-4'}`} />
+          </button>
+          <button onClick={handleNextMonth} className={`rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center ${compact ? 'h-6 w-6' : 'h-7 w-7'}`}>
+            <ChevronRight className={`${compact ? 'h-3 w-3' : 'h-4 w-4'}`} />
+          </button>
         </div>
-      )}
-      <div className="grid grid-cols-7 gap-y-2 text-center text-xs">
-        {weekDays.map((d, i) => (
-          <div key={i} className="font-bold text-slate-400">{d}</div>
+      </div>
+
+      <div className={`grid grid-cols-7 ${compact ? 'gap-0.5' : 'gap-1'} ${compact ? 'mb-1' : 'mb-2'}`}>
+        {weekDays.map((day, idx) => (
+          <div key={idx} className={`text-center font-medium text-gray-500 ${compact ? 'text-[8px]' : 'text-[10px]'} py-1`}>
+            {day}
+          </div>
         ))}
+      </div>
+
+      <div className={`grid grid-cols-7 ${compact ? 'gap-0.5' : 'gap-1'}`}>
         {days.map((day, idx) => {
-          const isCurrentMonth = isSameMonth(day, displayMonth);
-          const selected = isSelected(day);
-          const today = isToday(day);
+          const isCurrentMonth = isSameMonth(day, selectedDate);
+          const isSelected = isSameDay(day, selectedDate);
+          const isMarkedDay = isMarked(day);
+          
           return (
             <button
               key={idx}
-              onClick={() => handleDateClick(day)}
+              onClick={() => {
+                if (isCurrentMonth) {
+                  onDateChange(day);
+                }
+              }}
               className={`
-                w-7 h-7 mx-auto rounded-full flex items-center justify-center transition-colors
-                ${!isCurrentMonth && 'text-slate-300'}
-                ${selected ? 'bg-blue-500 text-white shadow-sm' : ''}
-                ${!selected && today ? 'bg-blue-100 text-blue-600' : ''}
-                ${!selected && !today && isCurrentMonth ? 'hover:bg-slate-100' : ''}
+                rounded-full transition-all flex items-center justify-center
+                ${compact ? 'h-6 w-6 text-[10px]' : 'h-8 w-8 text-sm'}
+                ${!isCurrentMonth && 'text-gray-300'}
+                ${isSelected && 'bg-blue-500 text-white shadow-sm'}
+                ${isMarkedDay && !isSelected && 'bg-blue-100 text-blue-600 font-medium'}
+                ${isCurrentMonth && !isSelected && !isMarkedDay && 'hover:bg-gray-100'}
               `}
             >
               {format(day, 'd')}

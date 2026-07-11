@@ -1,10 +1,8 @@
 // src/components/EnseignantDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, isToday, isSameWeek } from 'date-fns';
+import { format, addWeeks, subWeeks } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
-  ChevronLeft,
-  ChevronRight,
   Check,
   Printer,
   ChevronDown,
@@ -14,16 +12,19 @@ import {
   MapPin,
 } from 'lucide-react';
 import Navbar from './Navbar';
-import BigCalendar from '../../components/ui/BigCalendar';
+import BigCalendarTeacher from '../../components/ui/BigCalendarTeacher';
 import MiniCalendar from '../../components/ui/MiniCalendar';
 import api from '../../services/api';
 import { authApi } from '../../services/auth';
 
 const EnseignantDashboard = () => {
+  // États partagés pour le contrôle du BigCalendar
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [view, setView] = useState('week');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // États pour les données de la sidebar
   const [events, setEvents] = useState([]);
   const [todayEvents, setTodayEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,13 +44,13 @@ const EnseignantDashboard = () => {
     return colorMap[type] || 'gray';
   };
 
+  // Chargement des événements (pour marquer les jours dans le mini calendrier et pour la sidebar)
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // 1. Utilisateur connecté
         const user = authApi.getUser();
         if (!user || !user.id) {
           setError('Utilisateur non connecté');
@@ -57,7 +58,6 @@ const EnseignantDashboard = () => {
           return;
         }
 
-        // 2. Enseignant associé
         const enseignantsResponse = await api.enseignant.getValides();
         let enseignants = [];
         if (Array.isArray(enseignantsResponse)) {
@@ -75,7 +75,6 @@ const EnseignantDashboard = () => {
 
         const enseignantId = enseignant.id;
 
-        // 3. Récupérer les plannings de l'enseignant
         const response = await api.planning.getByEnseignant(enseignantId);
 
         let plannings = [];
@@ -85,12 +84,11 @@ const EnseignantDashboard = () => {
           plannings = response;
         }
 
-        // 4. Transformer en événements (interprétation locale)
         const formattedEvents = plannings
           .filter(p => p.dateDebut && p.dateFin && p.statut === 'Actif')
           .map(p => {
-            const start = new Date(p.dateDebut);
-            const end = new Date(p.dateFin);
+            const start = new Date(p.dateDebut + 'Z');
+            const end = new Date(p.dateFin + 'Z');
             if (isNaN(start) || isNaN(end)) return null;
 
             const coursNom = p.enseignement?.cours?.nom || p.coursNom || 'Cours';
@@ -107,27 +105,20 @@ const EnseignantDashboard = () => {
               color: getColorForType(p.typeEvenement || 'Cours'),
               classe: niveauLibelle,
               description: p.motifAnnulation || '',
+              statut: p.statut,
             };
           })
           .filter(e => e !== null);
 
         setEvents(formattedEvents);
 
-        // Positionnement sur la semaine du premier événement si la semaine courante est vide
-        if (formattedEvents.length > 0) {
-          const hasEventInCurrentWeek = formattedEvents.some(e =>
-            isSameWeek(e.start, currentDate, { weekStartsOn: 1 })
-          );
-          if (!hasEventInCurrentWeek) {
-            const firstEventDate = formattedEvents[0].start;
-            setCurrentDate(firstEventDate);
-            setSelectedDate(firstEventDate);
-          }
-        }
-
-        // Cours d'aujourd'hui
         const today = new Date();
-        const todayEventsFiltered = formattedEvents.filter(e => isToday(e.start));
+        const todayEventsFiltered = formattedEvents.filter(e => {
+          const eventDate = new Date(e.start);
+          return eventDate.getFullYear() === today.getFullYear() &&
+                 eventDate.getMonth() === today.getMonth() &&
+                 eventDate.getDate() === today.getDate();
+        });
         setTodayEvents(todayEventsFiltered);
 
       } catch (err) {
@@ -143,12 +134,23 @@ const EnseignantDashboard = () => {
     fetchData();
   }, []);
 
+  // Callbacks pour le BigCalendar
+  const handleDateChange = (date) => {
+    setCurrentDate(date);
+    setSelectedDate(date);
+  };
+
+  const handleViewChange = (newView) => {
+    setView(newView);
+  };
+
+  // Les fonctions pour la sidebar sont inchangées
   const formatTodayCourses = () => {
     if (todayEvents.length === 0) {
       return [{ time: 'Aucun cours', title: "Aucun cours prévu aujourd'hui", room: '' }];
     }
     return todayEvents.map((event) => ({
-      time: `${format(event.start, 'HH:mm')} - ${format(event.end, 'HH:mm')}`,
+      time: `${format(event.start, 'HH:mm', { timeZone: 'UTC' })} - ${format(event.end, 'HH:mm', { timeZone: 'UTC' })}`,
       title: event.title,
       room: event.salle || 'Salle non définie',
     }));
@@ -157,50 +159,23 @@ const EnseignantDashboard = () => {
   const todayCourses = formatTodayCourses();
 
   const completedCourses = events
-    .filter((event) => new Date(event.end) < new Date())
-    .slice(0, 5)
-    .map((event) => event.title);
-
-  const handleDateChange = (date) => {
-    setCurrentDate(date);
-    setSelectedDate(date);
-  };
+    .filter(event => event.statut && (event.statut.toLowerCase() === 'termine' || event.statut === 'TERMINE'))
+    .map(event => event.title);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
-  const handleEventUpdate = () => {
-    window.location.reload();
-  };
 
   const SidebarContent = () => (
     <>
       <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-outline-variant">
         <div className="flex items-center justify-between mb-4 md:mb-6">
           <h3 className="font-bold text-slate-800 text-sm md:text-base">
-            {format(currentDate, 'MMMM yyyy', { locale: fr })
-              .charAt(0)
-              .toUpperCase() +
-              format(currentDate, 'MMMM yyyy', { locale: fr }).slice(1)}
+            {format(currentDate, 'MMMM yyyy', { locale: fr })}
           </h3>
-          <div className="flex gap-1 md:gap-2">
-            <button
-              onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
-              className="p-1 text-slate-400 hover:bg-slate-50 rounded"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
-              className="p-1 text-slate-400 hover:bg-slate-50 rounded"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
         </div>
         <MiniCalendar
-          currentDate={currentDate}
-          onDateChange={handleDateChange}
           selectedDate={selectedDate}
+          onDateChange={handleDateChange}
+          markedDates={events.map(e => new Date(e.start))}
           compact={true}
         />
       </div>
@@ -221,21 +196,12 @@ const EnseignantDashboard = () => {
           ) : (
             <div className="space-y-3 md:space-y-4">
               {todayCourses.map((course, idx) => (
-                <div
-                  key={idx}
-                  className={idx < todayCourses.length - 1 ? 'border-b border-white/20 pb-2 md:pb-3' : 'pb-1'}
-                >
+                <div key={idx} className={idx < todayCourses.length - 1 ? 'border-b border-white/20 pb-2 md:pb-3' : 'pb-1'}>
                   <p className="text-[10px] opacity-80 mb-0.5 text-slate-600 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {course.time}
+                    <Clock className="w-3 h-3" /> {course.time}
                   </p>
                   <h4 className="font-semibold text-sm text-slate-800">{course.title}</h4>
-                  {course.room && (
-                    <p className="text-[10px] opacity-70 text-slate-600 flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      {course.room}
-                    </p>
-                  )}
+                  {course.room && <p className="text-[10px] opacity-70 text-slate-600 flex items-center gap-1"><MapPin className="w-3 h-3" /> {course.room}</p>}
                 </div>
               ))}
             </div>
@@ -300,10 +266,7 @@ const EnseignantDashboard = () => {
             </div>
             <h3 className="text-lg font-semibold text-slate-800">Erreur de chargement</h3>
             <p className="text-slate-500 text-sm">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition"
-            >
+            <button onClick={() => window.location.reload()} className="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition">
               Réessayer
             </button>
           </div>
@@ -326,103 +289,18 @@ const EnseignantDashboard = () => {
           `}
         >
           {isSidebarOpen && (
-            <div
-              className="fixed inset-0 bg-black/20 backdrop-blur-sm md:hidden z-[-1]"
-              onClick={toggleSidebar}
-            />
+            <div className="fixed inset-0 bg-black/20 backdrop-blur-sm md:hidden z-[-1]" onClick={toggleSidebar} />
           )}
           <SidebarContent />
         </aside>
 
         <section className="flex-1 flex flex-col gap-4 md:gap-6 overflow-hidden min-w-0">
-          <div className="md:hidden bg-white rounded-2xl p-4 shadow-sm border border-outline-variant">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-800 text-sm">
-                {format(currentDate, 'MMMM yyyy', { locale: fr })
-                  .charAt(0)
-                  .toUpperCase() +
-                  format(currentDate, 'MMMM yyyy', { locale: fr }).slice(1)}
-              </h3>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
-                  className="p-1 text-slate-400 hover:bg-slate-50 rounded"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
-                  className="p-1 text-slate-400 hover:bg-slate-50 rounded"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <MiniCalendar
-              currentDate={currentDate}
-              onDateChange={handleDateChange}
-              selectedDate={selectedDate}
-              compact={true}
-            />
-          </div>
-
-          <div className="flex items-center justify-between shrink-0 flex-wrap gap-2 md:gap-4">
-            <div className="flex items-center gap-2 md:gap-4">
-              <button
-                onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
-                className="p-1.5 md:p-2 bg-white rounded-xl shadow-sm border border-outline-variant hover:bg-slate-50"
-              >
-                <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-slate-500" />
-              </button>
-              <h2 className="text-sm md:text-2xl font-bold text-slate-800 truncate max-w-[180px] md:max-w-none">
-                {view === 'day'
-                  ? format(selectedDate, 'dd MMM yyyy', { locale: fr })
-                  : `${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'dd MMM', { locale: fr })} - ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'dd MMM yyyy', { locale: fr })}`
-                }
-              </h2>
-              <button
-                onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
-                className="p-1.5 md:p-2 bg-white rounded-xl shadow-sm border border-outline-variant hover:bg-slate-50"
-              >
-                <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-slate-500" />
-              </button>
-            </div>
-            <div className="flex gap-2 md:gap-4">
-              <div className="flex items-center gap-1 md:gap-2 p-1 bg-white rounded-xl shadow-sm border border-outline-variant">
-                <button
-                  className={`px-2 md:px-4 py-1 text-[10px] md:text-xs font-semibold rounded-lg transition-colors ${
-                    view === 'day'
-                      ? 'bg-slate-50 text-slate-800 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                  onClick={() => setView('day')}
-                >
-                  Jours
-                </button>
-                <button
-                  className={`px-2 md:px-4 py-1 text-[10px] md:text-xs font-semibold rounded-lg transition-colors ${
-                    view === 'week'
-                      ? 'bg-slate-50 text-slate-800 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                  onClick={() => setView('week')}
-                >
-                  Semaine
-                </button>
-              </div>
-            </div>
-          </div>
-
           <div className="flex-1 bg-white rounded-2xl md:rounded-3xl shadow-sm border border-outline-variant overflow-hidden min-h-[500px]">
-            <BigCalendar
-              selectedDate={selectedDate}
-              onDateChange={setSelectedDate}
+            <BigCalendarTeacher
               currentDate={currentDate}
-              onDateChangeParent={setCurrentDate}
               view={view}
-              events={events}
-              loading={loading}
-              onEventUpdate={handleEventUpdate}
+              onDateChange={handleDateChange}
+              onViewChange={handleViewChange}
             />
           </div>
         </section>

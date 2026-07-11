@@ -304,6 +304,7 @@ namespace back.Services
             return planning;
         }
 
+        // ========== MISE À JOUR (MODIFIÉ POUR GÉRER LE STATUT) ==========
         public async Task<Planning> UpdateAsync(int id, PlanningDto dto)
         {
             var planning = await _context.Plannings
@@ -313,6 +314,19 @@ namespace back.Services
             if (planning == null)
                 throw new Exception("Événement non trouvé");
 
+            // ✅ Si le statut est fourni, on met à jour UNIQUEMENT le statut (Terminer)
+            if (!string.IsNullOrEmpty(dto.Statut))
+            {
+                // Vérifier que le statut est valide
+                if (dto.Statut != "Termine" && dto.Statut != "Annule" && dto.Statut != "Actif")
+                    throw new Exception("Statut invalide");
+
+                planning.Statut = dto.Statut;
+                await _context.SaveChangesAsync();
+                return planning;
+            }
+
+            // Sinon, comportement normal (mise à jour complète avec vérifications)
             var enseignement = await _context.Enseignements
                 .FirstOrDefaultAsync(e => e.Id == dto.IdEnseignement);
 
@@ -329,6 +343,7 @@ namespace back.Services
             planning.DateFin = dto.DateFin;
             planning.MotifAnnulation = dto.MotifAnnulation;
 
+            // Gestion des salles
             var existingSalles = _context.PlanningSalles.Where(ps => ps.IdPlanning == id);
             _context.PlanningSalles.RemoveRange(existingSalles);
 
@@ -363,6 +378,7 @@ namespace back.Services
             await _context.SaveChangesAsync();
         }
 
+        // ========== ANNULER AVEC MOTIF (DÉJÀ PRÉSENT) ==========
         public async Task<Planning> AnnulerAsync(int id, string motif)
         {
             var planning = await _context.Plannings.FindAsync(id);
@@ -375,6 +391,15 @@ namespace back.Services
 
             await _context.SaveChangesAsync();
 
+            return planning;
+        }
+        public async Task<Planning> TerminerAsync(int id)
+        {
+            var planning = await _context.Plannings.FindAsync(id);
+            if (planning == null)
+                throw new Exception("Événement non trouvé");
+            planning.Statut = "Termine";
+            await _context.SaveChangesAsync();
             return planning;
         }
     }
