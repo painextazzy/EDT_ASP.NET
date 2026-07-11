@@ -583,20 +583,7 @@ const BigCalendarTeacher = ({
         </div>
       </main>
 
-      <footer className="bg-gray-50 px-6 py-2 border-t border-gray-100 flex justify-between items-center text-[10px] text-gray-400">
-        <div className="flex items-center gap-3">
-          <span>Dernière mise à jour: {format(new Date(), 'dd/MM/yyyy HH:mm')}</span>
-          <button onClick={refreshEvents} className="flex items-center gap-1 hover:text-gray-600 transition-colors">
-            <RefreshCw className="w-3 h-3" /> Actualiser
-          </button>
-        </div>
-        <div className="flex items-center gap-3">
-          <User className="w-3 h-3 text-blue-500" />
-          <span className="text-blue-600 font-medium">
-            {user?.nom || 'Enseignant'}
-          </span>
-        </div>
-      </footer>
+
 
       <ActionModal
         isOpen={showActionModal}

@@ -4,7 +4,7 @@ import { format, addWeeks, subWeeks } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   Check,
-  Printer,
+  FileDown,
   ChevronDown,
   Loader2,
   Calendar,
@@ -310,9 +310,9 @@ const EnseignantDashboard = () => {
       </main>
 
       <button className="fixed bottom-4 right-4 md:bottom-10 md:right-10 bg-slate-600 text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 border border-slate-700 w-12 h-12 md:w-14 md:h-14 shadow-2xl rounded-full group">
-        <Printer className="w-5 h-5 md:w-6 md:h-6" />
+        <FileDown className="w-5 h-5 md:w-6 md:h-6" />
         <div className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all shadow-xl pointer-events-none whitespace-nowrap">
-          Imprimer
+          télecharger 
         </div>
       </button>
 
