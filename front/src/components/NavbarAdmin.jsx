@@ -7,6 +7,7 @@ import { authApi } from '../services/auth';
 import { API_URL } from '../services/api';
 import { DemandesContext } from '../context/DemandesContext';
 import { Link } from 'react-router-dom';
+import { startConnection, onPlanningNotification } from '../services/signalRService';
 
 const NavbarAdmin = ({
   userSettings = {},
@@ -20,6 +21,7 @@ const NavbarAdmin = ({
   const [loading, setLoading] = useState(true);
   const [photoKey, setPhotoKey] = useState(Date.now());
   const [imageError, setImageError] = useState(false);
+  const [planningNotifications, setPlanningNotifications] = useState([]);
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
   const { toggleSidebar, isSidebarOpen } = useSidebar();
@@ -106,6 +108,23 @@ const NavbarAdmin = ({
     };
   }, []);
 
+  useEffect(() => {
+    startConnection().catch(err => console.warn('⚠️ SignalR déjà en cours', err));
+
+    const unsubscribe = onPlanningNotification((data) => {
+      const notification = {
+        id: data?.planningId || `${data?.action || 'planning'}-${Date.now()}`,
+        ...data,
+        message: data?.message || 'Mise à jour de planning',
+        titre: data?.titre || 'Cours',
+      };
+
+      setPlanningNotifications(prev => [notification, ...prev].slice(0, 10));
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Gestion des clics en dehors des menus
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -163,6 +182,7 @@ const NavbarAdmin = ({
 
   const initials = getInitials();
   const avatarColor = getAvatarColor();
+  const totalNotificationCount = (Number(count) || 0) + planningNotifications.length;
 
   const handleLogout = () => {
     if (onLogout) {
@@ -242,9 +262,9 @@ const NavbarAdmin = ({
               aria-label="Notifications"
             >
               <Bell className="w-5 h-5" />
-              {count > 0 && (
+              {totalNotificationCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse shadow-sm">
-                  {count > 9 ? '9+' : count}
+                  {totalNotificationCount > 9 ? '9+' : totalNotificationCount}
                 </span>
               )}
             </button>
@@ -256,22 +276,36 @@ const NavbarAdmin = ({
                   <span className="text-sm font-semibold text-gray-700">Notifications</span>
                 </div>
                 <div className="max-h-60 overflow-y-auto">
-                  {count > 0 ? (
-                    <div className="px-4 py-3 hover:bg-gray-50 transition-colors flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          <span className="font-semibold">{count}</span> demande{count > 1 ? 's' : ''} en attente de validation.
-                        </p>
-                        <Link
-                          to="/admin/professeurs"
-                          onClick={() => setShowNotifications(false)}
-                          className="text-xs text-blue-600 hover:underline font-medium"
-                        >
-                          Voir toutes les demandes
-                        </Link>
-                      </div>
-                    </div>
+                  {totalNotificationCount > 0 ? (
+                    <>
+                      {count > 0 && (
+                        <div className="px-4 py-3 hover:bg-gray-50 transition-colors flex items-start gap-3">
+                          <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-800">
+                              <span className="font-semibold">{count}</span> demande{count > 1 ? 's' : ''} en attente de validation.
+                            </p>
+                            <Link
+                              to="/admin/professeurs"
+                              onClick={() => setShowNotifications(false)}
+                              className="text-xs text-blue-600 hover:underline font-medium"
+                            >
+                              Voir toutes les demandes
+                            </Link>
+                          </div>
+                        </div>
+                      )}
+
+                      {planningNotifications.map((notif) => (
+                        <div key={notif.id} className="px-4 py-3 hover:bg-gray-50 transition-colors flex items-start gap-3 border-t border-gray-50 first:border-t-0">
+                          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-800">{notif.message || 'Mise à jour de planning'}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{notif.titre || 'Cours'}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </>
                   ) : (
                     <div className="px-4 py-6 text-center text-sm text-gray-500">
                       Aucune nouvelle notification

@@ -1,10 +1,9 @@
 // src/components/EnseignantDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { format, addWeeks, subWeeks } from 'date-fns';
+import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   Check,
-  FileDown,
   ChevronDown,
   Loader2,
   Calendar,
@@ -16,7 +15,6 @@ import BigCalendarTeacher from '../../components/ui/BigCalendarTeacher';
 import MiniCalendar from '../../components/ui/MiniCalendar';
 import api from '../../services/api';
 import { authApi } from '../../services/auth';
-
 const EnseignantDashboard = () => {
   // États partagés pour le contrôle du BigCalendar
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -24,7 +22,7 @@ const EnseignantDashboard = () => {
   const [view, setView] = useState('week');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // États pour les données de la sidebar
+  // États pour les données
   const [events, setEvents] = useState([]);
   const [todayEvents, setTodayEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,8 +42,7 @@ const EnseignantDashboard = () => {
     return colorMap[type] || 'gray';
   };
 
-  // Chargement des événements (pour marquer les jours dans le mini calendrier et pour la sidebar)
- useEffect(() => {
+  // Chargement des événements
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -74,7 +71,6 @@ const EnseignantDashboard = () => {
       }
 
       const enseignantId = enseignant.id;
-
       const response = await api.planning.getByEnseignant(enseignantId);
 
       let plannings = [];
@@ -84,16 +80,14 @@ const EnseignantDashboard = () => {
         plannings = response;
       }
 
-      // ✅ Charger TOUS les plannings (pas seulement les actifs)
       const formattedEvents = plannings
-        .filter(p => p.dateDebut && p.dateFin) // suppression du filtre statut === 'Actif'
+        .filter(p => p.dateDebut && p.dateFin)
         .map(p => {
           const start = new Date(p.dateDebut + 'Z');
           const end = new Date(p.dateFin + 'Z');
           if (isNaN(start) || isNaN(end)) return null;
 
           const coursNom = p.enseignement?.cours?.nom || p.coursNom || 'Cours';
-          const niveauLibelle = p.enseignement?.niveau?.libelle || '';
           const salles = p.salles?.map(s => s.nom).join(', ') || '';
 
           return {
@@ -104,23 +98,21 @@ const EnseignantDashboard = () => {
             salle: salles,
             type: p.typeEvenement || 'Cours',
             color: getColorForType(p.typeEvenement || 'Cours'),
-            classe: niveauLibelle,
-            description: p.motifAnnulation || '',
-            statut: p.statut, // ← important pour le filtrage ultérieur
+            statut: p.statut,
+            professeur: p.enseignement?.enseignant?.nom || '',
           };
         })
         .filter(e => e !== null);
 
       setEvents(formattedEvents);
 
-      // ✅ Cours d'aujourd'hui : uniquement les actifs
       const today = new Date();
       const todayEventsFiltered = formattedEvents.filter(e => {
         const eventDate = new Date(e.start);
         return eventDate.getFullYear() === today.getFullYear() &&
                eventDate.getMonth() === today.getMonth() &&
                eventDate.getDate() === today.getDate() &&
-               e.statut === 'Actif'; // ne garder que les actifs pour le jour
+               e.statut === 'Actif';
       });
       setTodayEvents(todayEventsFiltered);
 
@@ -134,10 +126,11 @@ const EnseignantDashboard = () => {
     }
   };
 
-  fetchData();
-}, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  // Callbacks pour le BigCalendar
+  // Callbacks
   const handleDateChange = (date) => {
     setCurrentDate(date);
     setSelectedDate(date);
@@ -147,7 +140,6 @@ const EnseignantDashboard = () => {
     setView(newView);
   };
 
-  // Les fonctions pour la sidebar sont inchangées
   const formatTodayCourses = () => {
     if (todayEvents.length === 0) {
       return [{ time: 'Aucun cours', title: "Aucun cours prévu aujourd'hui", room: '' }];
@@ -166,6 +158,37 @@ const EnseignantDashboard = () => {
     .map(event => event.title);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  const handlePlanningChange = (change) => {
+    if (!change) return;
+
+    if (change.action === 'refresh' || change.action === 'create' || change.action === 'update') {
+      fetchData();
+      return;
+    }
+
+    setEvents(prevEvents => {
+      let updatedEvents = prevEvents;
+
+      if (change.action === 'cancel') {
+        updatedEvents = prevEvents.filter(event => String(event.id) !== String(change.planningId));
+      } else if (change.action === 'complete') {
+        updatedEvents = prevEvents.map(event => String(event.id) === String(change.planningId) ? { ...event, statut: 'Termine' } : event);
+      }
+
+      const today = new Date();
+      const todayEventsFiltered = updatedEvents.filter(event => {
+        const eventDate = new Date(event.start);
+        return eventDate.getFullYear() === today.getFullYear() &&
+          eventDate.getMonth() === today.getMonth() &&
+          eventDate.getDate() === today.getDate() &&
+          event.statut === 'Actif';
+      });
+
+      setTodayEvents(todayEventsFiltered);
+      return updatedEvents;
+    });
+  };
 
   const SidebarContent = () => (
     <>
@@ -186,7 +209,7 @@ const EnseignantDashboard = () => {
       <div className="bg-sky-50 rounded-2xl p-4 md:p-6 shadow-lg relative overflow-hidden">
         <div className="relative z-10">
           <h3 className="font-bold text-lg mb-3 md:mb-4 text-slate-800">
-            Cours d'aujourd'hui
+            Votre cours d'aujourd'hui
             <span className="ml-2 text-sm font-normal text-slate-500">
               ({todayEvents.length})
             </span>
@@ -304,17 +327,11 @@ const EnseignantDashboard = () => {
               view={view}
               onDateChange={handleDateChange}
               onViewChange={handleViewChange}
+              onPlanningChange={handlePlanningChange}
             />
           </div>
         </section>
       </main>
-
-      <button className="fixed bottom-4 right-4 md:bottom-10 md:right-10 bg-slate-600 text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 border border-slate-700 w-12 h-12 md:w-14 md:h-14 shadow-2xl rounded-full group">
-        <FileDown className="w-5 h-5 md:w-6 md:h-6" />
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all shadow-xl pointer-events-none whitespace-nowrap">
-          télecharger 
-        </div>
-      </button>
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }

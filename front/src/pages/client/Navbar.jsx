@@ -1,19 +1,22 @@
 // src/components/Navbar.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { UserRoundCog, LogOut, ChevronDown, Menu, Bell } from 'lucide-react';
+import { UserRoundCog, LogOut, ChevronDown, Menu, Bell, Settings } from 'lucide-react';
 import { authApi } from '../../services/auth';
 import { API_URL } from '../../services/api';
 import SettingsModal from '../../components/modals/SettingsModal';
 
 const Navbar = ({ toggleSidebar, onOpenSettings }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [photoKey, setPhotoKey] = useState(Date.now());
   const [imageError, setImageError] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [notificationList, setNotificationList] = useState([]);
   const dropdownRef = useRef(null);
+  const notificationRef = useRef(null);
 
   const getFullPhotoUrl = (photoUrl) => {
     if (!photoUrl) return null;
@@ -53,6 +56,7 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
     return false;
   };
 
+  // Chargement utilisateur
   useEffect(() => {
     const loadUser = async () => {
       setLoading(true);
@@ -64,6 +68,7 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
     loadUser();
   }, []);
 
+  // Mise à jour de l'utilisateur via storage ou événement
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'user_data') {
@@ -76,8 +81,6 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-
     const handleUserUpdate = () => {
       const currentUser = authApi.getUser();
       if (currentUser) {
@@ -87,26 +90,46 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
       }
     };
 
+    window.addEventListener('storage', handleStorageChange);
     window.addEventListener('userUpdated', handleUserUpdate);
-
-    // Écouter les nouvelles notifications (ex: nouvel emploi du temps)
-    const handleNewPlanning = () => {
-      setNotificationCount((prev) => prev + 1);
-    };
-    window.addEventListener('newPlanning', handleNewPlanning);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('userUpdated', handleUserUpdate);
-      window.removeEventListener('newPlanning', handleNewPlanning);
     };
   }, []);
 
-  // Gestion des clics en dehors du dropdown
+  // ✅ Écouter les notifications via l'événement personnalisé (provenant du parent)
+  useEffect(() => {
+    const handleNewPlanning = (event) => {
+      const data = event.detail;
+      console.log('🔔 Notification reçue dans Navbar :', data);
+      setNotificationCount(prev => {
+        const newCount = prev + 1;
+        console.log(`📊 Compteur de notifications : ${prev} → ${newCount}`);
+        return newCount;
+      });
+      setNotificationList(prev => {
+        const newList = [data, ...prev];
+        return newList.slice(0, 20);
+      });
+    };
+
+    window.addEventListener('newPlanningNotification', handleNewPlanning);
+
+    return () => {
+      window.removeEventListener('newPlanningNotification', handleNewPlanning);
+    };
+  }, []);
+
+  // Gestion des clics en dehors des menus
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -117,12 +140,23 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
 
   const toggleDropdown = () => {
     setShowDropdown(!showDropdown);
+    if (showNotifications) setShowNotifications(false);
+  };
+
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+    if (showDropdown) setShowDropdown(false);
   };
 
   const handleOpenSettings = () => {
     setShowDropdown(false);
     setShowSettingsModal(true);
     if (onOpenSettings) onOpenSettings();
+  };
+
+  const handleLogout = () => {
+    authApi.logout();
+    window.location.href = '/login';
   };
 
   const handleSaveSettings = async (updatedData) => {
@@ -146,11 +180,6 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
     }
   };
 
-  const handleLogout = () => {
-    authApi.logout();
-    window.location.href = '/login';
-  };
-
   const handleImageError = (e) => {
     setImageError(true);
     e.target.style.display = 'none';
@@ -161,10 +190,10 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
     parent.appendChild(fallback);
   };
 
-  // Réinitialiser les notifications au clic sur la cloche (optionnel)
-  const handleNotificationClick = () => {
+  const markAllAsRead = () => {
+    console.log('🔔 Marquer toutes les notifications comme lues');
     setNotificationCount(0);
-    // Ici vous pouvez ouvrir un panneau de notifications si souhaité
+    // Optionnel : vider la liste ou la garder
   };
 
   const userEmail = user?.email || 'utilisateur@example.com';
@@ -227,19 +256,62 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
         </div>
 
         <div className="flex items-center gap-3 md:gap-5">
-          {/* Icône de notification avec badge */}
-          <button
-            onClick={handleNotificationClick}
-            className="relative p-1.5 text-slate-600 hover:bg-slate-50 rounded-full transition-colors"
-            aria-label="Notifications"
-          >
-            <Bell className="w-5 h-5 md:w-5 md:h-5" />
-            {notificationCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-red-500 rounded-full shadow-sm">
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </span>
+          {/* Bouton Notifications */}
+          <div className="relative" ref={notificationRef}>
+            <button
+              onClick={toggleNotifications}
+              className="relative p-1.5 text-slate-600 hover:bg-slate-50 rounded-full transition-colors"
+              aria-label="Notifications"
+            >
+              <Bell className="w-5 h-5 md:w-5 md:h-5" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </span>
+              )}
+            </button>
+
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 animate-fadeIn">
+                <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-700">Notifications</span>
+                  {notificationCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      Tout marquer comme lu
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-60 overflow-y-auto">
+                  {notificationList.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-sm text-gray-500">
+                      Aucune notification
+                    </div>
+                  ) : (
+                    notificationList.map((notif, index) => (
+                      <div key={index} className="px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5">
+                            <AlertCircle className="w-4 h-4 text-blue-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-800">
+                              {notif.message || 'Mise à jour de votre emploi du temps'}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {notif.titre || 'Cours'} — {notif.dateDebut ? new Date(notif.dateDebut).toLocaleDateString() : ''}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             )}
-          </button>
+          </div>
 
           {/* Menu profil */}
           <div className="relative" ref={dropdownRef}>
@@ -268,7 +340,6 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
               />
             </button>
 
-            {/* Menu déroulant profil */}
             {showDropdown && (
               <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-outline-variant py-2 z-50 animate-fadeIn">
                 <div className="px-4 py-3 border-b border-outline-variant flex items-center gap-3">
@@ -297,7 +368,7 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
                   onClick={handleOpenSettings}
                   className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3 border-b border-outline-variant"
                 >
-                  <UserRoundCog className="w-4 h-4 text-slate-500" />
+                  <Settings className="w-4 h-4 text-slate-500" />
                   <span>Mon Profil</span>
                 </button>
 
@@ -314,7 +385,6 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
         </div>
       </nav>
 
-      {/* Modal Paramètres */}
       <SettingsModal
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
@@ -332,6 +402,13 @@ const Navbar = ({ toggleSidebar, onOpenSettings }) => {
           to { opacity: 1; transform: translateY(0); }
         }
         .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+        .animate-pulse {
+          animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+        }
         .border-outline-variant { border-color: #e2e8f0; }
       `}</style>
     </>

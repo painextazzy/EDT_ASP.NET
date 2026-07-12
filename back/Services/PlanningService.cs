@@ -1,4 +1,3 @@
-// back/Services/PlanningService.cs
 using Microsoft.EntityFrameworkCore;
 using back.Data;
 using back.Models;
@@ -38,6 +37,7 @@ namespace back.Services
                     .ThenInclude(e => e.Cours)
                 .Include(p => p.Enseignement)
                     .ThenInclude(e => e.Enseignant)
+                    .ThenInclude(e => e.Utilisateur)
                 .Include(p => p.PlanningSalles)
                     .ThenInclude(ps => ps.Salle)
                 .FirstOrDefaultAsync(p => p.Id == id);
@@ -102,7 +102,6 @@ namespace back.Services
             return !await query.AnyAsync();
         }
 
-        // ✅ VÉRIFICATION DES CONFLITS
         public async Task<(bool IsValid, string Message)> CheckConflictsAsync(PlanningDto dto, int? excludeId = null)
         {
             var enseignement = await _context.Enseignements
@@ -112,14 +111,12 @@ namespace back.Services
             if (enseignement == null)
                 return (false, "Enseignement non trouvé");
 
-            // 1. Vérifier la disponibilité du professeur
             var profId = enseignement.IdEnseignant;
             if (!await IsProfesseurAvailableAsync(profId, dto.DateDebut, dto.DateFin, excludeId))
             {
                 return (false, $"Le professeur {enseignement.Enseignant?.Nom} a déjà un cours sur cette tranche horaire");
             }
 
-            // 2. Vérifier la disponibilité des salles
             foreach (var salleId in dto.IdSalles)
             {
                 if (!await IsSalleAvailableAsync(salleId, dto.DateDebut, dto.DateFin, excludeId))
@@ -132,7 +129,6 @@ namespace back.Services
             return (true, "Toutes les vérifications sont passées");
         }
 
-        // ✅ VÉRIFICATION SI LE TYPE EST MULTI-SALLE
         public bool IsMultiSalleType(string typeEvenement)
         {
             return typeEvenement == "Examen" || typeEvenement == "Présentation";
@@ -157,57 +153,75 @@ namespace back.Services
                 .OrderBy(p => p.DateDebut)
                 .ToListAsync();
 
-            return plannings.Select(p => new
+            // Récupération des délégués pour chaque niveau
+            var niveauxIds = plannings.Select(p => p.Enseignement.IdNiveau).Distinct().ToList();
+            var delegues = await _context.Delegues
+                .Where(d => niveauxIds.Contains(d.IdNiveau))
+                .ToListAsync();
+
+            return plannings.Select(p =>
             {
-                id = p.Id,
-                idEnseignement = p.IdEnseignement,
-                typeEvenement = p.TypeEvenement,
-                statut = p.Statut,
-                dateDebut = p.DateDebut,
-                dateFin = p.DateFin,
-                motifAnnulation = p.MotifAnnulation,
-                enseignement = new
+                var delegue = delegues.FirstOrDefault(d => d.IdNiveau == p.Enseignement.IdNiveau);
+                return new
                 {
-                    id = p.Enseignement.Id,
-                    enseignant = new
+                    id = p.Id,
+                    idEnseignement = p.IdEnseignement,
+                    typeEvenement = p.TypeEvenement,
+                    statut = p.Statut,
+                    dateDebut = p.DateDebut,
+                    dateFin = p.DateFin,
+                    motifAnnulation = p.MotifAnnulation,
+                    enseignement = new
                     {
-                        id = p.Enseignement.Enseignant.Id,
-                        nom = p.Enseignement.Enseignant.Nom,
-                        im = p.Enseignement.Enseignant.Im
+                        id = p.Enseignement.Id,
+                        enseignant = new
+                        {
+                            id = p.Enseignement.Enseignant.Id,
+                            nom = p.Enseignement.Enseignant.Nom,
+                            im = p.Enseignement.Enseignant.Im
+                        },
+                        cours = new
+                        {
+                            id = p.Enseignement.Cours.Id,
+                            code = p.Enseignement.Cours.Code,
+                            nom = p.Enseignement.Cours.Nom
+                        },
+                        niveau = new
+                        {
+                            id = p.Enseignement.Niveau.Id,
+                            libelle = p.Enseignement.Niveau.Libelle,
+                            delegue = delegue != null ? new
+                            {
+                                id = delegue.Id,
+                                nom = delegue.NomDelegue,
+                                email = delegue.EmailDelegue
+                            } : null
+                        },
+                        parcours = new
+                        {
+                            id = p.Enseignement.Parcours.Id,
+                            libelle = p.Enseignement.Parcours.Libelle
+                        }
                     },
-                    cours = new
+                    salles = p.PlanningSalles.Select(ps => new
                     {
-                        id = p.Enseignement.Cours.Id,
-                        code = p.Enseignement.Cours.Code,
-                        nom = p.Enseignement.Cours.Nom
-                    },
-                    niveau = new
-                    {
-                        id = p.Enseignement.Niveau.Id,
-                        libelle = p.Enseignement.Niveau.Libelle
-                    },
-                    parcours = new
-                    {
-                        id = p.Enseignement.Parcours.Id,
-                        libelle = p.Enseignement.Parcours.Libelle
-                    }
-                },
-                salles = p.PlanningSalles.Select(ps => new
-                {
-                    id = ps.Salle.Id,
-                    nom = ps.Salle.Numero,
-                    batiment = ps.Salle.Batiment,
-                    etage = ps.Salle.Etage
-                }).ToList()
+                        id = ps.Salle.Id,
+                        nom = ps.Salle.Numero,
+                        batiment = ps.Salle.Batiment,
+                        etage = ps.Salle.Etage
+                    }).ToList()
+                };
             }).Cast<object>().ToList();
         }
 
-        // ✅ NOUVELLE MÉTHODE : Récupérer les plannings d'un enseignant
+        // ✅ MÉTHODE CORRIGÉE : Récupérer les plannings d'un enseignant AVEC DÉLÉGUÉ
         public async Task<List<object>> GetPlanningsByEnseignantAsync(int enseignantId)
         {
+            // 1. Récupérer les plannings avec toutes les relations nécessaires
             var plannings = await _context.Plannings
                 .Include(p => p.Enseignement)
                     .ThenInclude(e => e.Enseignant)
+                    .ThenInclude(e => e.Utilisateur)
                 .Include(p => p.Enseignement)
                     .ThenInclude(e => e.Cours)
                 .Include(p => p.Enseignement)
@@ -220,50 +234,71 @@ namespace back.Services
                 .OrderBy(p => p.DateDebut)
                 .ToListAsync();
 
-            return plannings.Select(p => new
+            // 2. Récupérer TOUS les délégués (pour faire la correspondance en mémoire)
+            //    La table Delegue est généralement petite, cette approche est simple et fiable.
+            var allDelegues = await _context.Delegues.ToListAsync();
+
+            // 3. Construire l'objet de retour avec le délégué intégré dans enseignement.niveau
+            return plannings.Select(p =>
             {
-                id = p.Id,
-                idEnseignement = p.IdEnseignement,
-                typeEvenement = p.TypeEvenement,
-                statut = p.Statut,
-                dateDebut = p.DateDebut,
-                dateFin = p.DateFin,
-                motifAnnulation = p.MotifAnnulation,
-                enseignement = new
+                // Recherche du délégué correspondant au (Niveau, Parcours) du planning
+                var delegue = allDelegues.FirstOrDefault(d =>
+                    d.IdNiveau == p.Enseignement.IdNiveau &&
+                    d.IdParcours == p.Enseignement.IdParcours);
+
+                return new
                 {
-                    id = p.Enseignement.Id,
-                    enseignant = new
+                    id = p.Id,
+                    idEnseignement = p.IdEnseignement,
+                    typeEvenement = p.TypeEvenement,
+                    statut = p.Statut,
+                    dateDebut = p.DateDebut,
+                    dateFin = p.DateFin,
+                    motifAnnulation = p.MotifAnnulation,
+                    enseignement = new
                     {
-                        id = p.Enseignement.Enseignant.Id,
-                        nom = p.Enseignement.Enseignant.Nom,
-                        im = p.Enseignement.Enseignant.Im
+                        id = p.Enseignement.Id,
+                        enseignant = new
+                        {
+                            id = p.Enseignement.Enseignant.Id,
+                            nom = p.Enseignement.Enseignant.Nom,
+                            im = p.Enseignement.Enseignant.Im
+                        },
+                        cours = new
+                        {
+                            id = p.Enseignement.Cours.Id,
+                            code = p.Enseignement.Cours.Code,
+                            nom = p.Enseignement.Cours.Nom
+                        },
+                        niveau = new
+                        {
+                            id = p.Enseignement.Niveau.Id,
+                            libelle = p.Enseignement.Niveau.Libelle,
+                            delegue = delegue != null ? new
+                            {
+                                id = delegue.Id,
+                                nom = delegue.NomDelegue,
+                                email = delegue.EmailDelegue
+                            } : null
+                        },
+                        parcours = new
+                        {
+                            id = p.Enseignement.Parcours.Id,
+                            libelle = p.Enseignement.Parcours.Libelle
+                        }
                     },
-                    cours = new
+                    salles = p.PlanningSalles.Select(ps => new
                     {
-                        id = p.Enseignement.Cours.Id,
-                        code = p.Enseignement.Cours.Code,
-                        nom = p.Enseignement.Cours.Nom
-                    },
-                    niveau = new
-                    {
-                        id = p.Enseignement.Niveau.Id,
-                        libelle = p.Enseignement.Niveau.Libelle
-                    },
-                    parcours = new
-                    {
-                        id = p.Enseignement.Parcours.Id,
-                        libelle = p.Enseignement.Parcours.Libelle
-                    }
-                },
-                salles = p.PlanningSalles.Select(ps => new
-                {
-                    id = ps.Salle.Id,
-                    nom = ps.Salle.Numero,
-                    batiment = ps.Salle.Batiment,
-                    etage = ps.Salle.Etage
-                }).ToList()
+                        id = ps.Salle.Id,
+                        nom = ps.Salle.Numero,
+                        batiment = ps.Salle.Batiment,
+                        etage = ps.Salle.Etage
+                    }).ToList()
+                };
             }).Cast<object>().ToList();
         }
+
+        // ========== CRUD (Create, Update, Delete) ==========
 
         public async Task<Planning> CreateAsync(PlanningDto dto)
         {
@@ -304,7 +339,6 @@ namespace back.Services
             return planning;
         }
 
-        // ========== MISE À JOUR (MODIFIÉ POUR GÉRER LE STATUT) ==========
         public async Task<Planning> UpdateAsync(int id, PlanningDto dto)
         {
             var planning = await _context.Plannings
@@ -314,10 +348,9 @@ namespace back.Services
             if (planning == null)
                 throw new Exception("Événement non trouvé");
 
-            // ✅ Si le statut est fourni, on met à jour UNIQUEMENT le statut (Terminer)
+            // Si le statut est fourni, on met à jour UNIQUEMENT le statut
             if (!string.IsNullOrEmpty(dto.Statut))
             {
-                // Vérifier que le statut est valide
                 if (dto.Statut != "Termine" && dto.Statut != "Annule" && dto.Statut != "Actif")
                     throw new Exception("Statut invalide");
 
@@ -326,7 +359,7 @@ namespace back.Services
                 return planning;
             }
 
-            // Sinon, comportement normal (mise à jour complète avec vérifications)
+            // Sinon, mise à jour complète avec vérifications
             var enseignement = await _context.Enseignements
                 .FirstOrDefaultAsync(e => e.Id == dto.IdEnseignement);
 
@@ -378,7 +411,6 @@ namespace back.Services
             await _context.SaveChangesAsync();
         }
 
-        // ========== ANNULER AVEC MOTIF (DÉJÀ PRÉSENT) ==========
         public async Task<Planning> AnnulerAsync(int id, string motif)
         {
             var planning = await _context.Plannings.FindAsync(id);
@@ -393,6 +425,7 @@ namespace back.Services
 
             return planning;
         }
+
         public async Task<Planning> TerminerAsync(int id)
         {
             var planning = await _context.Plannings.FindAsync(id);

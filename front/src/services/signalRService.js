@@ -2,9 +2,11 @@
 import * as signalR from "@microsoft/signalr";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5181";
+const getToken = () => localStorage.getItem("jwt_token");
 
 const connection = new signalR.HubConnectionBuilder()
     .withUrl(`${API_URL}/mainHub`, {
+        accessTokenFactory: () => getToken(),
         withCredentials: false,
         skipNegotiation: false,
         transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
@@ -74,6 +76,16 @@ export const onError = (callback) => {
     return () => {
         connection.off('OnError', callback);
     };
+};
+// écouter les notifications de nouveau planning
+export const onNewPlanning = (callback) => {
+    connection.on('NewPlanningNotification', callback);
+    return () => connection.off('NewPlanningNotification', callback);
+};
+
+export const onPlanningNotification = (callback) => {
+    connection.on('PlanningNotification', callback);
+    return () => connection.off('PlanningNotification', callback);
 };
 
 // Fonctions pour invoquer des méthodes du hub

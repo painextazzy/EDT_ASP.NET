@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using back.Data;
+using System.Security.Claims;
 
 namespace back.Hubs
 {
@@ -16,29 +17,56 @@ namespace back.Hubs
             _logger = logger;
         }
 
+        // back/Hubs/MainHub.cs
         public override async Task OnConnectedAsync()
         {
-            _logger.LogInformation($" Client connecté: {Context.ConnectionId}");
+            _logger.LogInformation($"Client connecté: {Context.ConnectionId}");
+
+            // ✅ Récupérer l'ID utilisateur depuis le token JWT
+            // Essayez plusieurs possibilités
+            var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                userId = Context.User?.FindFirst("id")?.Value;
+            if (string.IsNullOrEmpty(userId))
+                userId = Context.User?.FindFirst("userId")?.Value;
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
+                _logger.LogInformation($"✅ Utilisateur {userId} ajouté au groupe user_{userId}");
+            }
+            else
+            {
+                _logger.LogWarning("⚠️ Aucun ID utilisateur trouvé dans le token JWT");
+            }
 
             await SendSalleStatus();
-
             await SendDemandesCount();
-
             await base.OnConnectedAsync();
         }
+        public override async Task OnDisconnectedAsync(Exception exception)
+        {
+            // ✅ Retirer l'utilisateur de son groupe
+            var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user_{userId}");
+                _logger.LogInformation($"Utilisateur {userId} retiré du groupe user_{userId}");
+            }
 
+            await base.OnDisconnectedAsync(exception);
+        }
+
+        // ========== DEMANDES ==========
         public async Task SendDemandesCount()
         {
             try
             {
-
                 var count = await _context.Enseignants
                     .Include(e => e.Utilisateur)
                     .CountAsync(e => e.Utilisateur != null && !e.Utilisateur.EstValide);
 
                 _logger.LogInformation($"📊 Demandes en attente: {count}");
-
-                // Envoyer à tous les clients connectés
                 await Clients.All.SendAsync("DemandesCountUpdated", count);
             }
             catch (Exception ex)
@@ -47,13 +75,13 @@ namespace back.Hubs
             }
         }
 
-        //  RAFRAÎCHIR LE COMPTEUR DE DEMANDES 
         public async Task RefreshDemandesCount()
         {
-            _logger.LogInformation(" RefreshDemandesCount appelé");
+            _logger.LogInformation("RefreshDemandesCount appelé");
             await SendDemandesCount();
         }
-        // ENVOYER L'ÉTAT DES SALLES 
+
+        // ========== SALLES ==========
         public async Task SendSalleStatus()
         {
             try
@@ -76,7 +104,7 @@ namespace back.Hubs
                     .Where(p => p.DateDebut.ToUniversalTime().Date == today && p.Statut == "Actif")
                     .ToListAsync();
 
-                _logger.LogInformation($" {planningsToday.Count} plannings actifs aujourd'hui");
+                _logger.LogInformation($"📚 {planningsToday.Count} plannings actifs aujourd'hui");
 
                 var result = new List<object>();
 
@@ -105,23 +133,19 @@ namespace back.Hubs
                 }
 
                 _logger.LogInformation($"📤 Envoi de {result.Count} salles aux clients");
-
-                // Envoyer à TOUS les clients
                 await Clients.All.SendAsync("SallesUpdated", result);
-
-                _logger.LogInformation(" SallesUpdated envoyé avec succès");
+                _logger.LogInformation("SallesUpdated envoyé avec succès");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, " Erreur SendSalleStatus");
+                _logger.LogError(ex, "Erreur SendSalleStatus");
                 await Clients.Caller.SendAsync("OnError", new { message = ex.Message });
             }
         }
 
-        //RAFRAÎCHIR LES SALLES 
         public async Task RefreshSalles()
         {
-            _logger.LogInformation(" RefreshSalles appelé");
+            _logger.LogInformation("RefreshSalles appelé");
             await SendSalleStatus();
         }
     }
