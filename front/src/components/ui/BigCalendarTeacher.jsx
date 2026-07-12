@@ -5,9 +5,6 @@ import { fr } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, RefreshCw, Building, Loader2, X, Check, User } from 'lucide-react';
 import api from '../../services/api';
 import { authApi } from '../../services/auth';
-import { toZonedTime } from 'date-fns-tz';
-
-const TIMEZONE = 'Indian/Antananarivo';
 
 // ----- MODAL DE CONFIRMATION DE FIN -----
 const CompleteModal = ({ isOpen, event, onConfirm, onClose }) => {
@@ -160,6 +157,7 @@ const BigCalendarTeacher = ({
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [cancelledEvents, setCancelledEvents] = useState([]);
 
   // Couleurs personnalisées
   const eventColors = {
@@ -244,17 +242,15 @@ const BigCalendarTeacher = ({
       }
 
       const formatted = plannings
-        .filter(p => p.dateDebut && p.dateFin && p.statut === 'Actif')
+        .filter(p => p.dateDebut && p.dateFin)
         .map(p => {
           const utcStart = new Date(p.dateDebut + 'Z');
           const utcEnd = new Date(p.dateFin + 'Z');
-          const localStart = toZonedTime(utcStart, TIMEZONE);
-          const localEnd = toZonedTime(utcEnd, TIMEZONE);
           return {
             id: p.id,
             title: p.enseignement?.cours?.nom || 'Cours',
-            start: localStart,
-            end: localEnd,
+            start: utcStart,
+            end: utcEnd,
             type: p.typeEvenement || 'Cours',
             niveau: p.enseignement?.niveau?.libelle || '',
             salles: p.salles || [],
@@ -266,6 +262,7 @@ const BigCalendarTeacher = ({
         });
 
       setEvents(formatted);
+      setCancelledEvents(formatted.filter(e => e.statut === 'Annule' || e.statut === 'annule'));
       setError(null);
     } catch (err) {
       console.error('❌ Erreur chargement événements:', err);
@@ -322,8 +319,8 @@ const BigCalendarTeacher = ({
   const hours = ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
   const displayHours = hours;
 
-  // ✅ Filtrer les événements : on cache ceux qui sont annulés ou terminés
-  const filteredEvents = events.filter(e => e.statut !== 'Annule' && e.statut !== 'Termine');
+  // ✅ Filtrer les événements : on affiche les actifs et on garde aussi l’historique séparé
+  const filteredEvents = events.filter(e => e.statut !== 'Annule' && e.statut !== 'annule' && e.statut !== 'Termine');
 
   const getEventsForDay = (day) =>
     filteredEvents.filter(e => e.start && isSameDay(new Date(e.start), day));
@@ -387,8 +384,13 @@ const BigCalendarTeacher = ({
     try {
       setUpdating(true);
       await api.planning.cancel(event.id, reason);
-      // Mise à jour locale immédiate
+      const cancelled = {
+        ...event,
+        statut: 'Annule',
+        reason,
+      };
       setEvents(prevEvents => prevEvents.filter(e => e.id !== event.id));
+      setCancelledEvents(prev => [cancelled, ...prev]);
       setShowCancelModal(false);
       setSelectedEvent(null);
       showNotification('Cours annulé avec succès', 'success');

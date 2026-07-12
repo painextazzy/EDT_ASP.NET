@@ -14,6 +14,7 @@ import {
 import Navbar from './Navbar';
 import BigCalendarTeacher from '../../components/ui/BigCalendarTeacher';
 import MiniCalendar from '../../components/ui/MiniCalendar';
+import TeacherHistoryPanel from '../../components/ui/TeacherHistoryPanel';
 import api from '../../services/api';
 import { authApi } from '../../services/auth';
 
@@ -27,6 +28,7 @@ const EnseignantDashboard = () => {
   // États pour les données de la sidebar
   const [events, setEvents] = useState([]);
   const [todayEvents, setTodayEvents] = useState([]);
+  const [cancelledEvents, setCancelledEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -112,6 +114,9 @@ const EnseignantDashboard = () => {
         .filter(e => e !== null);
 
       setEvents(formattedEvents);
+      setCancelledEvents(
+        formattedEvents.filter(event => event.statut === 'Annule' || event.statut === 'annule')
+      );
 
       // ✅ Cours d'aujourd'hui : uniquement les actifs
       const today = new Date();
@@ -241,6 +246,8 @@ const EnseignantDashboard = () => {
           </div>
         )}
       </div>
+
+      <TeacherHistoryPanel cancelledEvents={cancelledEvents} />
     </>
   );
 

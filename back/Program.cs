@@ -10,7 +10,36 @@ using EFCore.BulkExtensions;
 using back.Models;
 
 // Charger les variables d'environnement
-Env.Load();
+string? FindEnvFile()
+{
+    var current = new DirectoryInfo(Directory.GetCurrentDirectory());
+    while (current != null)
+    {
+        var direct = Path.Combine(current.FullName, ".env");
+        if (File.Exists(direct)) return direct;
+
+        var backend = Path.Combine(current.FullName, "back", ".env");
+        if (File.Exists(backend)) return backend;
+
+        var frontend = Path.Combine(current.FullName, "front", ".env");
+        if (File.Exists(frontend)) return frontend;
+
+        current = current.Parent;
+    }
+
+    return null;
+}
+
+var envFile = FindEnvFile();
+if (!string.IsNullOrEmpty(envFile))
+{
+    Env.Load(envFile);
+    Console.WriteLine($"✅ Fichier .env chargé: {envFile}");
+}
+else
+{
+    Env.Load();
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -106,6 +135,7 @@ builder.Services.AddScoped<PlanningService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<TeacherSeedService>();
 
 // ========== SIGNALR ==========
 builder.Services.AddSignalR(options =>
@@ -163,6 +193,12 @@ if (app.Environment.IsDevelopment())
         {
             var isConnected = await DatabaseConfig.TestConnectionAsync(scope.ServiceProvider);
             Console.WriteLine(isConnected ? "✅ Connexion DB : SUCCÈS" : "❌ Connexion DB : ÉCHEC");
+
+            if (isConnected)
+            {
+                var seeder = scope.ServiceProvider.GetRequiredService<TeacherSeedService>();
+                await seeder.SeedAsync();
+            }
         }
         catch (Exception ex)
         {
