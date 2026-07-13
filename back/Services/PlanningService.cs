@@ -15,7 +15,6 @@ namespace back.Services
         }
 
         // ========== MÉTHODES POUR RÉCUPÉRER LES SALLES ==========
-
         public async Task<Salle> GetSalleByNumeroAsync(string numero)
         {
             return await _context.Salles
@@ -29,7 +28,6 @@ namespace back.Services
         }
 
         // ========== MÉTHODES POUR LES NOTIFICATIONS ==========
-
         public async Task<Planning?> GetPlanningWithDetailsAsync(int id)
         {
             return await _context.Plannings
@@ -67,7 +65,6 @@ namespace back.Services
         }
 
         // ========== VÉRIFICATIONS DE DISPONIBILITÉ ==========
-
         public async Task<bool> IsProfesseurAvailableAsync(int professeurId, DateTime start, DateTime end, int? excludeId = null)
         {
             var query = _context.Plannings
@@ -134,7 +131,7 @@ namespace back.Services
             return typeEvenement == "Examen" || typeEvenement == "Présentation";
         }
 
-        // ========== CRUD ==========
+        // ========== RÉCUPÉRATION DES PLANNINGS ==========
 
         public async Task<List<object>> GetAllAsync()
         {
@@ -153,7 +150,6 @@ namespace back.Services
                 .OrderBy(p => p.DateDebut)
                 .ToListAsync();
 
-            // Récupération des délégués pour chaque niveau
             var niveauxIds = plannings.Select(p => p.Enseignement.IdNiveau).Distinct().ToList();
             var delegues = await _context.Delegues
                 .Where(d => niveauxIds.Contains(d.IdNiveau))
@@ -214,10 +210,8 @@ namespace back.Services
             }).Cast<object>().ToList();
         }
 
-        // ✅ MÉTHODE CORRIGÉE : Récupérer les plannings d'un enseignant AVEC DÉLÉGUÉ
         public async Task<List<object>> GetPlanningsByEnseignantAsync(int enseignantId)
         {
-            // 1. Récupérer les plannings avec toutes les relations nécessaires
             var plannings = await _context.Plannings
                 .Include(p => p.Enseignement)
                     .ThenInclude(e => e.Enseignant)
@@ -234,18 +228,13 @@ namespace back.Services
                 .OrderBy(p => p.DateDebut)
                 .ToListAsync();
 
-            // 2. Récupérer TOUS les délégués (pour faire la correspondance en mémoire)
-            //    La table Delegue est généralement petite, cette approche est simple et fiable.
             var allDelegues = await _context.Delegues.ToListAsync();
 
-            // 3. Construire l'objet de retour avec le délégué intégré dans enseignement.niveau
             return plannings.Select(p =>
             {
-                // Recherche du délégué correspondant au (Niveau, Parcours) du planning
                 var delegue = allDelegues.FirstOrDefault(d =>
                     d.IdNiveau == p.Enseignement.IdNiveau &&
                     d.IdParcours == p.Enseignement.IdParcours);
-
                 return new
                 {
                     id = p.Id,
@@ -298,7 +287,171 @@ namespace back.Services
             }).Cast<object>().ToList();
         }
 
-        // ========== CRUD (Create, Update, Delete) ==========
+        // ✅ NOUVEAU : Récupérer TOUS les plannings annulés (admin)
+        public async Task<List<object>> GetAllAnnulesAsync()
+        {
+            var plannings = await _context.Plannings
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Enseignant)
+                    .ThenInclude(e => e.Utilisateur)
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Cours)
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Niveau)
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Parcours)
+                .Include(p => p.PlanningSalles)
+                    .ThenInclude(ps => ps.Salle)
+                .Where(p => p.Statut == "Annule" || p.Statut == "Annulé")
+                .OrderByDescending(p => p.DateDebut)
+                .ToListAsync();
+
+            var niveauIds = plannings.Select(p => p.Enseignement.IdNiveau).Distinct().ToList();
+            var delegues = await _context.Delegues
+                .Where(d => niveauIds.Contains(d.IdNiveau))
+                .ToListAsync();
+
+            return plannings.Select(p =>
+            {
+                var delegue = delegues.FirstOrDefault(d => d.IdNiveau == p.Enseignement.IdNiveau);
+                return new
+                {
+                    id = p.Id,
+                    idEnseignement = p.IdEnseignement,
+                    typeEvenement = p.TypeEvenement,
+                    statut = p.Statut,
+                    dateDebut = p.DateDebut,
+                    dateFin = p.DateFin,
+                    motifAnnulation = p.MotifAnnulation,
+                    enseignement = new
+                    {
+                        id = p.Enseignement.Id,
+                        enseignant = new
+                        {
+                            id = p.Enseignement.Enseignant.Id,
+                            nom = p.Enseignement.Enseignant.Nom,
+                            im = p.Enseignement.Enseignant.Im
+                        },
+                        cours = new
+                        {
+                            id = p.Enseignement.Cours.Id,
+                            code = p.Enseignement.Cours.Code,
+                            nom = p.Enseignement.Cours.Nom
+                        },
+                        niveau = new
+                        {
+                            id = p.Enseignement.Niveau.Id,
+                            libelle = p.Enseignement.Niveau.Libelle,
+                            delegue = delegue != null ? new
+                            {
+                                id = delegue.Id,
+                                nom = delegue.NomDelegue,
+                                email = delegue.EmailDelegue
+                            } : null
+                        },
+                        parcours = new
+                        {
+                            id = p.Enseignement.Parcours.Id,
+                            libelle = p.Enseignement.Parcours.Libelle
+                        }
+                    },
+                    salles = p.PlanningSalles.Select(ps => new
+                    {
+                        id = ps.Salle.Id,
+                        nom = ps.Salle.Numero,
+                        batiment = ps.Salle.Batiment,
+                        etage = ps.Salle.Etage
+                    }).ToList()
+                };
+            }).Cast<object>().ToList();
+        }
+
+        // ✅ NOUVEAU : Récupérer les plannings annulés d'un enseignant (avec filtre semaine)
+        public async Task<List<object>> GetAnnulesByEnseignantAsync(int enseignantId, DateTime weekStart)
+        {
+            var weekEnd = weekStart.AddDays(7);
+
+            var plannings = await _context.Plannings
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Enseignant)
+                    .ThenInclude(e => e.Utilisateur)
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Cours)
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Niveau)
+                .Include(p => p.Enseignement)
+                    .ThenInclude(e => e.Parcours)
+                .Include(p => p.PlanningSalles)
+                    .ThenInclude(ps => ps.Salle)
+                .Where(p => p.Enseignement.IdEnseignant == enseignantId &&
+                            (p.Statut == "Annule" || p.Statut == "Annulé") &&
+                            p.DateDebut >= weekStart &&
+                            p.DateDebut < weekEnd)
+                .OrderByDescending(p => p.DateDebut)
+                .ToListAsync();
+
+            var niveauIds = plannings.Select(p => p.Enseignement.IdNiveau).Distinct().ToList();
+            var delegues = await _context.Delegues
+                .Where(d => niveauIds.Contains(d.IdNiveau))
+                .ToListAsync();
+
+            return plannings.Select(p =>
+            {
+                var delegue = delegues.FirstOrDefault(d => d.IdNiveau == p.Enseignement.IdNiveau);
+                return new
+                {
+                    id = p.Id,
+                    idEnseignement = p.IdEnseignement,
+                    typeEvenement = p.TypeEvenement,
+                    statut = p.Statut,
+                    dateDebut = p.DateDebut,
+                    dateFin = p.DateFin,
+                    motifAnnulation = p.MotifAnnulation,
+                    enseignement = new
+                    {
+                        id = p.Enseignement.Id,
+                        enseignant = new
+                        {
+                            id = p.Enseignement.Enseignant.Id,
+                            nom = p.Enseignement.Enseignant.Nom,
+                            im = p.Enseignement.Enseignant.Im,
+                            photoUrl = p.Enseignement.Enseignant.PhotoUrl
+                        },
+                        cours = new
+                        {
+                            id = p.Enseignement.Cours.Id,
+                            code = p.Enseignement.Cours.Code,
+                            nom = p.Enseignement.Cours.Nom
+                        },
+                        niveau = new
+                        {
+                            id = p.Enseignement.Niveau.Id,
+                            libelle = p.Enseignement.Niveau.Libelle,
+                            delegue = delegue != null ? new
+                            {
+                                id = delegue.Id,
+                                nom = delegue.NomDelegue,
+                                email = delegue.EmailDelegue
+                            } : null
+                        },
+                        parcours = new
+                        {
+                            id = p.Enseignement.Parcours.Id,
+                            libelle = p.Enseignement.Parcours.Libelle
+                        }
+                    },
+                    salles = p.PlanningSalles.Select(ps => new
+                    {
+                        id = ps.Salle.Id,
+                        nom = ps.Salle.Numero,
+                        batiment = ps.Salle.Batiment,
+                        etage = ps.Salle.Etage
+                    }).ToList()
+                };
+            }).Cast<object>().ToList();
+        }
+
+        // ========== CRUD ==========
 
         public async Task<Planning> CreateAsync(PlanningDto dto)
         {

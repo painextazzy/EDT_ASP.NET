@@ -1,4 +1,3 @@
-// src/components/calendar/BigCalendar.jsx
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -7,7 +6,9 @@ import api from '../../services/api';
 import AddEventModal from './modals/AddEventModal';
 import EventDetailsModal from './modals/EventDetailsModal';
 import EditEventModal from './modals/EditEventModal';
+import ShareModal from './modals/ShareModal';
 import SkeletonLoader from '../SkeletonLoader';
+import { authApi } from '../../services/auth';
 
 const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -31,7 +32,10 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const [editingEvent, setEditingEvent] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const notificationTimeoutRef = useRef(null);
-  
+
+  // État pour la modale de partage
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
   const [newEvent, setNewEvent] = useState({
     titre: '',
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -76,7 +80,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     }
   };
 
-  // Fonction pour obtenir les couleurs avec fallback
   const getEventColors = (type) => {
     return eventColors[type] || eventColors.Cours;
   };
@@ -85,6 +88,17 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
     if (type === 'Soutenance') return 'Presentation';
     return type || 'Cours';
   };
+
+  // ✅ Récupérer le libellé du niveau sélectionné
+  const getSelectedNiveauLabel = () => {
+    const niveau = niveaux.find(n => n.id?.toString() === selectedNiveau);
+    return niveau?.libelle || selectedNiveau;
+  };
+
+  // ✅ Filtrer les niveaux par recherche
+  const filteredNiveaux = niveaux.filter(niveau =>
+    niveau.libelle?.toLowerCase().includes(searchNiveau.toLowerCase())
+  );
 
   // Charger les événements depuis l'API
   const loadEvents = async () => {
@@ -404,26 +418,21 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
 
   const getEventsForDay = (day) => (filteredEvents || []).filter(event => event.start && isSameDay(new Date(event.start), day));
 
-  const handleSaveTimetable = () => {
-    if (!selectedNiveau) {
-      showNotification("Veuillez sélectionner un niveau", 'error');
-      return;
-    }
-    
-    const timetable = {
-      niveau: selectedNiveau,
-      date: new Date().toISOString(),
-      events: filteredEvents
-    };
-    
-    const dataStr = JSON.stringify(timetable, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', `emploi_du_temps_niveau_${selectedNiveau}_${format(new Date(), 'yyyy-MM-dd')}.json`);
-    linkElement.click();
-    
-    showNotification(`Emploi du temps sauvegardé !`, 'success');
+  // Fonction d'ouverture du modal de partage
+  const handleShareClick = () => {
+    setIsShareModalOpen(true);
+  };
+
+  // Récupération de l'utilisateur pour la modale
+  const user = authApi.getUser();
+
+  if (loading) {
+    return <SkeletonLoader />;
+  }
+
+  // Fonction pour le bouton "Sélectionner un niveau" (fallback)
+  const isMultiSalleType = () => {
+    return newEvent.type === 'Examen' || newEvent.type === 'Soutenance';
   };
 
   const toggleSalleSelection = (salle) => {
@@ -436,36 +445,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
       }
     });
   };
-
-  const isMultiSalleType = () => {
-    return newEvent.type === 'Examen' || newEvent.type === 'Soutenance';
-  };
-
-  // Réinitialiser le filtre niveau
-  const resetNiveauFilter = () => {
-    if (niveaux.length > 0) {
-      setSelectedNiveau(niveaux[0]?.id?.toString() || '');
-    } else {
-      setSelectedNiveau('');
-    }
-    setShowNiveauFilter(false);
-    setSearchNiveau('');
-  };
-
-  // Récupérer le libellé du niveau sélectionné
-  const getSelectedNiveauLabel = () => {
-    const niveau = niveaux.find(n => n.id?.toString() === selectedNiveau);
-    return niveau?.libelle || selectedNiveau;
-  };
-
-  // Filtrer les niveaux par recherche
-  const filteredNiveaux = niveaux.filter(niveau =>
-    niveau.libelle?.toLowerCase().includes(searchNiveau.toLowerCase())
-  );
-
-  if (loading) {
-    return <SkeletonLoader />;
-  }
 
   return (
     <div className="h-full flex flex-col bg-gray-50 rounded-2xl shadow-sm border border-gray-100 overflow-hidden relative">
@@ -647,11 +626,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
                           style={{ top: `${top}px`, height: `${height}px`, minHeight: '55px' }}
                           onClick={() => handleEventClick(event)}
                         >
-                          {/* ❌ SUPPRESSION DU PETIT POINT - La ligne suivante a été supprimée */}
-                          {/* <div className={`absolute left-1.5 top-1.5 w-2.5 h-2.5 rounded-full ${colors.dot}`} /> */}
-
                           <div className="flex-1 flex flex-col pl-4">
-                            {/* Titre et horaire */}
                             <div className="flex justify-between items-start gap-1">
                               <span className={`${colors.text} text-[11px] font-semibold truncate flex-1`}>
                                 {event.title}
@@ -662,20 +637,14 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
                                 {event.end && format(new Date(event.end), 'HH:mm')}
                               </span>
                             </div>
-
-                            {/* Type d'événement - badge coloré */}
                             <span className={`text-[8px] px-1.5 py-0.5 rounded-md self-start mt-0.5 ${colors.lightBg} ${colors.text} font-medium`}>
                               {getEventTypeLabel(event.type)}
                             </span>
-
-                            {/* Niveau */}
                             {event.niveau && (
                               <span className="text-[9px] text-gray-600 mt-0.5">
                                 {event.niveau}
                               </span>
                             )}
-
-                            {/* Professeur - affiché en grand */}
                             {event.professeur && (
                               <div className="flex items-center gap-1.5 mt-1">
                                 <div className={`w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-[9px] flex-shrink-0 ${colors.dot}`}>
@@ -686,8 +655,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
                                 </span>
                               </div>
                             )}
-
-                            {/* Salle - affichée en grand avec icône */}
                             {event.salles && event.salles.length > 0 && (
                               <div className="flex items-center gap-1.5 mt-1">
                                 <Building className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
@@ -729,7 +696,13 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
       <button onClick={() => setIsAddModalOpen(true)} className="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all z-40">
         <Plus className="w-6 h-6" />
       </button>
-      <button onClick={handleSaveTimetable} className="fixed bottom-8 right-28 w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all z-40">
+
+      {/* Bouton partager ouvre la modale ShareModal */}
+      <button
+        onClick={handleShareClick}
+        className="fixed bottom-8 right-28 w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all z-40"
+        title="Partager les emplois du temps"
+      >
         <Share2Icon className="w-5 h-5" />
       </button>
 
@@ -767,6 +740,14 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
         salles={salles}
         hours={hours}
         events={events}
+      />
+
+      {/* Modal de partage */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        events={filteredEvents}
+        user={user}
       />
 
       <style>{`

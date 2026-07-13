@@ -15,6 +15,7 @@ import DashboardHome from "../../components/DashboardHome";
 import Sauvegarde from "../../components/SauvegardePage";
 import NiveauxParcours from "../../components/NiveauxParcours";
 import DeleguePage from "../../components/DeleguePage";
+import CoursAnnules from "../../components/CoursAnnules";
 
 const DashboardContent = () => {
   const { isSidebarOpen } = useSidebar();
@@ -63,7 +64,7 @@ const DashboardContent = () => {
             <Route path="/cours" element={<CoursAffectationsInterface />} />
             <Route path="/affectation" element={<AffectationPage />} />
             <Route path="/salles" element={<Salle />} />
-           
+            <Route path="/cours-annules" element={<CoursAnnules />} />
             <Route path="/professeurs" element={<ProfesseursDemandesToggle />} />
             <Route path="/planning" element={<PlanningPage />} />
             <Route path="/sauvegarde" element={<Sauvegarde />} />

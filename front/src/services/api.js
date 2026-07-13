@@ -376,9 +376,10 @@ export const planningApi = {
   getByEnseignement: (id) => 
     apiClient(`/api/Planning/enseignement/${id}`, { method: 'GET' }),
 
-  getByEnseignant: (enseignantId) => 
+getByEnseignant: (enseignantId) => 
     apiClient(`/api/Planning/enseignant/${enseignantId}`, { method: 'GET' }),
-  
+getAllAnnules: () => 
+    apiClient('/api/Planning/annules', { method: 'GET' }),
   // Créer un événement
   create: (data) => 
     apiClient('/api/Planning', { 
