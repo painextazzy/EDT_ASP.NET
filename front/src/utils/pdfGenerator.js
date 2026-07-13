@@ -1,6 +1,5 @@
 // src/utils/pdfGenerator.js
-import { format, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 
 // Map des couleurs par type (pour le rendu du tableau)
 const typeColorMap = {
@@ -15,7 +14,13 @@ const typeColorMap = {
   'Projet': 'course-gray',
 };
 
-export const generateTimetableHTML = (events, currentDate, enseignantNom, getColorForType) => {
+export const generateTimetableHTML = (
+  events,
+  currentDate,
+  className = 'Non défini',
+  getColorForType,
+  label = 'CLASSE'
+) => {
   // 1. Jours de la semaine (lundi → vendredi)
   const jours = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI'];
   const horaires = [];
@@ -31,7 +36,7 @@ export const generateTimetableHTML = (events, currentDate, enseignantNom, getCol
     const end = new Date(evt.end);
     if (isNaN(start) || isNaN(end)) return;
 
-    const dayIndex = start.getDay() - 1; // 0=lundi, 4=vendredi
+    const dayIndex = start.getDay() - 1;
     if (dayIndex < 0 || dayIndex > 4) return;
 
     const startHour = start.getHours();
@@ -99,8 +104,10 @@ export const generateTimetableHTML = (events, currentDate, enseignantNom, getCol
       <title>Emploi du temps</title>
       <style>
         body { font-family: 'Inter', sans-serif; background: white; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; }
-        .header { display: flex; justify-content: space-between; margin-bottom: 20px; font-weight: 700; }
+        .container { max-width: 297mm; margin: 0 auto; background: white; padding: 10mm; border: 1px solid #e5e7eb; border-radius: 12px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-weight: 700; }
+        .header .left { font-size: 14px; }
+        .header .right { font-size: 14px; }
         .title { text-align: center; font-size: 24px; font-weight: 900; text-decoration: underline double; margin-bottom: 20px; }
         .schedule-table { width: 100%; border-collapse: collapse; }
         .schedule-table th, .schedule-table td { border: 1px solid #d1d5db; padding: 6px; text-align: center; font-size: 0.75rem; }
@@ -117,14 +124,16 @@ export const generateTimetableHTML = (events, currentDate, enseignantNom, getCol
         .footer { margin-top: 20px; display: flex; justify-content: flex-end; }
         .stamp { width: 80px; height: 80px; border: 2px dashed #f87171; border-radius: 50%; display: flex; align-items: center; justify-content: center; transform: rotate(-12deg); opacity: 0.6; }
         .stamp span { font-size: 0.5rem; font-weight: 700; color: #dc2626; text-align: center; line-height: 1.2; }
+        .mention { margin-top: 20px; text-align: center; font-size: 0.8em; color: #64748b; border-top: 1px solid #e5e7eb; padding-top: 15px; }
+        .mention .italic { font-style: italic; }
       </style>
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <div>ENSEIGNANT : ${enseignantNom.toUpperCase()}</div>
-          <div>ANNÉE UNIVERSITAIRE : ${anneeUniversitaire}</div>
-        </div>
+      <div class="header" style="flex-direction: column; align-items: center; text-align: center;">
+  <div style="font-size: 14px; font-weight: 700;">${label} : ${className.toUpperCase()}</div>
+  <div style="font-size: 14px; font-weight: 700;">ANNÉE UNIVERSITAIRE : ${anneeUniversitaire}</div>
+</div>
         <div class="title">EMPLOI DU TEMPS</div>
         <p style="text-align:center; font-size:0.8rem; color:#4b5563;">${semaineStr}</p>
         <table class="schedule-table">
@@ -139,7 +148,7 @@ export const generateTimetableHTML = (events, currentDate, enseignantNom, getCol
           </tbody>
         </table>
         <div class="footer">
-          <div class="stamp"><span>UNIVERSITÉ<br/>ÉCOLE<br/>APPROUVÉ</span></div>
+          <div class="stamp"><span>UNIVERSITÉ<br/>EMIT<br/>scolarité</span></div>
         </div>
       </div>
     </body>

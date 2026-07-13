@@ -1,4 +1,3 @@
-// src/components/calendar/modals/AddEventModal.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, LayoutGrid, AlertCircle, Loader2, Search, ChevronDown } from 'lucide-react';
 import api from '../../../services/api';
@@ -168,6 +167,7 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
         return false;
       }
 
+      // Vérification des conflits de professeur/niveau (sans les salles)
       const conflictMessage = getConflictMessage({ checkRoom: false, checkProf: Boolean(newEvent.professeurId), checkLevel: newEvent.type === 'Cours' });
       if (conflictMessage) {
         setConflictError(conflictMessage);
@@ -236,7 +236,9 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
         dateDebut: dateStart.toISOString(),
         dateFin: dateEnd.toISOString(),
         idSalles: safeSalles.map(s => s.id),
-        motifAnnulation: null
+        motifAnnulation: null,
+        // ✅ Ajout de la récurrence
+        semainesRecurrence: newEvent.semainesRecurrence || 1
       };
 
       console.log("📤 Envoi payload au serveur:", data);
@@ -267,20 +269,18 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
     <div className="fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
-        {/* Header */}
+        {/* Header (inchangé) */}
         <header className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-semibold text-gray-800">Ajouter un événement</h2>
-            {isSubmitting && (
-              <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-            )}
+            {isSubmitting && <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />}
           </div>
           <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </header>
 
-        {/* Roadmap Navigation */}
+        {/* Roadmap Navigation (inchangé) */}
         <nav className="w-full bg-gray-50 p-6 border-b border-gray-200 flex-shrink-0">
           <ol className="flex items-center justify-between max-w-lg mx-auto">
             <li className="flex flex-col items-center gap-1.5 flex-1 relative cursor-pointer" onClick={() => { if(validateCurrentStep()) setCurrentStep(1); }}>
@@ -311,7 +311,7 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
           </ol>
         </nav>
 
-        {/* Feedback d'erreur */}
+        {/* Feedback d'erreur (inchangé) */}
         {conflictError && (
           <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 flex-shrink-0">
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -394,7 +394,7 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
             <div className="space-y-6">
               <div className="flex items-center gap-3 mb-2">
                 <span className="w-1.5 h-6 bg-blue-600 rounded-full"></span>
-                <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Date et heure</h3>
+                <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Date, heure et récurrence</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pl-4">
                 {(newEvent.type === 'Cours' || newEvent.type === 'Examen' || newEvent.type === 'Soutenance') && (
@@ -431,6 +431,33 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
                     <option value="">--:--</option>
                     {hours.map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
+                </div>
+              </div>
+
+              {/* ✅ Nouveau champ : Récurrence */}
+              <div className="pl-4 mt-4 max-w-md">
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-semibold text-gray-600">
+                    Répéter pendant (semaines)
+                    <span className="text-xs text-gray-500 ml-2">(1 = pas de répétition)</span>
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="number"
+                      min="1"
+                      max="12"
+                      value={newEvent.semainesRecurrence || 1}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 1;
+                        setNewEvent({ ...newEvent, semainesRecurrence: Math.max(1, val) });
+                      }}
+                      className="w-24 bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-gray-800 focus:ring-2 focus:ring-blue-500 transition-all"
+                    />
+                    <span className="text-sm text-gray-500">semaine(s)</span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    L’événement sera répété chaque semaine pendant le nombre de semaines indiqué.
+                  </p>
                 </div>
               </div>
             </div>
@@ -492,7 +519,7 @@ const AddEventModal = ({ isOpen, onClose, onSave, newEvent, setNewEvent, coursFi
           )}
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer Actions (inchangé) */}
         <footer className="p-6 border-t border-gray-200 flex items-center justify-between gap-4 bg-gray-50 flex-shrink-0">
           <div>
             {currentStep > 1 && (

@@ -588,5 +588,70 @@ namespace back.Services
             await _context.SaveChangesAsync();
             return planning;
         }
+        // back/Services/PlanningService.cs
+        public async Task<List<Planning>> CreateRecurrentAsync(PlanningDto dto)
+        {
+            var plannings = new List<Planning>();
+
+            // Récupérer l'enseignement
+            var enseignement = await _context.Enseignements
+                .FirstOrDefaultAsync(e => e.Id == dto.IdEnseignement);
+            if (enseignement == null)
+                throw new Exception("Enseignement non trouvé");
+
+            // Nombre de semaines (par défaut 1)
+            int weeks = dto.SemainesRecurrence ?? 1;
+            if (weeks < 1) weeks = 1;
+
+            var startDate = dto.DateDebut;
+            var endDate = dto.DateFin;
+            var duration = endDate - startDate;
+
+            for (int i = 0; i < weeks; i++)
+            {
+                var currentStart = startDate.AddDays(i * 7);
+                var currentEnd = endDate.AddDays(i * 7);
+
+                // Vérifier les conflits pour cette semaine
+                var (isValid, message) = await CheckConflictsAsync(new PlanningDto
+                {
+                    IdEnseignement = dto.IdEnseignement,
+                    TypeEvenement = dto.TypeEvenement,
+                    DateDebut = currentStart,
+                    DateFin = currentEnd,
+                    IdSalles = dto.IdSalles
+                });
+                if (!isValid)
+                    throw new Exception($"Semaine {i + 1} : {message}");
+
+                var planning = new Planning
+                {
+                    IdEnseignement = dto.IdEnseignement,
+                    TypeEvenement = dto.TypeEvenement,
+                    Statut = "Actif",
+                    DateDebut = currentStart,
+                    DateFin = currentEnd,
+                    MotifAnnulation = null
+                };
+
+                _context.Plannings.Add(planning);
+                await _context.SaveChangesAsync(); // Pour obtenir l'Id
+
+                foreach (var salleId in dto.IdSalles)
+                {
+                    _context.PlanningSalles.Add(new PlanningSalle
+                    {
+                        IdPlanning = planning.Id,
+                        IdSalle = salleId
+                    });
+                }
+
+                plannings.Add(planning);
+            }
+
+            await _context.SaveChangesAsync();
+            return plannings;
+        }
     }
+
 }

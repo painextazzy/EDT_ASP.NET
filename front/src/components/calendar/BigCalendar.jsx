@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, RefreshCw, Plus, X, Share2Icon, SlidersHorizontal, Building, User, Clock, Search } from 'lucide-react';
-import api from '../../services/api';
+import api, { API_URL } from '../../services/api';
 import AddEventModal from './modals/AddEventModal';
 import EventDetailsModal from './modals/EventDetailsModal';
 import EditEventModal from './modals/EditEventModal';
@@ -32,6 +32,9 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const [editingEvent, setEditingEvent] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const notificationTimeoutRef = useRef(null);
+
+  // ✅ État pour stocker les informations des enseignants (id -> { nom, photoUrl })
+  const [enseignantsMap, setEnseignantsMap] = useState({});
 
   // État pour la modale de partage
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -209,10 +212,23 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
       }
       
       try {
-        const professeursData = await api.affectation.getProfesseurs();
-        setProfesseurs(Array.isArray(professeursData) ? professeursData : []);
+        // ✅ Charger les enseignants avec leur photo
+        const enseignantsData = await api.enseignant.getValides();
+        const map = {};
+        if (Array.isArray(enseignantsData)) {
+          enseignantsData.forEach(ens => {
+            map[ens.id] = { 
+              nom: ens.nom, 
+              photoUrl: ens.photoUrl || null 
+            };
+          });
+        }
+        setEnseignantsMap(map);
+        
+        // Garder également la liste des professeurs pour d'autres usages
+        setProfesseurs(enseignantsData);
       } catch (error) {
-        console.error("Erreur chargement professeurs:", error);
+        console.error("Erreur chargement enseignants:", error);
         setProfesseurs([]);
       }
     } catch (error) {
@@ -292,7 +308,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
   const weekDays = getWeekDays();
   const monthYear = format(currentDate, 'MMMM yyyy', { locale: fr });
 
-  // Filtrer les événements par niveau
   const filteredEvents = (events || []).filter(event => {
     if (selectedNiveau && event.niveauId !== parseInt(selectedNiveau)) return false;
     if (event.statut === 'Annule') return false;
@@ -418,19 +433,16 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
 
   const getEventsForDay = (day) => (filteredEvents || []).filter(event => event.start && isSameDay(new Date(event.start), day));
 
-  // Fonction d'ouverture du modal de partage
   const handleShareClick = () => {
     setIsShareModalOpen(true);
   };
 
-  // Récupération de l'utilisateur pour la modale
   const user = authApi.getUser();
 
   if (loading) {
     return <SkeletonLoader />;
   }
 
-  // Fonction pour le bouton "Sélectionner un niveau" (fallback)
   const isMultiSalleType = () => {
     return newEvent.type === 'Examen' || newEvent.type === 'Soutenance';
   };
@@ -494,7 +506,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
             </div>
           </div>
 
-          {/* Filtre Niveau - Style Select2 avec recherche */}
+          {/* Filtre Niveau */}
           <div className="relative" ref={filterRef}>
             <button
               onClick={() => setShowNiveauFilter(!showNiveauFilter)}
@@ -514,7 +526,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
               </svg>
             </button>
 
-            {/* Dropdown avec recherche */}
             {showNiveauFilter && (
               <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50 max-h-80 overflow-hidden">
                 {/* Barre de recherche */}
@@ -645,7 +656,37 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
                                 {event.niveau}
                               </span>
                             )}
-                            {event.professeur && (
+                            {event.professeurId && enseignantsMap[event.professeurId] ? (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                {enseignantsMap[event.professeurId].photoUrl ? (
+                                  <img
+                                    src={
+                                      enseignantsMap[event.professeurId].photoUrl.startsWith('http')
+                                        ? enseignantsMap[event.professeurId].photoUrl
+                                        : `${API_URL}${enseignantsMap[event.professeurId].photoUrl}`
+                                    }
+                                    alt={event.professeur}
+                                    className="w-5 h-5 rounded-full object-cover border border-gray-200"
+                                    onError={(e) => {
+                                      // En cas d'erreur, on cache l'image et on affiche l'avatar
+                                      e.target.style.display = 'none';
+                                      const parent = e.target.parentElement;
+                                      const fallback = document.createElement('div');
+                                      fallback.className = `w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-[9px] flex-shrink-0 ${colors.dot}`;
+                                      fallback.textContent = event.professeur.charAt(0).toUpperCase();
+                                      parent.appendChild(fallback);
+                                    }}
+                                  />
+                                ) : (
+                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-[9px] flex-shrink-0 ${colors.dot}`}>
+                                    {event.professeur.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                                <span className="text-[10px] font-medium text-gray-700 truncate">
+                                  {event.professeur}
+                                </span>
+                              </div>
+                            ) : event.professeur ? (
                               <div className="flex items-center gap-1.5 mt-1">
                                 <div className={`w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-[9px] flex-shrink-0 ${colors.dot}`}>
                                   {event.professeur.charAt(0).toUpperCase()}
@@ -654,7 +695,7 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
                                   {event.professeur}
                                 </span>
                               </div>
-                            )}
+                            ) : null}
                             {event.salles && event.salles.length > 0 && (
                               <div className="flex items-center gap-1.5 mt-1">
                                 <Building className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
@@ -697,7 +738,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
         <Plus className="w-6 h-6" />
       </button>
 
-      {/* Bouton partager ouvre la modale ShareModal */}
       <button
         onClick={handleShareClick}
         className="fixed bottom-8 right-28 w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all z-40"
@@ -742,7 +782,6 @@ const BigCalendar = ({ events: externalEvents = [], onAddEvent }) => {
         events={events}
       />
 
-      {/* Modal de partage */}
       <ShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
